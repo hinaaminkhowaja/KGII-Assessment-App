@@ -111,12 +111,36 @@ function App(){
  const loadDashboard=async(email:string)=>{const d=await apiGet('dashboard',{email});const rows=arrayFrom(d,'records','rows','data');const headers=Array.isArray(d.headers)?d.headers:[];const normalized=rows.map((x:any)=>{if(Array.isArray(x)){const o:any={};headers.forEach((h:string,i:number)=>o[h]=x[i]);x=o;}return {RecordID:norm(x.RecordID||x.recordId||x.ID),CycleID:norm(x.CycleID),Year:Number(x.Year)||0,ParticipantType:norm(x.ParticipantType),Assessment:norm(x.Assessment),Region:norm(x.Region),LocalBoard:norm(x.LocalBoard),REC:norm(x.REC),ParticipantCount:Number(x.ParticipantCount)||0,Phase:norm(x.Phase),ThemeID:norm(x.ThemeID),DimensionID:norm(x.DimensionID),IndicatorID:norm(x.IndicatorID),Score:Number(x.Score)||0,MaxScore:Number(x.MaxScore)||0} as Rec;});setRecords(normalized);};
  const loadAdmin=async(email:string)=>{const [u,a]=await Promise.all([apiGet('users',{email}),apiGet('access',{email})]);const us=arrayFrom(u,'users','data').map(mapUser);const ac=arrayFrom(a,'access','rules','data').map(mapAccess);setUsers(us);setAccess(ac);};
  useEffect(()=>{setLoading(true);loadReference().catch(e=>setApiError(`Could not load reference data from Apps Script: ${e.message}`)).finally(()=>setLoading(false));const saved=sessionStorage.getItem(SESSION_KEY);if(saved){apiGet('login',{email:saved}).then(async d=>{if(!d.user)throw new Error('This email is not approved for dashboard access.');const u=mapUser(d.user);if(u.status!=='approved'&&u.role!=='admin')throw new Error('This account is not approved.');setUser(u);await loadDashboard(u.email);if(u.role==='admin')await loadAdmin(u.email);setPage(u.role==='admin'?'admin':'dashboard')}).catch(e=>{sessionStorage.removeItem(SESSION_KEY);setApiError(e.message);}).finally(()=>setLoading(false));}},[]);
- const boards=useMemo(()=>[...new Set(refs.filter(r=>!f.region||r.Region===f.region).map(r=>r.LocalBoard))].sort(),[refs,f.region]);
- const recs=useMemo(()=>[...new Set(refs.filter(r=>(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)).map(r=>r.REC))].sort(),[refs,f.region,f.board]);
+ 
+const boards = useMemo(
+  () => [...new Set(
+    records
+      .filter(r => !f.region || r.Region === f.region)
+      .map(r => r.LocalBoard)
+      .filter(Boolean)
+  )].sort(),
+  [records, f.region]
+);
+
+const recs = useMemo(
+  () => [...new Set(
+    records
+      .filter(r =>
+        (!f.region || r.Region === f.region) &&
+        (!f.board || r.LocalBoard === f.board)
+      )
+      .map(r => r.REC)
+      .filter(Boolean)
+  )].sort(),
+  [records, f.region, f.board]
+);
  const allowedRecords=records;const filtered=useMemo(()=>filterRows(allowedRecords,f),[allowedRecords,f]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
- const regions=unique(allowedRecords as any,'Region'),pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');
+ const regions = [...new Set(
+  records.map(r => r.Region).filter(Boolean)
+)].sort();
+const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');
  const refresh=async(u= user)=>{if(!u)return;setLoading(true);setApiError('');try{await loadDashboard(u.email);if(u.role==='admin')await loadAdmin(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
  const nav=(p:string)=>{if(['dashboard','region','board','rec','theme','dimension','prepost','admin'].includes(p)&&!user){setPage('login');return}setPage(p)};
  const login=async(email:string)=>{setLoading(true);setApiError('');try{const d=await apiGet('login',{email:email.trim().toLowerCase()});if(!d.user)throw new Error(d.message||'No account was found for this email.');const u=mapUser(d.user);if(u.status!=='approved'&&u.role!=='admin')throw new Error(u.status==='pending'?'Your account is awaiting administrator approval.':`Your account is ${u.status}.`);setUser(u);

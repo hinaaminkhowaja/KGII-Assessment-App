@@ -100,3 +100,14 @@
   .barrow i{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .way-forward-note{background:#fff!important}
 }
+
+
+/* Keep the fixed sidebar independently scrollable, including the admin access link. */
+.app>aside{height:100vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#4d8377 #083d35}
+.app>aside nav{padding-bottom:24px}
+.app>aside::-webkit-scrollbar{width:8px}
+.app>aside::-webkit-scrollbar-track{background:#083d35}
+.app>aside::-webkit-scrollbar-thumb{background:#4d8377;border-radius:8px}
+.auth-switch{margin-top:9px}
+.landing-actions .secondary{margin-top:8px}
+@media(max-width:650px){.app>aside{height:auto;max-height:none;overflow:visible}}

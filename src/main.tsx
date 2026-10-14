@@ -195,7 +195,7 @@ const recs = useMemo(
   records
     .map(r => norm(r.Region))
     .filter(Boolean)
-    .filter(region => !/^Lower[_ ]Chitral[_ ]?\\d+$/i.test(region) && !/^Lower_Chitral_01$/i.test(region))
+    .filter(region => !/^Lower[_ ]Chitral[_ ]?\d+$/i.test(region) && !/^Lower_Chitral_01$/i.test(region))
  )].sort((a,b)=>displayGeo(a).localeCompare(displayGeo(b)));
 const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');
  const refresh=async(u= user)=>{if(!u)return;setLoading(true);setApiError('');try{await loadDashboard(u.email);if(u.role==='admin')await loadAdmin(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};

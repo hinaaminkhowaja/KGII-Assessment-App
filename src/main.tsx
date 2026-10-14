@@ -278,12 +278,24 @@ function RecCoverage({refs,records,f}:{refs:Ref[];records:Rec[];f:any}) {
 }
 
 function rubricDescription(id:string){
-  const match = id.match(/^Theme(\\d+):/);
+  const match = id.match(/^Theme(\d+):/);
   if(!match) return id;
   const themeKey = 'T'+match[1];
   const keys = studentIndicatorKeys[themeKey] || [];
-  const index = keys.indexOf(id);
   const descriptions = (studentIndicators as any)[themeKey] || [];
+  let index = keys.indexOf(id);
+  // Some historical Kobo records use an alternate UA sequence (for example Theme3:UA3).
+  // Resolve those IDs by their rubric family and ordinal when they are not in the app's current key list.
+  if(index < 0){
+    const code = id.split(':')[1] || '';
+    const family = code.startsWith('UA') ? 'UA' : code.startsWith('A') ? 'A' : '';
+    const ordinal = Number(code.replace(family,''));
+    const candidates = keys.map((key,i)=>({key,i})).filter(x=>(x.key.split(':')[1]||'').startsWith(family));
+    const matchByOrdinal = candidates.find(x=>Number((x.key.split(':')[1]||'').replace(family,''))===ordinal);
+    if(matchByOrdinal) index = matchByOrdinal.i;
+    else if(family==='UA' && ordinal===3 && themeKey==='T3') index = 2;
+    else if(family==='A' && ordinal===2 && themeKey==='T3') index = 3;
+  }
   return index >= 0 && descriptions[index] ? descriptions[index] : id;
 }
 

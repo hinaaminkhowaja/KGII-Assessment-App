@@ -229,11 +229,12 @@ function RecCoverage({refs,records,f}:{refs:Ref[];records:Rec[];f:any}) {
 function WayForward({rows,scope,f}:{rows:Rec[];scope:string;f:any}) {
   const themeGroups = group(rows,'ThemeID').sort((a,b)=>a.p-b.p);
   const dimGroups = group(rows,'DimensionID').sort((a,b)=>a.p-b.p);
-  const indicatorGroups = unique(rows,'IndicatorID').map(id => {
-    const subset = rows.filter(r => r.IndicatorID === id);
+  const rubricRows = rows.filter(r => r.ParticipantType === 'Student');
+  const indicatorGroups = unique(rubricRows,'IndicatorID').map(id => {
+    const subset = rubricRows.filter(r => r.IndicatorID === id);
     const a = aggregate(subset);
-    const teacherScore = subset.some(r => r.ParticipantType === 'Teacher') && /^(T[1-4]:Score)$/i.test(id);
-    return {id, label: teacherScore ? ('Teacher ' + id.split(':')[0] + ' — Theme score') : id, p:a.p,rows:subset,teacherScore};
+    const teacherScore = false;
+    return {id, label:id, p:a.p,rows:subset,teacherScore};
   }).sort((a,b)=>a.p-b.p);
   const weakestTheme = themeGroups[0];
   const weakestDim = dimGroups[0];
@@ -257,9 +258,9 @@ function WayForward({rows,scope,f}:{rows:Rec[];scope:string;f:any}) {
         <div><span>Priority 1 · Weakest theme</span><b>{weakestTheme ? labelTheme(weakestTheme.key) : 'Not available'}{weakestTheme ? ' · '+fmt(weakestTheme.p) : ''}</b><p>{weakestTheme ? (themeActions[weakestTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'Add assessment records to identify a priority.'}</p></div>
         <div><span>Priority 2 · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>{dimAction}</p></div>
       </div>
-      <h3>Indicators requiring attention</h3>
+      <h3>Student rubrics requiring attention</h3>
       {weakIndicators.length ? <div className="table-wrap"><table><thead><tr><th>Rubric / Indicator</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
-        {weakIndicators.map(x=>{const sample=x.rows[0];const action=sample.DimensionID==='UA'?'Model the skill, use a visual or story prompt, and ask the learner to explain the idea in their own words.':'Provide a practical task or role-play, observe the behaviour, and give supportive feedback before reassessing.';return <tr key={x.id}><td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{x.teacherScore ? 'Overall theme score' : (sample.DimensionID ? labelDim(sample.DimensionID) : '—')}</td><td>{fmt(x.p)}</td><td>{x.teacherScore ? 'Review the teacher rubric for this theme, model the expected practice, and agree on one observable change to try before the next assessment.' : action}</td></tr>})}
+        {weakIndicators.map(x=>{const sample=x.rows[0];const action=sample.DimensionID==='UA'?'Model the skill, use a visual or story prompt, and ask the learner to explain the idea in their own words.':'Provide a practical task or role-play, observe the behaviour, and give supportive feedback before reassessing.';return <tr key={x.id}><td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{sample.DimensionID ? labelDim(sample.DimensionID) : '—'}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
       </tbody></table></div> : <p className="empty">Indicator-level data is not available for this selection.</p>}
       <p className="way-forward-note">Suggested next action: agree on one or two priorities with teachers, plan a short targeted activity, record evidence against the same indicators, and review progress in the next assessment cycle.</p>
     </>}

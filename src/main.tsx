@@ -277,17 +277,29 @@ function RecCoverage({refs,records,f}:{refs:Ref[];records:Rec[];f:any}) {
   </section>;
 }
 
+function rubricDescription(id:string){
+  const match = id.match(/^Theme(\\d+):/);
+  if(!match) return id;
+  const themeKey = 'T'+match[1];
+  const keys = studentIndicatorKeys[themeKey] || [];
+  const index = keys.indexOf(id);
+  const descriptions = (studentIndicators as any)[themeKey] || [];
+  return index >= 0 && descriptions[index] ? descriptions[index] : id;
+}
+
 function WayForward({rows,scope,f}:{rows:Rec[];scope:string;f:any}) {
-  const themeGroups = group(rows,'ThemeID').sort((a,b)=>a.p-b.p);
-  const dimGroups = group(rows,'DimensionID').sort((a,b)=>a.p-b.p);
-  const rubricRows = rows.filter(r => r.ParticipantType === 'Student');
-  const indicatorGroups = unique(rubricRows,'IndicatorID').map(id => {
-    const subset = rubricRows.filter(r => r.IndicatorID === id);
+  const studentRows = rows.filter(r => r.ParticipantType === 'Student');
+  const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
+  const studentThemes = group(studentRows,'ThemeID').sort((a,b)=>a.p-b.p);
+  const teacherThemes = group(teacherRows,'ThemeID').sort((a,b)=>a.p-b.p);
+  const dimGroups = group(studentRows,'DimensionID').sort((a,b)=>a.p-b.p);
+  const indicatorGroups = unique(studentRows,'IndicatorID').map(id => {
+    const subset = studentRows.filter(r => r.IndicatorID === id);
     const a = aggregate(subset);
-    const teacherScore = false;
-    return {id, label:id, p:a.p,rows:subset,teacherScore};
+    return {id, label:rubricDescription(id), p:a.p,rows:subset};
   }).sort((a,b)=>a.p-b.p);
-  const weakestTheme = themeGroups[0];
+  const weakestStudentTheme = studentThemes[0];
+  const weakestTeacherTheme = teacherThemes[0];
   const weakestDim = dimGroups[0];
   const weakIndicators = indicatorGroups.slice(0,3).filter(x=>x.rows.length);
   const themeActions:Record<string,string> = {
@@ -296,6 +308,12 @@ function WayForward({rows,scope,f}:{rows:Rec[];scope:string;f:any}) {
     T3:'Use family and community scenarios, cooperative play and small service tasks. Observe whether children can apply the idea in a real interaction, not only repeat it.',
     T4:'Use a simple balance-and-choice activity. Help children connect the concept to everyday routines, caring actions and age-appropriate responsibilities.'
   };
+  const teacherThemeActions:Record<string,string> = {
+    T1:'Provide focused professional learning on authority, leadership and guidance. Use a short case study, peer discussion and lesson-planning practice to connect the theme to age-appropriate classroom experiences.',
+    T2:'Strengthen teachers’ understanding of Ismaili Muslim traditions through guided study, collaborative interpretation of examples and practice explaining concepts in child-friendly language.',
+    T3:'Support teachers to plan inclusive family, community and service-learning activities. Review examples together and practise facilitating respectful discussion and participation.',
+    T4:'Help teachers connect material and spiritual aspects of life through integrated activities, reflection and practical examples that children can apply in everyday routines.'
+  };
   const dimAction = weakestDim?.key === 'UA'
     ? 'Strengthen understanding and articulation: model key vocabulary, use open-ended questions, allow wait time, and ask children to explain or show what they understand.'
     : weakestDim?.key === 'A'
@@ -303,17 +321,18 @@ function WayForward({rows,scope,f}:{rows:Rec[];scope:string;f:any}) {
       : 'Review the weakest rubric area with the team and agree on one observable child behaviour to practise and assess.';
   const titleScope = scope==='dashboard'?'Overall':scope==='region'?'Region':scope==='board'?'Local Board':'REC';
   return <section className="card way-forward">
-    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>Priorities are generated from the lowest-scoring areas in the current selection.</p></div></div>
+    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>Student and teacher priorities are calculated separately from the lowest-performing themes in the current selection.</p></div></div>
     {!rows.length ? <p className="empty">No assessment data is available for these filters yet.</p> : <>
       <div className="way-forward-priorities">
-        <div><span>Priority 1 · Weakest theme</span><b>{weakestTheme ? labelTheme(weakestTheme.key) : 'Not available'}{weakestTheme ? ' · '+fmt(weakestTheme.p) : ''}</b><p>{weakestTheme ? (themeActions[weakestTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'Add assessment records to identify a priority.'}</p></div>
-        <div><span>Priority 2 · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>{dimAction}</p></div>
+        <div><span>Students · Weakest theme</span><b>{weakestStudentTheme ? labelTheme(weakestStudentTheme.key)+' · '+fmt(weakestStudentTheme.p) : 'Not available'}</b><p>{weakestStudentTheme ? (themeActions[weakestStudentTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'No student assessment data is available for this selection.'}</p></div>
+        <div><span>Teachers · Weakest theme</span><b>{weakestTeacherTheme ? labelTheme(weakestTeacherTheme.key)+' · '+fmt(weakestTeacherTheme.p) : 'Not available'}</b><p>{weakestTeacherTheme ? (teacherThemeActions[weakestTeacherTheme.key] || 'Plan focused professional learning and review progress against the same indicators.') : 'No teacher assessment data is available for this selection.'}</p></div>
+        <div><span>Students · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>{dimAction}</p></div>
       </div>
       <h3>Student rubrics requiring attention</h3>
-      {weakIndicators.length ? <div className="table-wrap"><table><thead><tr><th>Rubric / Indicator</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
+      {weakIndicators.length ? <div className="table-wrap"><table><thead><tr><th>Full rubric description</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
         {weakIndicators.map(x=>{const sample=x.rows[0];const action=rubricAction(x.id,sample.ThemeID,sample.DimensionID);return <tr key={x.id}><td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{sample.DimensionID ? labelDim(sample.DimensionID) : '—'}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
-      </tbody></table></div> : <p className="empty">Indicator-level data is not available for this selection.</p>}
-      <p className="way-forward-note">Suggested next action: agree on one or two priorities with teachers, plan a short targeted activity, record evidence against the same indicators, and review progress in the next assessment cycle.</p>
+      </tbody></table></div> : <p className="empty">Student indicator-level data is not available for this selection.</p>}
+      <p className="way-forward-note">Next step: select one or two priorities for students and teachers, plan targeted learning or professional development, record evidence against the same indicators, and review progress in the next assessment cycle.</p>
     </>}
   </section>;
 }

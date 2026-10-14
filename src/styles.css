@@ -45,3 +45,16 @@
 .previous-rating-row:last-child {
   border-bottom: none;
 }
+
+
+/* REC coverage */
+.rec-coverage .section-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.rec-coverage .section-head p{margin:6px 0 0;color:var(--muted,#64748b)}
+.coverage-percent{font-size:1.5rem;color:var(--primary,#064e3b);white-space:nowrap}
+.coverage-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.coverage-stats>div{padding:16px;border:1px solid var(--border,#e2e8f0);border-radius:12px;background:var(--surface,#f8fafc);display:flex;flex-direction:column;gap:8px}
+.coverage-stats span{font-size:.88rem;color:var(--muted,#64748b)}
+.coverage-stats b{font-size:1.45rem}
+.pending-recs summary{cursor:pointer;font-weight:600;padding:10px 0}
+.pending-recs .table-wrap{overflow-x:auto}
+@media(max-width:600px){.coverage-stats{grid-template-columns:1fr}.rec-coverage .section-head{align-items:flex-start;flex-direction:column}}

@@ -166,7 +166,7 @@ setF({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:''});se
  if(page==='login')return <LoginPage onLogin={login} loading={loading} error={apiError} onBack={()=>{setApiError('');setPage('home')}}/>;
  const protectedPage=!page.includes('survey')&&page!=='home';
  if(protectedPage&&!user)return <LoginPage onLogin={login} loading={loading} error={apiError} onBack={()=>setPage('home')}/>;
- return <div className="app"><aside><div className="brand"><div className="mark">KG</div><div><b>KG II</b><span>Assessment App</span></div></div><div className="signed-in"><span>Signed in as</span><b>{user?.name}</b><small>{user?.role==='admin'?'Administrator':'Approved user'}</small><button onClick={logout}>Log out</button></div><nav><div className="nav-label">Assessment</div>{[['dashboard','Dashboard'],['region','Region-wise Analysis'],['board','Local Board-wise Analysis'],['rec','REC-wise Analysis'],['theme','Theme-wise Analysis'],['dimension','Dimension-wise Analysis'],['prepost','Pre / Post Analysis']].map(([id,n])=><button className={page===id?'active':''} onClick={()=>nav(id)} key={id}>{n}</button>)}<div className="survey-nav"><button className={page==='student-survey'?'active':''} onClick={()=>setPage('student-survey')}>Student Survey</button><button className={page==='teacher-survey'?'active':''} onClick={()=>setPage('teacher-survey')}>Teacher Survey</button></div>{user?.role==='admin'&&<><div className="nav-label">Administration</div><button className={page==='admin'?'active':''} onClick={()=>setPage('admin')}>Users & Access</button></>}</nav></aside><main><header><div><h1>{title(page)}</h1><p>{subtitle(page)}</p></div>{!page.includes('survey')&&page!=='admin'&&<button className="refresh" onClick={()=>refresh()}>↻ Refresh data</button>}</header>{(apiError||loading)&&<div className="auth-message">{loading?'Connecting to Google Sheets…':apiError}</div>}{page==='student-survey'?<StudentSurvey refs={surveyRefs} user={user}/>:page==='teacher-survey'?<TeacherSurvey refs={surveyRefs} user={user}/>:page==='admin'?<AdminPanel users={users} setUsers={setUsers} access={access} setAccess={setAccess} refs={refs} currentUser={user!} onRefresh={()=>refresh()}/>:<><Filters f={f} setF={setF} regions={regions} boards={boards} recs={recs} pts={pts} assessments={assessments} themes={themes} dims={dims} years={years}/>{(['dashboard','region','board','rec'].includes(page))&&<RecCoverage refs={refs} records={allowedRecords} f={f}/>}{page==='dashboard'?<Dashboard rows={filtered} nav={nav}/>:<Analysis page={page} rows={filtered} all={allowedRecords} f={f} setF={setF} nav={nav}/>}</>}</main></div>
+ return <div className="app"><aside><div className="brand"><div className="mark">KG</div><div><b>KG II</b><span>Assessment App</span></div></div><div className="signed-in"><span>Signed in as</span><b>{user?.name}</b><small>{user?.role==='admin'?'Administrator':'Approved user'}</small><button onClick={logout}>Log out</button></div><nav><div className="nav-label">Assessment</div>{[['dashboard','Dashboard'],['region','Region-wise Analysis'],['board','Local Board-wise Analysis'],['rec','REC-wise Analysis'],['theme','Theme-wise Analysis'],['dimension','Dimension-wise Analysis'],['prepost','Pre / Post Analysis']].map(([id,n])=><button className={page===id?'active':''} onClick={()=>nav(id)} key={id}>{n}</button>)}<div className="survey-nav"><button className={page==='student-survey'?'active':''} onClick={()=>setPage('student-survey')}>Student Survey</button><button className={page==='teacher-survey'?'active':''} onClick={()=>setPage('teacher-survey')}>Teacher Survey</button></div>{user?.role==='admin'&&<><div className="nav-label">Administration</div><button className={page==='admin'?'active':''} onClick={()=>setPage('admin')}>Users & Access</button></>}</nav></aside><main><header><div><h1>{title(page)}</h1><p>{subtitle(page)}</p></div>{!page.includes('survey')&&page!=='admin'&&<button className="refresh" onClick={()=>refresh()}>↻ Refresh data</button>}</header>{(apiError||loading)&&<div className="auth-message">{loading?'Connecting to Google Sheets…':apiError}</div>}{page==='student-survey'?<StudentSurvey refs={surveyRefs} user={user}/>:page==='teacher-survey'?<TeacherSurvey refs={surveyRefs} user={user}/>:page==='admin'?<AdminPanel users={users} setUsers={setUsers} access={access} setAccess={setAccess} refs={refs} currentUser={user!} onRefresh={()=>refresh()}/>:<><Filters f={f} setF={setF} regions={regions} boards={boards} recs={recs} pts={pts} assessments={assessments} themes={themes} dims={dims} years={years}/>{(['dashboard','region','board','rec'].includes(page))&&<RecCoverage refs={refs}{(['dashboard','region','board','rec'].includes(page))&&<WayForward rows={filtered} scope={page} f={f}/>} records={allowedRecords} f={f}/>}{page==='dashboard'?<Dashboard rows={filtered} nav={nav}/>:<Analysis page={page} rows={filtered} all={allowedRecords} f={f} setF={setF} nav={nav}/>}</>}</main></div>
 }
 function PublicHome({onLogin,onStudent,onTeacher}:{onLogin:()=>void;onStudent:()=>void;onTeacher:()=>void}){return <div className="landing"><div className="landing-card"><div className="mark big">KG</div><h1>KG II Assessment App</h1><p>Assessment data and survey entry platform.</p><div className="landing-actions"><button className="primary" onClick={onStudent}>Student Survey Entry</button><button className="primary" onClick={onTeacher}>Teacher Survey Entry</button><button className="secondary" onClick={onLogin}>Login for Dashboard</button></div><div className="landing-note">Survey entry is available to all users. The assessment dashboard is available only to users approved and assigned access by an administrator.</div></div></div>}
 function PublicSurveyShell({page,setPage,children}:{page:string;setPage:(p:string)=>void;children:React.ReactNode}){return <div className="app"><aside><div className="brand"><div className="mark">KG</div><div><b>KG II</b><span>Assessment App</span></div></div><nav><button className={page==='student-survey'?'active':''} onClick={()=>setPage('student-survey')}>Student Survey</button><button className={page==='teacher-survey'?'active':''} onClick={()=>setPage('teacher-survey')}>Teacher Survey</button></nav></aside><main><header><div><h1>{title(page)}</h1><p>{subtitle(page)}</p></div></header>{children}</main></div>}
@@ -223,6 +223,45 @@ function RecCoverage({refs,records,f}:{refs:Ref[];records:Rec[];f:any}) {
       </tbody></table></div>
     </details>}
     {total === 0 && <p className="empty">No RECs match the selected location filters.</p>}
+  </section>;
+}
+
+function WayForward({rows,scope,f}:{rows:Rec[];scope:string;f:any}) {
+  const themeGroups = group(rows,'ThemeID').sort((a,b)=>a.p-b.p);
+  const dimGroups = group(rows,'DimensionID').sort((a,b)=>a.p-b.p);
+  const indicatorGroups = unique(rows,'IndicatorID').map(id => {
+    const subset = rows.filter(r => r.IndicatorID === id);
+    const a = aggregate(subset);
+    return {id,p:a.p,rows:subset};
+  }).sort((a,b)=>a.p-b.p);
+  const weakestTheme = themeGroups[0];
+  const weakestDim = dimGroups[0];
+  const weakIndicators = indicatorGroups.slice(0,3).filter(x=>x.rows.length);
+  const themeActions:Record<string,string> = {
+    T1:'Use short stories, picture prompts and role-play. Ask children to explain their thinking, then demonstrate the expected action in a familiar daily routine.',
+    T2:'Use concrete objects, story sequencing and guided questions. Invite children to describe what they notice, compare ideas and explain their answers in their own words.',
+    T3:'Use family and community scenarios, cooperative play and small service tasks. Observe whether children can apply the idea in a real interaction, not only repeat it.',
+    T4:'Use a simple balance-and-choice activity. Help children connect the concept to everyday routines, caring actions and age-appropriate responsibilities.'
+  };
+  const dimAction = weakestDim?.key === 'UA'
+    ? 'Strengthen understanding and articulation: model key vocabulary, use open-ended questions, allow wait time, and ask children to explain or show what they understand.'
+    : weakestDim?.key === 'A'
+      ? 'Strengthen application: provide guided practice, role-play and repeated opportunities to demonstrate the learning during classroom and home routines.'
+      : 'Review the weakest rubric area with the team and agree on one observable child behaviour to practise and assess.';
+  const titleScope = scope==='dashboard'?'Overall':scope==='region'?'Region':scope==='board'?'Local Board':'REC';
+  return <section className="card way-forward">
+    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>Priorities are generated from the lowest-scoring areas in the current selection.</p></div></div>
+    {!rows.length ? <p className="empty">No assessment data is available for these filters yet.</p> : <>
+      <div className="way-forward-priorities">
+        <div><span>Priority 1 · Weakest theme</span><b>{weakestTheme ? labelTheme(weakestTheme.key) : 'Not available'}{weakestTheme ? ' · '+fmt(weakestTheme.p) : ''}</b><p>{weakestTheme ? (themeActions[weakestTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'Add assessment records to identify a priority.'}</p></div>
+        <div><span>Priority 2 · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>{dimAction}</p></div>
+      </div>
+      <h3>Indicators requiring attention</h3>
+      {weakIndicators.length ? <div className="table-wrap"><table><thead><tr><th>Indicator</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
+        {weakIndicators.map(x=>{const sample=x.rows[0];const action=sample.DimensionID==='UA'?'Model the skill, use a visual or story prompt, and ask the learner to explain the idea in their own words.':'Provide a practical task or role-play, observe the behaviour, and give supportive feedback before reassessing.';return <tr key={x.id}><td>{x.id}</td><td>{labelTheme(sample.ThemeID)}</td><td>{labelDim(sample.DimensionID)}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
+      </tbody></table></div> : <p className="empty">Indicator-level data is not available for this selection.</p>}
+      <p className="way-forward-note">Suggested next action: agree on one or two priorities with teachers, plan a short targeted activity, record evidence against the same indicators, and review progress in the next assessment cycle.</p>
+    </>}
   </section>;
 }
 

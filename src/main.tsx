@@ -188,9 +188,15 @@ const recs = useMemo(
  const allowedRecords=records;const filtered=useMemo(()=>filterRows(allowedRecords,f),[allowedRecords,f]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
+ // Region options are sourced from the current dashboard records (APP_Records).
+ // Exclude the obsolete coded Lower Chitral value; keep only a plain "Lower Chitral"
+ // option if that exact value is present in the current records.
  const regions = [...new Set(
-  records.map(r => r.Region).filter(Boolean)
-)].sort();
+  records
+    .map(r => norm(r.Region))
+    .filter(Boolean)
+    .filter(region => !/^Lower[_ ]Chitral[_ ]?\\d+$/i.test(region) && !/^Lower_Chitral_01$/i.test(region))
+ )].sort((a,b)=>displayGeo(a).localeCompare(displayGeo(b)));
 const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');
  const refresh=async(u= user)=>{if(!u)return;setLoading(true);setApiError('');try{await loadDashboard(u.email);if(u.role==='admin')await loadAdmin(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
  const nav=(p:string)=>{if(['dashboard','region','board','rec','theme','dimension','prepost','admin'].includes(p)&&!user){setPage('login');return}setPage(p)};

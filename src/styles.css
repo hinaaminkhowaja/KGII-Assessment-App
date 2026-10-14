@@ -71,3 +71,32 @@
 .way-forward .table-wrap{overflow-x:auto}
 .way-forward-note{margin-top:16px;padding:12px 14px;border-left:3px solid var(--primary,#064e3b);background:var(--surface,#f8fafc);line-height:1.55}
 @media(max-width:650px){.way-forward-priorities{grid-template-columns:1fr}}
+
+
+/* Header actions and print/PDF output */
+.header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.print-action{white-space:nowrap}
+@media print{
+  @page{size:auto;margin:12mm}
+  body{background:#fff!important;color:#111!important;font-size:10pt}
+  .app{display:block!important;min-height:0!important}
+  .app>aside{display:none!important}
+  .app>main{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
+  main>header{position:static!important;box-shadow:none!important;border:0!important;padding:0 0 10px!important}
+  .header-actions,.refresh,.print-action,button,.filters select{display:none!important}
+  .filters{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important;margin:8px 0!important;padding:8px!important;break-inside:avoid}
+  .filters label{font-size:8pt!important}
+  .card,.kpi,.chart,.rec-coverage,.way-forward{box-shadow:none!important;break-inside:avoid;page-break-inside:avoid;border:1px solid #bbb!important;background:#fff!important;color:#111!important}
+  .kpis{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px!important}
+  .kpi{padding:8px!important}
+  .kpi span,.coverage-stats span,.profile span{color:#333!important}
+  .grid2{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  table{width:100%!important;border-collapse:collapse!important;font-size:8pt!important}
+  th,td{border:1px solid #bbb!important;padding:5px!important;color:#111!important}
+  .pending-recs:not([open]){display:none!important}
+  .pending-recs[open]{break-inside:auto}
+  .barrow{break-inside:avoid}
+  .barrow>div{border:1px solid #aaa!important}
+  .barrow i{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .way-forward-note{background:#fff!important}
+}

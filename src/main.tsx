@@ -17,18 +17,10 @@ function unique(rows:Rec[],key:keyof Rec){return [...new Set(rows.map(r=>norm(r[
 function labelTheme(id:string){const m:any={T1:'Theme 1 — Authority and Leadership',T2:'Theme 2 — Intellectual Traditions',T3:'Theme 3 — Role in Family, Community and Society',T4:'Theme 4 — Two Aspects of Life'};return m[id]||id}
 function displayGeo(value:string){
   const raw=String(value||'').trim();
-  const normalized=raw.toLowerCase().replace(/[_\\s-]+/g,' ').replace(/\\s+\\d+$/,'').trim();
-  const labels:Record<string,string>={
-    southern:'Southern',
-    central:'Central',
-    gilgit:'Gilgit',
-    hunza:'Hunza',
-    'gupis yasin':'Gupis Yasin',
-    'ishkoman puniyal':'Ishkoman Puniyal',
-    'lower chitral':'Lower Chitral',
-    'upper chitral':'Upper Chitral'
-  };
-  return labels[normalized] || raw.replace(/[_-]+/g,' ').replace(/\\s+\\d+$/,'').trim();
+  const cleaned=raw.replace(/[_-]+/g,' ').replace(/\\s+\\d+$/,'').replace(/\\s+/g,' ').trim();
+  const normalized=cleaned.toLowerCase();
+  const labels:Record<string,string>={southern:'Southern',central:'Central',gilgit:'Gilgit',hunza:'Hunza','gupis yasin':'Gupis Yasin','ishkoman puniyal':'Ishkoman Puniyal','lower chitral':'Lower Chitral','upper chitral':'Upper Chitral'};
+  return labels[normalized] || cleaned;
 }
 function rubricAction(id:string,theme:string,dimension:string){
   const actions:any={
@@ -438,10 +430,12 @@ function highlightDrivers(rows:Rec[],mode:'strong'|'weak'){
  return areas.length?areas.map(a=>a.label+' ('+fmt(a.p)+')').join(' · '):'Insufficient data to identify contributing areas';
 }
 function HighlightTable({items,title}:{items:{label:string;item?:{rows:Rec[];name:string;overall:number}}[];title:string}){
- return <section className="card performance-highlights"><h2>{title}</h2><div className="table-wrap"><table className="highlight-table"><thead><tr><th>Performance</th><th>Region / Local Board / REC</th><th>Pre</th><th>Post</th><th>Stronger themes, dimensions & rubrics</th><th>Areas needing support</th></tr></thead><tbody>{items.map(({label,item})=>{if(!item)return <tr key={label}><td>{label}</td><td colSpan={5}>Not available</td></tr>;const pre=aggregate(item.rows.filter(r=>norm(r.Assessment).toLowerCase()==='pre')),post=aggregate(item.rows.filter(r=>norm(r.Assessment).toLowerCase()==='post'));return <tr key={label}><td><b>{label}</b></td><td><b>{item.name}</b><small>Overall: {fmt(item.overall)}</small></td><td>{pre.max?fmt(pre.p):'—'}</td><td>{post.max?fmt(post.p):'—'}</td><td>{performanceDrivers(item.rows,'strong').map((a,i)=><div key={i} className="highlight-area"><b>{a.label}</b><small>{fmt(a.p)}</small></div>)}</td><td>{performanceDrivers(item.rows,'weak').map((a,i)=><div key={i} className="highlight-area"><b>{a.label}</b><small>{fmt(a.p)}</small></div>)}</td></tr>})}</tbody></table></div></section>
+ const stageRows=(rows:Rec[],stage:'pre'|'post')=>rows.filter(r=>{const a=norm(r.Assessment).toLowerCase().replace(/[^a-z]/g,'');return a===stage||a.startsWith(stage)});
+ const renderDrivers=(rs:Rec[],mode:'strong'|'weak')=>performanceDrivers(rs,mode).map((a,i)=><div key={i} className="highlight-area"><b>{a.label}</b><small>{fmt(a.p)}</small></div>);
+ return <section className="card performance-highlights"><div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>{title}</h2></div><p>Compare results and identify where to build on strengths or offer support.</p></div><div className="highlight-card-grid">{items.map(({label,item})=>{if(!item)return <article className="highlight-card" key={label}><p className="highlight-card-label">{label}</p><div className="empty">Not available</div></article>;const pre=aggregate(stageRows(item.rows,'pre')),post=aggregate(stageRows(item.rows,'post'));const positive=label.toLowerCase().startsWith('top-performing');return <article className="highlight-card" key={label}><div className="highlight-card-top"><span className={'highlight-status '+(positive?'status-strong':'status-support')}>{positive?'TOP PERFORMANCE':'NEEDS SUPPORT'}</span><span className="highlight-scope">{label.toLowerCase().includes('region')?'REGION':label.toLowerCase().includes('local board')?'LOCAL BOARD':'REC'}</span></div><h3>{item.name}</h3><div className="highlight-overall"><span>Overall performance</span><strong>{fmt(item.overall)}</strong></div><div className="highlight-score-row"><div><span>Pre score</span><strong>{pre.max?fmt(pre.p):'No Pre data'}</strong></div><div><span>Post score</span><strong>{post.max?fmt(post.p):'No Post data'}</strong></div></div><div className="highlight-driver-grid"><div className="highlight-driver strength"><h4><span>✓</span> Stronger areas</h4>{renderDrivers(item.rows,'strong')||<small>Not enough data</small>}</div><div className="highlight-driver support"><h4><span>↗</span> Focus areas</h4>{renderDrivers(item.rows,'weak')||<small>Not enough data</small>}</div></div></article>})}</div></section>
 }
 function PerformanceHighlights({rows}:{rows:Rec[]}){
- const rank=(key:'Region'|'LocalBoard'|'REC')=>{const map=new Map<string,Rec[]>();rows.filter(r=>r[key]).forEach(r=>{const id=key==='Region'?norm(r.Region):key==='LocalBoard'?[norm(r.Region),norm(r.LocalBoard)].join('||'):[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});return [...map.values()].map(rs=>({rows:rs,name:key==='Region'?displayGeo(rs[0].Region):key==='LocalBoard'?rs[0].LocalBoard+' · '+displayGeo(rs[0].Region):rs[0].REC+' · '+rs[0].LocalBoard,overall:aggregate(rs).p})).sort((a,b)=>b.overall-a.overall)};
+ const rank=(key:'Region'|'LocalBoard'|'REC')=>{const map=new Map<string,Rec[]>();rows.filter(r=>r[key]).forEach(r=>{const id=key==='Region'?norm(r.Region):key==='LocalBoard'?[norm(r.Region),norm(r.LocalBoard)].join('||'):[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});return [...map.values()].map(rs=>({rows:rs,name:key==='Region'?displayGeo(rs[0].Region):key==='LocalBoard'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),overall:aggregate(rs).p})).sort((a,b)=>b.overall-a.overall)};
  const regions=rank('Region'),boards=rank('LocalBoard'),recs=rank('REC');
  const cards:{label:string;item:{rows:Rec[];name:string;overall:number}|undefined}[]=[{label:'Top-performing region',item:regions[0]},{label:'Region needing most support',item:regions[regions.length-1]},{label:'Top-performing local board',item:boards[0]},{label:'Local board needing most support',item:boards[boards.length-1]},{label:'Top-performing REC',item:recs[0]},{label:'REC needing most support',item:recs[recs.length-1]}];
  return <HighlightTable title="Performance Highlights" items={cards}/>

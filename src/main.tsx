@@ -17,17 +17,18 @@ function unique(rows:Rec[],key:keyof Rec){return [...new Set(rows.map(r=>norm(r[
 function labelTheme(id:string){const m:any={T1:'Theme 1 — Authority and Leadership',T2:'Theme 2 — Intellectual Traditions',T3:'Theme 3 — Role in Family, Community and Society',T4:'Theme 4 — Two Aspects of Life'};return m[id]||id}
 function displayGeo(value:string){
   const raw=String(value||'').trim();
-  const labels:any={
-    Southern:'Southern','Southern_01':'Southern',
-    Central:'Central','Central_01':'Central',
-    Gilgit:'Gilgit','Gilgit_01':'Gilgit',
-    Hunza:'Hunza','Hunza_01':'Hunza',
-    Gupis_Yasin:'Gupis Yasin','Gupis_Yasin_01':'Gupis Yasin',
-    Ishkoman_Puniyal:'Ishkoman Puniyal','Ishkoman_Puniyal_01':'Ishkoman Puniyal',
-    Lower_Chitral:'Lower Chitral','Lower_Chitral_01':'Lower Chitral',
-    Upper_Chitral:'Upper Chitral','Upper_Chitral_01':'Upper Chitral'
+  const normalized=raw.toLowerCase().replace(/[_\\s-]+/g,' ').replace(/\\s+\\d+$/,'').trim();
+  const labels:Record<string,string>={
+    southern:'Southern',
+    central:'Central',
+    gilgit:'Gilgit',
+    hunza:'Hunza',
+    'gupis yasin':'Gupis Yasin',
+    'ishkoman puniyal':'Ishkoman Puniyal',
+    'lower chitral':'Lower Chitral',
+    'upper chitral':'Upper Chitral'
   };
-  return labels[raw] || raw.replace(/_\\d+$/,'').replace(/_/g,' ');
+  return labels[normalized] || raw.replace(/[_-]+/g,' ').replace(/\\s+\\d+$/,'').trim();
 }
 function rubricAction(id:string,theme:string,dimension:string){
   const actions:any={
@@ -437,7 +438,7 @@ function highlightDrivers(rows:Rec[],mode:'strong'|'weak'){
  return areas.length?areas.map(a=>a.label+' ('+fmt(a.p)+')').join(' · '):'Insufficient data to identify contributing areas';
 }
 function HighlightTable({items,title}:{items:{label:string;item?:{rows:Rec[];name:string;overall:number}}[];title:string}){
- return <section className="card performance-highlights"><h2>{title}</h2><div className="table-wrap"><table className="highlight-table"><thead><tr><th>Performance</th><th>Region / Local Board / REC</th><th>Pre</th><th>Post</th><th>Stronger themes, dimensions & rubrics</th><th>Areas needing support</th></tr></thead><tbody>{items.map(({label,item})=>{if(!item)return <tr key={label}><td>{label}</td><td colSpan={5}>Not available</td></tr>;const pre=aggregate(item.rows.filter(r=>r.Assessment==='Pre')),post=aggregate(item.rows.filter(r=>r.Assessment==='Post'));return <tr key={label}><td><b>{label}</b></td><td><b>{item.name}</b><small>Overall: {fmt(item.overall)}</small></td><td>{pre.max?fmt(pre.p):'—'}</td><td>{post.max?fmt(post.p):'—'}</td><td>{performanceDrivers(item.rows,'strong').map((a,i)=><div key={i} className="highlight-area"><b>{a.label}</b><small>{fmt(a.p)}</small></div>)}</td><td>{performanceDrivers(item.rows,'weak').map((a,i)=><div key={i} className="highlight-area"><b>{a.label}</b><small>{fmt(a.p)}</small></div>)}</td></tr>})}</tbody></table></div></section>
+ return <section className="card performance-highlights"><h2>{title}</h2><div className="table-wrap"><table className="highlight-table"><thead><tr><th>Performance</th><th>Region / Local Board / REC</th><th>Pre</th><th>Post</th><th>Stronger themes, dimensions & rubrics</th><th>Areas needing support</th></tr></thead><tbody>{items.map(({label,item})=>{if(!item)return <tr key={label}><td>{label}</td><td colSpan={5}>Not available</td></tr>;const pre=aggregate(item.rows.filter(r=>norm(r.Assessment).toLowerCase()==='pre')),post=aggregate(item.rows.filter(r=>norm(r.Assessment).toLowerCase()==='post'));return <tr key={label}><td><b>{label}</b></td><td><b>{item.name}</b><small>Overall: {fmt(item.overall)}</small></td><td>{pre.max?fmt(pre.p):'—'}</td><td>{post.max?fmt(post.p):'—'}</td><td>{performanceDrivers(item.rows,'strong').map((a,i)=><div key={i} className="highlight-area"><b>{a.label}</b><small>{fmt(a.p)}</small></div>)}</td><td>{performanceDrivers(item.rows,'weak').map((a,i)=><div key={i} className="highlight-area"><b>{a.label}</b><small>{fmt(a.p)}</small></div>)}</td></tr>})}</tbody></table></div></section>
 }
 function PerformanceHighlights({rows}:{rows:Rec[]}){
  const rank=(key:'Region'|'LocalBoard'|'REC')=>{const map=new Map<string,Rec[]>();rows.filter(r=>r[key]).forEach(r=>{const id=key==='Region'?norm(r.Region):key==='LocalBoard'?[norm(r.Region),norm(r.LocalBoard)].join('||'):[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});return [...map.values()].map(rs=>({rows:rs,name:key==='Region'?displayGeo(rs[0].Region):key==='LocalBoard'?rs[0].LocalBoard+' · '+displayGeo(rs[0].Region):rs[0].REC+' · '+rs[0].LocalBoard,overall:aggregate(rs).p})).sort((a,b)=>b.overall-a.overall)};

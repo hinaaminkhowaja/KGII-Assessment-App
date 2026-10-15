@@ -170,3 +170,7 @@
 .highlight-area small{display:block;margin-top:4px;color:#64756f;font-size:.75rem}
 @media(max-width:850px){.highlight-card-grid{grid-template-columns:1fr}.highlight-heading{align-items:flex-start;flex-direction:column;gap:8px}}
 @media(max-width:520px){.highlight-card{padding:13px}.highlight-driver-grid{grid-template-columns:1fr}.highlight-heading p{font-size:.82rem}}
+
+
+/* Admin access-request notification */
+.notification-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;border-color:#d7b56d;background:#fffaf0}.notification-banner strong{display:block;color:#805d12;font-size:14px}.notification-banner p{margin:5px 0 0;color:#74664b;font-size:13px}.notification-banner .small-button{white-space:nowrap}@media(max-width:650px){.notification-banner{align-items:flex-start;flex-direction:column}}

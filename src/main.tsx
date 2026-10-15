@@ -204,18 +204,15 @@ const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRec
 sessionStorage.setItem(SESSION_KEY, u.email);
 
 console.time('Dashboard load');
-console.time('Dashboard API');
-
-await loadDashboard(u.email);
-
-console.timeEnd('Dashboard API');
-
 if (u.role === 'admin') {
-  console.time('Admin API');
-  await loadAdmin(u.email);
-  console.timeEnd('Admin API');
+  console.time('Dashboard and admin API');
+  await Promise.all([loadDashboard(u.email),loadAdmin(u.email)]);
+  console.timeEnd('Dashboard and admin API');
+} else {
+  console.time('Dashboard API');
+  await loadDashboard(u.email);
+  console.timeEnd('Dashboard API');
 }
-
 console.timeEnd('Dashboard load');
 setF({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:''});setPage(u.role==='admin'?'admin':'dashboard');}catch(e:any){setApiError(e.message||'Login failed.')}finally{setLoading(false)}};
  const requestLogin=async(name:string,email:string,requestedRole:string)=>{setLoading(true);setApiError('');try{await apiPost('createloginrequest',{name,email,requestedRole,role:'user',status:'Pending'});}catch(e:any){throw new Error(e.message||'Could not submit login request.')}finally{setLoading(false)}};

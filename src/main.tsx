@@ -295,7 +295,82 @@ function title(p:string){return ({dashboard:'KG II Assessment Dashboard',region:
 function subtitle(p:string){if(p==='student-survey')return 'Enter student survey responses using the master Region → Local Board → REC hierarchy.';if(p==='teacher-survey')return 'Enter teacher survey responses using the master Region → Local Board → REC hierarchy.';if(p==='resources')return 'View and download mentoring and assessment resources.';return p==='dashboard'?'Assessment Performance Overview':'Drill down into performance using the selected filters.'}
 function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years}:any){const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='region'?{board:'',rec:''}:k==='board'?{rec:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/><S k="board" lab="Local Board" vals={boards}/><S k="rec" lab="REC" vals={recs}/><S k="pt" lab="Participant" vals={pts}/><S k="assessment" lab="Assessment" vals={assessments}/><S k="theme" lab="Theme" vals={themes}/><S k="dim" lab="Dimension" vals={dims}/><S k="year" lab="Year" vals={years.map(String)}/></section>}
 function statusFor(p:number){return p>=80?'Excellent':p>=65?'Good':p>=50?'Satisfactory':'Need Attention'}
-function Kpis({rows}:{rows:Rec[]}){const c=combinedScore(rows);const studentTotal=c.pre.student+c.post.student;const teacherTotal=c.pre.teacher+c.post.teacher;const themePct=aggregate(rows).p;const dimPct=aggregate(rows).p;const prePct=c.pre.total/103*100;const postPct=c.post.total/103*100;const preStudents=new Set(rows.filter(r=>r.ParticipantType==='Student'&&assessmentIs(r.Assessment,'Pre')).map(r=>r.RecordID)).size;const postStudents=new Set(rows.filter(r=>r.ParticipantType==='Student'&&assessmentIs(r.Assessment,'Post')).map(r=>r.RecordID)).size;const preTeachers=new Set(rows.filter(r=>r.ParticipantType==='Teacher'&&assessmentIs(r.Assessment,'Pre')).map(r=>r.RecordID)).size;const postTeachers=new Set(rows.filter(r=>r.ParticipantType==='Teacher'&&assessmentIs(r.Assessment,'Post')).map(r=>r.RecordID)).size;const recKey=(r:Rec)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');const preRecs=new Set(rows.filter(r=>assessmentIs(r.Assessment,'Pre')&&r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;const postRecs=new Set(rows.filter(r=>assessmentIs(r.Assessment,'Post')&&r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;return <div className="kpis">{[['Overall Score',c.score.toFixed(1)+' / 206'],['Performance',fmt(c.percent)],['Status',statusFor(c.percent)],['No. of Students',preStudents+' / '+postStudents],['No. of Teachers',preTeachers+' / '+postTeachers],['No. of RECs',preRecs+' / '+postRecs],['Students Overall',fmt(pct(studentTotal,174))],['Teachers Overall',fmt(pct(teacherTotal,32))],['Theme Overall',fmt(themePct)],['Dimension Overall',fmt(dimPct)],['Pre Overall',fmt(prePct)],['Post Overall',fmt(postPct)]].map(([a,b])=><div className="kpi" key={a}><span>{a==='No. of RECs'?'No. of RECs (Pre / Post)':a}</span><strong className={a==='Status'?'status-kpi '+String(b).toLowerCase().replace(/ /g,'-'):''}>{b}</strong></div>)}</div>}
+
+function Kpis({rows}:{rows:Rec[]}) {
+  const overall = aggregate(rows);
+  const studentRows = rows.filter(r => r.ParticipantType === 'Student');
+  const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
+  const preRows = rows.filter(r => assessmentIs(r.Assessment, 'Pre'));
+  const postRows = rows.filter(r => assessmentIs(r.Assessment, 'Post'));
+
+  const studentPct = aggregate(studentRows).p;
+  const teacherPct = aggregate(teacherRows).p;
+  const prePct = aggregate(preRows).p;
+  const postPct = aggregate(postRows).p;
+  const score = overall.p * 206 / 100;
+
+  const preStudents = new Set(
+    preRows.filter(r => r.ParticipantType === 'Student').map(r => r.RecordID)
+  ).size;
+  const postStudents = new Set(
+    postRows.filter(r => r.ParticipantType === 'Student').map(r => r.RecordID)
+  ).size;
+  const preTeachers = new Set(
+    preRows.filter(r => r.ParticipantType === 'Teacher').map(r => r.RecordID)
+  ).size;
+  const postTeachers = new Set(
+    postRows.filter(r => r.ParticipantType === 'Teacher').map(r => r.RecordID)
+  ).size;
+
+  const recKey = (r: Rec) =>
+    [norm(r.Region), norm(r.LocalBoard), norm(r.REC)].join('||');
+
+  const preRecs = new Set(
+    preRows.filter(r => r.Region && r.LocalBoard && r.REC).map(recKey)
+  ).size;
+  const postRecs = new Set(
+    postRows.filter(r => r.Region && r.LocalBoard && r.REC).map(recKey)
+  ).size;
+
+  const cards = [
+    ['Overall Score', score.toFixed(1) + ' / 206'],
+    ['Performance', fmt(overall.p)],
+    ['Status', statusFor(overall.p)],
+    ['No. of Students', preStudents + ' / ' + postStudents],
+    ['No. of Teachers', preTeachers + ' / ' + postTeachers],
+    ['No. of RECs', preRecs + ' / ' + postRecs],
+    ['Students Overall', fmt(studentPct)],
+    ['Teachers Overall', fmt(teacherPct)],
+    ['Theme Overall', fmt(overall.p)],
+    ['Dimension Overall', fmt(overall.p)],
+    ['Pre Overall', fmt(prePct)],
+    ['Post Overall', fmt(postPct)]
+  ];
+
+  return (
+    <div className="kpis">
+      {cards.map(([label, value]) => (
+        <div className="kpi" key={label}>
+          <span>
+            {label === 'No. of RECs'
+              ? 'No. of RECs (Pre / Post)'
+              : label}
+          </span>
+          <strong
+            className={
+              label === 'Status'
+                ? 'status-kpi ' + value.toLowerCase().replace(/ /g, '-')
+                : ''
+            }
+          >
+            {value}
+          </strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a=aggregate(rows.filter(r=>norm(r[key])===k));return {key:k,p:a.p,score:a.score,max:a.max}})}
 function RecCoverage({refs,records,f}:{refs:Ref[];records:Rec[];f:any}) {
   const locationKey = (x:{Region:string;LocalBoard:string;REC:string}) =>

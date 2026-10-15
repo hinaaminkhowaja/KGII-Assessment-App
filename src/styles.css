@@ -111,3 +111,7 @@
 .auth-switch{margin-top:9px}
 .landing-actions .secondary{margin-top:8px}
 @media(max-width:650px){.app>aside{height:auto;max-height:none;overflow:visible}}
+
+
+/* Resource library */
+.resource-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:18px}.resource-list>.card{margin:0;padding:18px;border:1px solid #dbe8e3;box-shadow:none}.resource-list h3{margin:0 0 10px;color:#083d35}.resource-list a{display:inline-block;margin-top:8px;color:#08765f;font-weight:700;text-decoration:none}.resource-list a:hover{text-decoration:underline}

@@ -174,3 +174,7 @@
 
 /* Admin access-request notification */
 .notification-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;border-color:#d7b56d;background:#fffaf0}.notification-banner strong{display:block;color:#805d12;font-size:14px}.notification-banner p{margin:5px 0 0;color:#74664b;font-size:13px}.notification-banner .small-button{white-space:nowrap}@media(max-width:650px){.notification-banner{align-items:flex-start;flex-direction:column}}
+
+
+/* Users & Access layout refinements */
+.user-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:170px}.user-actions .small-button{margin:0;white-space:nowrap}.existing-access{margin-top:22px;padding-top:16px;border-top:1px solid #e5ece9}.existing-access h3{font-size:14px;margin:0 0 12px;color:#315b50}.admin-page table{min-width:680px}.admin-page .card{overflow-x:auto}.admin-page .form-message[role=status]{line-height:1.5}.admin-page .admin-note{overflow-wrap:anywhere}

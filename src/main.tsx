@@ -552,9 +552,12 @@ function PrePost({rows}:{rows:Rec[]}){
 }
 function RecSurveySummary({records,participantType,region,board,rec,onRefresh}:{records:Rec[];participantType:string;region:string;board:string;rec:string;onRefresh?:()=>void}) {
   if (!region || !board || !rec) return <section className="card"><h3>REC Assessment Summary</h3><p>Select a Region, Local Board and REC to review existing assessment data before entering new data.</p></section>;
-  const same=(a:string,b:string)=>norm(a).trim().toLowerCase()===norm(b).trim().toLowerCase();
+  const canonical=(v:any)=>norm(v).trim().toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
+  const same=(a:any,b:any)=>canonical(a)===canonical(b);
+  const themeKey=(v:any)=>{const x=canonical(v).toUpperCase();const m=x.match(/(?:^|\b)(?:T|THEME\s*)([1-4])(?:\b|$)/);return m?'T'+m[1]:x;};
+  const stageKey=(v:any)=>{const x=canonical(v);if(/^(pre|pre assessment|baseline)$/.test(x))return 'Pre';if(/^(post|post assessment|endline)$/.test(x))return 'Post';return x;};
   const rows=records.filter(r=>same(r.ParticipantType,participantType)&&same(r.Region,region)&&same(r.LocalBoard,board)&&same(r.REC,rec));
-  const stageRows=(theme:string,stage:string)=>rows.filter(r=>norm(r.ThemeID).trim().toUpperCase()===theme&&same(r.Assessment,stage));
+  const stageRows=(theme:string,stage:string)=>rows.filter(r=>themeKey(r.ThemeID)===theme&&stageKey(r.Assessment)===stage);
   const pctRows=(items:Rec[])=>{const score=items.reduce((n,r)=>n+(Number(r.Score)||0),0);const max=items.reduce((n,r)=>n+(Number(r.MaxScore)||0),0);return max?(score/max*100).toFixed(1)+'%':'—'};
   return <section className="card"><div className="section-head"><div><h3>Existing REC Summary — {rec}</h3><p><strong>Consolidated assessment scores</strong> · Scores combine the saved records for this REC.</p></div>{onRefresh&&<button type="button" className="secondary" onClick={onRefresh}>↻ Refresh existing data</button>}</div>{rows.length===0?<p>{records.length===0?'No assessment records are currently loaded. Refresh existing data to retry loading, then check that the selected Region, Local Board and REC match the saved records.':'No matching '+participantType.toLowerCase()+' assessment records were found for this REC in the loaded data. Check the selected details and refresh if needed.'}</p>:<><div className="table-wrap"><table><thead><tr><th>Theme</th><th>Pre</th><th>Post</th><th>Data status</th></tr></thead><tbody>{['T1','T2','T3','T4'].map(theme=>{const pre=stageRows(theme,'Pre');const post=stageRows(theme,'Post');return <tr key={theme}><td>{labelTheme(theme)}</td><td>{pctRows(pre)}</td><td>{pctRows(post)}</td><td>{pre.length||post.length?'Data available':'No data in loaded records'}</td></tr>})}</tbody></table></div><p className="form-message">“Data available” reflects saved score records only; it is not a completion marker.</p></>}</section>;
 }

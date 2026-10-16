@@ -965,8 +965,8 @@ const save = async (finishAssessment: boolean) => {
 
   {msg && <span className="form-message">{msg}</span>}
 </div>
-</div>
         </>}
+</div>
 );
 }
 

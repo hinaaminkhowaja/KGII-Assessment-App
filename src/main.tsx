@@ -314,18 +314,25 @@ function Kpis({rows}:{rows:Rec[]}) {
   const postPct = aggregate(postRows).p;
   const score = overall.p * 206 / 100;
 
-  const preStudents = new Set(
-    preRows.filter(r => r.ParticipantType === 'Student').map(r => r.RecordID)
-  ).size;
-  const postStudents = new Set(
-    postRows.filter(r => r.ParticipantType === 'Student').map(r => r.RecordID)
-  ).size;
-  const preTeachers = new Set(
-    preRows.filter(r => r.ParticipantType === 'Teacher').map(r => r.RecordID)
-  ).size;
-  const postTeachers = new Set(
-    postRows.filter(r => r.ParticipantType === 'Teacher').map(r => r.RecordID)
-  ).size;
+  // Count participants once per REC and assessment stage, not once per theme/indicator.
+  // Use the REC's recorded participant count when available; fall back to distinct RecordID
+  // values only when the sheet does not provide ParticipantCount.
+  const participantCountByRec = (source:Rec[], type:'Student'|'Teacher') => {
+    const groups = new Map<string, Rec[]>();
+    source.filter(r => r.ParticipantType === type && r.Region && r.LocalBoard && r.REC)
+      .forEach(r => { const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||'); const arr=groups.get(key)||[]; arr.push(r); groups.set(key,arr); });
+    let total=0;
+    groups.forEach(items => {
+      const counts=items.map(r=>Number(r.ParticipantCount)||0).filter(n=>n>0);
+      if(counts.length) total+=Math.max(...counts);
+      else total+=new Set(items.map(r=>norm(r.RecordID)).filter(Boolean)).size;
+    });
+    return total;
+  };
+  const preStudents = participantCountByRec(preRows,'Student');
+  const postStudents = participantCountByRec(postRows,'Student');
+  const preTeachers = participantCountByRec(preRows,'Teacher');
+  const postTeachers = participantCountByRec(postRows,'Teacher');
 
   const recKey = (r: Rec) =>
     [norm(r.Region), norm(r.LocalBoard), norm(r.REC)].join('||');

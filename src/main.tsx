@@ -314,12 +314,12 @@ function Kpis({rows}:{rows:Rec[]}) {
   const postPct = aggregate(postRows).p;
   const score = overall.p * 206 / 100;
 
-  // Count participants once per REC and assessment stage, not once per theme/indicator.
-  // Use the REC's recorded participant count when available; fall back to distinct RecordID
-  // values only when the sheet does not provide ParticipantCount.
+  // Student counts are not stored reliably on every score row. When ParticipantCount
+  // exists, count the largest recorded total per REC (avoids repeating counts by indicator).
+  // Otherwise count unique participant records, but only if each RecordID identifies a child.
   const participantCountByRec = (source:Rec[], type:'Student'|'Teacher') => {
     const groups = new Map<string, Rec[]>();
-    source.filter(r => r.ParticipantType === type && r.Region && r.LocalBoard && r.REC)
+    source.filter(r => r.ParticipantType.toLowerCase() === type.toLowerCase() && r.Region && r.LocalBoard && r.REC)
       .forEach(r => { const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||'); const arr=groups.get(key)||[]; arr.push(r); groups.set(key,arr); });
     let total=0;
     groups.forEach(items => {
@@ -329,12 +329,8 @@ function Kpis({rows}:{rows:Rec[]}) {
     });
     return total;
   };
-  // Keep pre-assessment counting unchanged: one count per REC.
+  // Pre and Post counts remain separate; Post uses the highest theme count per REC.
   const preStudents = participantCountByRec(preRows,'Student');
-
-  // Post-assessment has separate entries for each theme. The REC-level post
-  // count is the highest number assessed in any one theme, not the sum across
-  // themes (e.g. 10, 15, 8, 20 => 20).
   const postStudents = participantCountByRec(postRows,'Student');
   // Teacher Pre and Post ratings are collected together for each theme.
   // Count each teacher only once within a REC across all themes and both ratings.

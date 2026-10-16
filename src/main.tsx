@@ -199,22 +199,10 @@ const recs = useMemo(
 const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');
  const refresh=async(u= user)=>{if(!u)return;setLoading(true);setApiError('');try{await loadDashboard(u.email);if(u.role==='admin')await loadAdmin(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
  const nav=(p:string)=>{setMobileNavOpen(false);if(['dashboard','region','board','rec','theme','dimension','prepost','admin','resources'].includes(p)&&!user){setPage('login');return}setPage(p)};
- const login=async(email:string)=>{setLoading(true);setApiError('');try{const d=await apiGet('login',{email:email.trim().toLowerCase()});if(!d.user)throw new Error(d.message||'No account was found for this email.');const u=mapUser(d.user);if(u.status!=='approved'&&u.role!=='admin')throw new Error(u.status==='pending'?'Your account is awaiting administrator approval.':`Your account is ${u.status}.`);setUser(u);
-localStorage.setItem(SESSION_KEY, u.email);
-localStorage.setItem(USER_CACHE_KEY, JSON.stringify(u));
-
-console.time('Dashboard load');
-if (u.role === 'admin') {
-  console.time('Dashboard and admin API');
-  await Promise.all([loadDashboard(u.email),loadAdmin(u.email)]);
-  console.timeEnd('Dashboard and admin API');
-} else {
-  console.time('Dashboard API');
-  await loadDashboard(u.email);
-  console.timeEnd('Dashboard API');
-}
-console.timeEnd('Dashboard load');
-setF({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:''});setPage(u.role==='admin'?'admin':'dashboard');}catch(e:any){setApiError(e.message||'Login failed.')}finally{setLoading(false)}};
+ const login=async(email:string)=>{setLoading(true);setApiError('');try{const d=await apiGet('login',{email:email.trim().toLowerCase()});if(!d.user)throw new Error(d.message||'No account was found for this email.');const u=mapUser(d.user);if(u.status!=='approved'&&u.role!=='admin')throw new Error(u.status==='pending'?'Your account is awaiting administrator approval.':`Your account is ${u.status}.`);setUser(u);localStorage.setItem(SESSION_KEY,u.email);localStorage.setItem(USER_CACHE_KEY,JSON.stringify(u));setF({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:''});setPage(u.role==='admin'?'admin':'dashboard');setLoading(false);
+    // Authentication is complete: render the destination immediately, then fetch its data in the background.
+    const tasks=[loadDashboard(u.email)];if(u.role==='admin')tasks.push(loadAdmin(u.email));void Promise.all(tasks).catch((e:any)=>setApiError('Signed in, but some data could not be loaded. Use Refresh data to retry. '+(e?.message||'')));
+  }catch(e:any){setApiError(e.message||'Login failed.');setLoading(false)}};
  const requestLogin=async(name:string,email:string,requestedRole:string)=>{setLoading(true);setApiError('');try{await apiPost('createloginrequest',{name,email,requestedRole,role:'user',status:'Pending'});}catch(e:any){throw new Error(e.message||'Could not submit login request.')}finally{setLoading(false)}};
  const logout=()=>{setUser(null);localStorage.removeItem(SESSION_KEY);localStorage.removeItem(USER_CACHE_KEY);setRecords([]);setUsers([]);setAccess([]);setPage('home');setF({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:''})};
  if(page==='home')return <PublicHome onLogin={()=>setPage('login')} onStudent={()=>setPage('student-survey')} onTeacher={()=>setPage('teacher-survey')}/>;

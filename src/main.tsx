@@ -1317,7 +1317,6 @@ const save = async (finishAssessment: boolean) => {
             </select>
           </Field>
         </div>
-      </section>
 
       {v.theme && (
         <TeacherRubric
@@ -1337,6 +1336,7 @@ const save = async (finishAssessment: boolean) => {
             onChange={e => setV({ ...v, filler: e.target.value })}
           />
         </Field>
+      </section>
       
 
       

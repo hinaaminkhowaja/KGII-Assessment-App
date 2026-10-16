@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 
-type Rec={RecordID:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
+type Rec={RecordID:string;TeacherName?:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
 type Ref={Region:string;LocalBoard:string;REC:string};
 type Indicator={CycleID:string;ParticipantType:string;Assessment:string;ThemeID:string;ThemeName:string;DimensionID:string|null;IndicatorID:string;MaxScore:number;SourceSheet:string;SourceColumn:number};
 const pct=(n:number,d:number)=>d?100*n/d:0;
@@ -168,7 +168,7 @@ function App(){
  const [user,setUser]=useState<AppUser|null>(null);const [users,setUsers]=useState<AppUser[]>([]);const [access,setAccess]=useState<AccessRule[]>([]);
  useEffect(()=>{const sync=()=>{void syncOfflineSurveyQueue();};window.addEventListener('online',sync);if(navigator.onLine)sync();return()=>window.removeEventListener('online',sync);},[]);
  const loadReference=async()=>{const d=await apiGet('reference');const rr=arrayFrom(d,'refs','reference','records','data');const normalizedRefs=normalizeRefs(rr);const ii=arrayFrom(d,'indicators','APP_Indicators');setRefs(normalizedRefs);setIndicators(ii);localStorage.setItem('kgii_assessment_cached_refs',JSON.stringify(normalizedRefs));localStorage.setItem('kgii_assessment_cached_indicators',JSON.stringify(ii));};
- const loadDashboard=async(email:string)=>{const d=await apiGet('dashboard',{email});const rows=arrayFrom(d,'records','rows','data');const headers=Array.isArray(d.headers)?d.headers:[];const normalized=rows.map((x:any)=>{if(Array.isArray(x)){const o:any={};headers.forEach((h:string,i:number)=>o[h]=x[i]);x=o;}return {RecordID:norm(x.RecordID||x.recordId||x.ID),CycleID:norm(x.CycleID),Year:Number(x.Year)||0,ParticipantType:norm(x.ParticipantType),Assessment:norm(x.Assessment),Region:norm(x.Region),LocalBoard:norm(x.LocalBoard),REC:norm(x.REC),ParticipantCount:Number(x.ParticipantCount)||0,Phase:norm(x.Phase),ThemeID:norm(x.ThemeID),DimensionID:norm(x.DimensionID),IndicatorID:norm(x.IndicatorID),Score:Number(x.Score)||0,MaxScore:Number(x.MaxScore)||0} as Rec;});setRecords(normalized);try{localStorage.setItem('kgii_assessment_cached_records',JSON.stringify(normalized));}catch(e){console.warn('Could not cache assessment records',e)};};
+ const loadDashboard=async(email:string)=>{const d=await apiGet('dashboard',{email});const rows=arrayFrom(d,'records','rows','data');const headers=Array.isArray(d.headers)?d.headers:[];const normalized=rows.map((x:any)=>{if(Array.isArray(x)){const o:any={};headers.forEach((h:string,i:number)=>o[h]=x[i]);x=o;}return {RecordID:norm(x.RecordID||x.recordId||x.ID),TeacherName:norm(x.TeacherName||x.teacherName||x['Name of Teacher']||x['Teacher Name']||x.ParticipantName||x.participantName),CycleID:norm(x.CycleID),Year:Number(x.Year)||0,ParticipantType:norm(x.ParticipantType),Assessment:norm(x.Assessment),Region:norm(x.Region),LocalBoard:norm(x.LocalBoard),REC:norm(x.REC),ParticipantCount:Number(x.ParticipantCount)||0,Phase:norm(x.Phase),ThemeID:norm(x.ThemeID),DimensionID:norm(x.DimensionID),IndicatorID:norm(x.IndicatorID),Score:Number(x.Score)||0,MaxScore:Number(x.MaxScore)||0} as Rec;});setRecords(normalized);try{localStorage.setItem('kgii_assessment_cached_records',JSON.stringify(normalized));}catch(e){console.warn('Could not cache assessment records',e)};};
  const loadAdmin=async(email:string)=>{const [u,a]=await Promise.all([apiGet('users',{email}),apiGet('access',{email})]);const us=arrayFrom(u,'users','data').map(mapUser);const ac=arrayFrom(a,'access','rules','data').map(mapAccess);setUsers(us);setAccess(ac);};
  useEffect(()=>{let active=true;let saved=localStorage.getItem(SESSION_KEY);let cached:AppUser|null=null;try{const raw=localStorage.getItem(USER_CACHE_KEY);if(raw)cached=mapUser(JSON.parse(raw));}catch{localStorage.removeItem(USER_CACHE_KEY);}if(!saved&&cached?.email)saved=cached.email;const validCached=!!saved&&!!cached&&cached!.email===saved&&(cached!.status==='approved'||cached!.role==='admin');if(validCached){localStorage.setItem(SESSION_KEY,cached!.email);setUser(cached);setPage(cached!.role==='admin'?'admin':'dashboard');}setLoading(!!saved&&!validCached);loadReference().catch(e=>{if(active)setApiError('Could not load reference data from Apps Script: '+e.message);});if(saved){const refreshSession=async()=>{try{let liveUser:AppUser;if(validCached){liveUser=cached!;}else{const d=await apiGet('login',{email:saved!});if(!d.user)throw new Error('This email is not approved for dashboard access.');liveUser=mapUser(d.user);if(liveUser.status!=='approved'&&liveUser.role!=='admin')throw new Error('This account is not approved.');}if(!active)return;setUser(liveUser);localStorage.setItem(SESSION_KEY,liveUser.email);localStorage.setItem(USER_CACHE_KEY,JSON.stringify(liveUser));setPage(liveUser.role==='admin'?'admin':'dashboard');const tasks=[loadDashboard(liveUser.email)];if(liveUser.role==='admin')tasks.push(loadAdmin(liveUser.email));setLoading(false);void Promise.all(tasks).catch((e:any)=>{if(active)setApiError('Dashboard data could not be refreshed. Your saved sign-in remains active. '+(e?.message||''));});}catch(e:any){if(!active)return;if(!validCached){setApiError('Could not verify the saved session with the server. Your saved sign-in was kept; please refresh and retry. '+(e.message||''));}else{setApiError('Dashboard data could not be refreshed. Your saved sign-in remains active. '+(e.message||''));}}finally{if(active)setLoading(false);}};refreshSession();}else{setLoading(false);}return()=>{active=false}},[]);
  
@@ -336,8 +336,25 @@ function Kpis({rows}:{rows:Rec[]}) {
   // count is the highest number assessed in any one theme, not the sum across
   // themes (e.g. 10, 15, 8, 20 => 20).
   const postStudents = participantCountByRec(postRows,'Student');
-  const preTeachers = participantCountByRec(preRows,'Teacher');
-  const postTeachers = participantCountByRec(postRows,'Teacher');
+  // Teacher Pre and Post ratings are collected together for each theme.
+  // Count each teacher only once within a REC across all themes and both ratings.
+  // TeacherName is preferred; RecordID is a fallback when the source has no name field.
+  const uniqueTeacherCount = (source:Rec[]) => {
+    const groups = new Map<string, Set<string>>();
+    source.filter(r => r.ParticipantType === 'Teacher' && r.Region && r.LocalBoard && r.REC)
+      .forEach(r => {
+        const rec = [norm(r.Region), norm(r.LocalBoard), norm(r.REC)].join('||');
+        const teacher = norm(r.TeacherName) || norm(r.RecordID);
+        if (!teacher) return;
+        const names = groups.get(rec) || new Set<string>();
+        names.add(teacher.toLocaleLowerCase());
+        groups.set(rec, names);
+      });
+    let total = 0;
+    groups.forEach(names => total += names.size);
+    return total;
+  };
+  const teachers = uniqueTeacherCount(teacherRows);
 
   const recKey = (r: Rec) =>
     [norm(r.Region), norm(r.LocalBoard), norm(r.REC)].join('||');
@@ -354,7 +371,7 @@ function Kpis({rows}:{rows:Rec[]}) {
     ['Performance', fmt(overall.p)],
     ['Status', statusFor(overall.p)],
     ['No. of Students', preStudents + ' / ' + postStudents],
-    ['No. of Teachers', preTeachers + ' / ' + postTeachers],
+    ['No. of Teachers (Unique)', String(teachers)],
     ['No. of RECs', preRecs + ' / ' + postRecs],
     ['Students Overall', fmt(studentPct)],
     ['Teachers Overall', fmt(teacherPct)],

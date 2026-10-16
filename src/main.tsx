@@ -563,6 +563,7 @@ function Field({label,required,children,wide}:{label:string;required?:boolean;ch
 function useSurveyState(key:string,initial:any){const [v,setV]=useState<any>(()=>{try{return JSON.parse(localStorage.getItem(key)||'null')||initial}catch{return initial}});useEffect(()=>{localStorage.setItem(key,JSON.stringify(v))},[key,v]);return [v,setV] as const}
 
 function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; user: AppUser | null; records?: Rec[]; onRefresh?:()=>void }) {
+  const [showRecSummary,setShowRecSummary]=useState(false);
   const initial: any = {
     region: '',
     board: '',
@@ -784,7 +785,7 @@ const save = async (finishAssessment: boolean) => {
         </div>
 
         <GeoFields refs={refs} value={v} onChange={update} />
-        <RecSurveySummary records={records} participantType="Student" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />
+        <div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>{showRecSummary&&<RecSurveySummary records={records} participantType="Student" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}
         {entryStarted && <>
         <div className="survey-grid">
@@ -979,6 +980,7 @@ function StudentTheme({theme,index,state,setState}:{theme:string;index:number;st
 
 
 function TeacherSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; user: AppUser | null; records?: Rec[]; onRefresh?:()=>void }) {
+  const [showRecSummary,setShowRecSummary]=useState(false);
   const initial: any = {
     region: '',
     board: '',
@@ -1165,7 +1167,7 @@ const save = async (finishAssessment: boolean) => {
         </p>
 
         <GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} />
-        <RecSurveySummary records={records} participantType="Teacher" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />
+        <div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>{showRecSummary&&<RecSurveySummary records={records} participantType="Teacher" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}
         {entryStarted && <>
         <div className="survey-grid">

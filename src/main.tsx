@@ -919,7 +919,7 @@ const save = async (finishAssessment: boolean) => {
             </select>
           </Field>
         </div>
-      </section>
+      
 
       {v.theme && (
         <StudentTheme
@@ -966,6 +966,7 @@ const save = async (finishAssessment: boolean) => {
   {msg && <span className="form-message">{msg}</span>}
 </div>
         </>}
+      </section>
 </div>
 );
 }
@@ -1336,7 +1337,7 @@ const save = async (finishAssessment: boolean) => {
             onChange={e => setV({ ...v, filler: e.target.value })}
           />
         </Field>
-      </section>
+      
 
       
 <div className="form-actions">
@@ -1362,6 +1363,7 @@ const save = async (finishAssessment: boolean) => {
 </div>
 
             </>}
+      </section>
 </div>
   );
 }

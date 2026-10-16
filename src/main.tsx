@@ -861,16 +861,7 @@ const save = async (finishAssessment: boolean) => {
             </select>
           </Field>
 
-          <div className="lookup-action">
-  <button
-    type="button"
-    className="secondary lookup-button"
-    onClick={lookupChild}
-    disabled={lookupLoading || saving}
-  >
-    {lookupLoading ? 'Searching…' : 'Find Existing Child'}
-  </button>
-</div>
+
 
 
 {lookupMsg && (
@@ -1183,16 +1174,7 @@ const save = async (finishAssessment: boolean) => {
 </Field>
 
 
-<div className="lookup-action">
-  <button
-    type="button"
-    className="secondary lookup-button"
-    onClick={lookupTeacher}
-    disabled={lookupLoading || saving}
-  >
-    {lookupLoading ? 'Searching…' : 'Find Existing Teacher'}
-  </button>
-</div>
+
 
 
 {lookupMsg && (

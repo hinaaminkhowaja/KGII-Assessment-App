@@ -1071,34 +1071,28 @@ const save = async (finishAssessment: boolean) => {
   setMsg('');
 
   try {
-    // Check the latest saved records before submitting.
-    const lookup = await apiPost('lookupsurvey', {
-      userEmail: user?.email || '',
-      participantType: 'Teacher',
-      region: v.region,
-      localBoard: v.board,
-      rec: v.rec,
-      teacherName: v.teacherName.trim()
-    });
+    // Check duplicates online when possible. Offline submissions are queued locally
+    // and will be checked by the server when they sync.
+    if (navigator.onLine) {
+      const lookup = await apiPost('lookupsurvey', {
+        userEmail: user?.email || '',
+        participantType: 'Teacher',
+        region: v.region,
+        localBoard: v.board,
+        rec: v.rec,
+        teacherName: v.teacherName.trim()
+      });
 
-    const latestMatches = Array.isArray(lookup.matches)
-      ? lookup.matches
-      : [];
-
-    setLookupMatches(latestMatches);
-
-    const duplicate = latestMatches.some(
-      (item: any) =>
-        String(item.themeName || '').trim().toLowerCase() ===
-        themeName.trim().toLowerCase()
-    );
-
-    if (duplicate) {
-      setMsg(
-        `A submission already exists for ${themeName} for this teacher in this REC. Please select another theme.`
+      const latestMatches = Array.isArray(lookup.matches) ? lookup.matches : [];
+      setLookupMatches(latestMatches);
+      const duplicate = latestMatches.some((item: any) =>
+        String(item.themeName || '').trim().toLowerCase() === themeName.trim().toLowerCase()
       );
-      setLookupMsg('Previous submissions have been refreshed.');
-      return;
+      if (duplicate) {
+        setMsg(`A submission already exists for ${themeName} for this teacher in this REC. Please select another theme.`);
+        setLookupMsg('Previous submissions have been refreshed.');
+        return;
+      }
     }
 
     const result = await apiPost('teachersurvey', {

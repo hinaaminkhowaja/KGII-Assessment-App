@@ -321,7 +321,8 @@ function Kpis({rows,hideTeacherBreakdown=false}:{rows:Rec[];hideTeacherBreakdown
     ['Pre Overall',fmt(aggregate(preRows).p)],
     ['Post Overall',fmt(aggregate(postRows).p)]
   ];
-  const visibleCards=hideTeacherBreakdown?cards.filter(([label])=>!['Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label)):cards;\n  return <div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}</div>;
+  const visibleCards=hideTeacherBreakdown?cards.filter(([label])=>!['Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label)):cards;
+  return <div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}</div>;
 }
 
 function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a=aggregate(rows.filter(r=>norm(r[key])===k));return {key:k,p:a.p,score:a.score,max:a.max}})}

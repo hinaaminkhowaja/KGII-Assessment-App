@@ -113,7 +113,7 @@ function teacherScore(value: string): number {
 
 function labelDim(id:string){return id==='UA'?'UA — Understanding / Articulation':id==='A'?'A — Application':id}
 
-function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)&&(!f.pt||r.ParticipantType===f.pt)&&(!f.assessment||r.Assessment===f.assessment)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year)))}
+function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||r.Assessment===f.assessment)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year)))}
 
 const studentIndicators={
  T1:[
@@ -194,7 +194,7 @@ const recs = useMemo(
   )].sort(),
   [records, f.region, f.board]
 );
- const allowedRecords=records;const filtered=useMemo(()=>filterRows(allowedRecords,f),[allowedRecords,f]);
+ const allowedRecords=records;const pageRecords=useMemo(()=>page==='teacher'?allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'):allowedRecords,[allowedRecords,page]);const filtered=useMemo(()=>filterRows(pageRecords,f),[pageRecords,f]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
  // Region options are sourced from the current dashboard records (APP_Records).
@@ -206,11 +206,11 @@ const recs = useMemo(
     .filter(Boolean)
     .filter(region => !/^Lower[_ ]Chitral[_ ]?\d+$/i.test(region) && !/^Lower_Chitral_01$/i.test(region))
  )].sort((a,b)=>displayGeo(a).localeCompare(displayGeo(b)));
-const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');
+const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');const teacherNames=unique(allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)),'TeacherName');
  const refresh=async(u= user)=>{if(!u)return;setApiError('');try{await loadDashboard(u.email);if(u.role==='admin')await loadAdmin(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
  // Refresh assessment records in the background so open dashboards pick up new submissions without a manual reload. Keep current filters and avoid overlapping requests.
  useEffect(()=>{if(!user?.email)return;let active=true;let busy=false;const tick=async()=>{if(!active||busy||document.visibilityState==='hidden'||!navigator.onLine)return;busy=true;try{await loadDashboard(user.email)}catch(e){console.warn('Background dashboard refresh failed',e)}finally{busy=false}};const id=window.setInterval(()=>{void tick()},60000);return()=>{active=false;window.clearInterval(id)}},[user?.email]);
- const nav=(p:string)=>{setMobileNavOpen(false);if(['dashboard','region','board','rec','theme','dimension','prepost','admin','resources'].includes(p)&&!user){setPage('login');return}setPage(p)};
+ const nav=(p:string)=>{setMobileNavOpen(false);if(['dashboard','region','board','rec','teacher','theme','dimension','prepost','admin','resources'].includes(p)&&!user){setPage('login');return}setF((x:any)=>p==='teacher'?({...x,pt:'',teacher:''}):({...x,teacher:''}));setPage(p)};
  const login=async(email:string)=>{setLoading(true);setApiError('');try{const d=await apiGet('login',{email:email.trim().toLowerCase()});if(!d.user)throw new Error(d.message||'No account was found for this email.');const u=mapUser(d.user);if(u.status!=='approved'&&u.role!=='admin')throw new Error(u.status==='pending'?'Your account is awaiting administrator approval.':`Your account is ${u.status}.`);setUser(u);localStorage.setItem(SESSION_KEY,u.email);localStorage.setItem(USER_CACHE_KEY,JSON.stringify(u));setF({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:''});setPage(u.role==='admin'?'admin':'dashboard');setLoading(false);
     // Authentication is complete: render the destination immediately, then fetch its data in the background.
     const tasks=[loadDashboard(u.email)];if(u.role==='admin')tasks.push(loadAdmin(u.email));void Promise.all(tasks).catch((e:any)=>setApiError('Signed in, but some data could not be loaded. Use Refresh data to retry. '+(e?.message||'')));
@@ -222,7 +222,7 @@ const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRec
  const protectedPage=!page.includes('survey')&&page!=='home';
  if(protectedPage&&!user)return <LoginPage onLogin={login} onRequest={requestLogin} loading={loading} error={apiError} onBack={()=>setPage('home')}/>;
  if((page==='student-survey'||page==='teacher-survey')&&!user)return <PublicSurveyShell page={page} setPage={setPage} children={page==='student-survey'?<StudentSurvey refs={surveyRefs} user={null}/>:<TeacherSurvey refs={surveyRefs} user={null}/>}/>;
- return <div className={`app${mobileNavOpen?' mobile-nav-open':''}`}>{mobileNavOpen&&<button className="mobile-nav-overlay" aria-label="Close navigation" onClick={()=>setMobileNavOpen(false)}/>}<aside><div className="brand"><div className="mark">KG</div><div><b>KG II</b><span>Assessment App</span></div></div><div className="signed-in"><span>Signed in as</span><b>{user?.name}</b><small>{user?.role==='admin'?'Administrator':'Approved user'}</small><button onClick={()=>{logout();setMobileNavOpen(false)}}>Log out</button></div><nav><div className="nav-label">Assessment</div>{[['dashboard','Dashboard'],['region','Region-wise Analysis'],['board','Local Board-wise Analysis'],['rec','REC-wise Analysis'],['theme','Theme-wise Analysis'],['dimension','Dimension-wise Analysis'],['prepost','Pre / Post Analysis']].map(([id,n])=><button className={page===id?'active':''} onClick={()=>nav(id)} key={id}>{n}</button>)}<div className="survey-nav"><button className={page==='student-survey'?'active':''} onClick={()=>{setPage('student-survey');setMobileNavOpen(false)}}>Student Survey</button><button className={page==='teacher-survey'?'active':''} onClick={()=>{setPage('teacher-survey');setMobileNavOpen(false)}}>Teacher Survey</button></div><div className="nav-label">Resources</div><button className={page==='resources'?'active':''} onClick={()=>nav('resources')}>Mentoring & Assessment Strategies</button>{user?.role==='admin'&&<><div className="nav-label">Administration</div><button className={page==='admin'?'active':''} onClick={()=>{setPage('admin');setMobileNavOpen(false)}}>Users & Access</button></>}</nav></aside><main><header><button className="mobile-nav-toggle" aria-label={mobileNavOpen?'Close menu':'Open menu'} aria-expanded={mobileNavOpen} onClick={()=>setMobileNavOpen(v=>!v)}><span aria-hidden="true">☰</span><span>Menu</span></button><div><h1>{title(page)}</h1><p>{subtitle(page)}</p></div>{!page.includes('survey')&&page!=='admin'&&<div className="header-actions"><button className="secondary print-action" onClick={()=>window.print()}>Print / Save PDF</button><button className="refresh" onClick={()=>refresh()}>↻ Refresh data</button></div>}</header>{(apiError||loading)&&<div className="auth-message">{loading?'Connecting to Google Sheets…':apiError}</div>}{page==='student-survey'?<StudentSurvey refs={surveyRefs} user={user} records={records} onRefresh={()=>refresh(user)}/>:page==='teacher-survey'?<TeacherSurvey refs={surveyRefs} user={user} records={records} onRefresh={()=>refresh(user)}/>:page==='admin'?<AdminPanel users={users} setUsers={setUsers} access={access} setAccess={setAccess} refs={refs} currentUser={user!} onRefresh={()=>refresh()}/>:page==='resources'?<ResourceLibrary user={user}/>:<><Filters f={f} setF={setF} regions={regions} boards={boards} recs={recs} pts={pts} assessments={assessments} themes={themes} dims={dims} years={years} page={page}/>{page==='dashboard'?<Dashboard rows={filtered} highlightRows={filterRows(allowedRecords,{...f,assessment:''})} nav={nav}/>:<Analysis page={page} rows={filtered} all={allowedRecords} f={f} setF={setF} nav={nav}/>}</>}</main></div>
+ return <div className={`app${mobileNavOpen?' mobile-nav-open':''}`}>{mobileNavOpen&&<button className="mobile-nav-overlay" aria-label="Close navigation" onClick={()=>setMobileNavOpen(false)}/>}<aside><div className="brand"><div className="mark">KG</div><div><b>KG II</b><span>Assessment App</span></div></div><div className="signed-in"><span>Signed in as</span><b>{user?.name}</b><small>{user?.role==='admin'?'Administrator':'Approved user'}</small><button onClick={()=>{logout();setMobileNavOpen(false)}}>Log out</button></div><nav><div className="nav-label">Assessment</div>{[['dashboard','Dashboard'],['region','Region-wise Analysis'],['board','Local Board-wise Analysis'],['rec','REC-wise Analysis'],['teacher','Teacher-wise Analysis'],['theme','Theme-wise Analysis'],['dimension','Dimension-wise Analysis'],['prepost','Pre / Post Analysis']].map(([id,n])=><button className={page===id?'active':''} onClick={()=>nav(id)} key={id}>{n}</button>)}<div className="survey-nav"><button className={page==='student-survey'?'active':''} onClick={()=>{setPage('student-survey');setMobileNavOpen(false)}}>Student Survey</button><button className={page==='teacher-survey'?'active':''} onClick={()=>{setPage('teacher-survey');setMobileNavOpen(false)}}>Teacher Survey</button></div><div className="nav-label">Resources</div><button className={page==='resources'?'active':''} onClick={()=>nav('resources')}>Mentoring & Assessment Strategies</button>{user?.role==='admin'&&<><div className="nav-label">Administration</div><button className={page==='admin'?'active':''} onClick={()=>{setPage('admin');setMobileNavOpen(false)}}>Users & Access</button></>}</nav></aside><main><header><button className="mobile-nav-toggle" aria-label={mobileNavOpen?'Close menu':'Open menu'} aria-expanded={mobileNavOpen} onClick={()=>setMobileNavOpen(v=>!v)}><span aria-hidden="true">☰</span><span>Menu</span></button><div><h1>{title(page)}</h1><p>{subtitle(page)}</p></div>{!page.includes('survey')&&page!=='admin'&&<div className="header-actions"><button className="secondary print-action" onClick={()=>window.print()}>Print / Save PDF</button><button className="refresh" onClick={()=>refresh()}>↻ Refresh data</button></div>}</header>{(apiError||loading)&&<div className="auth-message">{loading?'Connecting to Google Sheets…':apiError}</div>}{page==='student-survey'?<StudentSurvey refs={surveyRefs} user={user} records={records} onRefresh={()=>refresh(user)}/>:page==='teacher-survey'?<TeacherSurvey refs={surveyRefs} user={user} records={records} onRefresh={()=>refresh(user)}/>:page==='admin'?<AdminPanel users={users} setUsers={setUsers} access={access} setAccess={setAccess} refs={refs} currentUser={user!} onRefresh={()=>refresh()}/>:page==='resources'?<ResourceLibrary user={user}/>:<><Filters f={f} setF={setF} regions={regions} boards={boards} recs={recs} pts={pts} teachers={teacherNames} assessments={assessments} themes={themes} dims={dims} years={years} page={page}/>{page==='dashboard'?<Dashboard rows={filtered} highlightRows={filterRows(allowedRecords,{...f,assessment:''})} nav={nav}/>:<Analysis page={page} rows={filtered} all={allowedRecords} f={f} setF={setF} nav={nav}/>}</>}</main></div>
 }
 function PublicHome({onLogin,onStudent,onTeacher}:{onLogin:()=>void;onStudent:()=>void;onTeacher:()=>void}){return <div className="landing"><div className="landing-card"><div className="mark big">KG</div><h1>KG II Assessment App</h1><p>Assessment data and survey entry platform.</p><div className="landing-actions"><button className="primary" onClick={onStudent}>Student Survey Entry</button><button className="primary" onClick={onTeacher}>Teacher Survey Entry</button><button className="secondary" onClick={onLogin}>Login for Dashboard</button></div><div className="landing-note">Survey entry is available to all users. The assessment dashboard is available only to users approved and assigned access by an administrator.</div></div></div>}
 function PublicSurveyShell({page,setPage,children}:{page:string;setPage:(p:string)=>void;children:React.ReactNode}){return <div className="app"><aside><div className="brand"><div className="mark">KG</div><div><b>KG II</b><span>Assessment App</span></div></div><nav><button className={page==='student-survey'?'active':''} onClick={()=>setPage('student-survey')}>Student Survey</button><button className={page==='teacher-survey'?'active':''} onClick={()=>setPage('teacher-survey')}>Teacher Survey</button></nav></aside><main><header><div><h1>{title(page)}</h1><p>{subtitle(page)}</p></div></header>{children}</main></div>}
@@ -298,145 +298,30 @@ function ResourceLibrary({user}:{user:AppUser|null}){
   </div>
 }
 
-function title(p:string){return ({dashboard:'KG II Assessment Dashboard',region:'Region-wise Analysis',board:'Local Board-wise Analysis',rec:'REC-wise Analysis',theme:'Theme-wise Analysis',dimension:'Dimension-wise Analysis',prepost:'Pre / Post Analysis',admin:'Users & Access',resources:'Mentoring & Assessment Strategies','student-survey':'Student Survey Entry','teacher-survey':'Teacher Survey Entry'} as any)[p]}
-function subtitle(p:string){if(p==='student-survey')return 'Enter student survey responses using the master Region → Local Board → REC hierarchy.';if(p==='teacher-survey')return 'Enter teacher survey responses using the master Region → Local Board → REC hierarchy.';if(p==='resources')return 'View and download mentoring and assessment resources.';return p==='dashboard'?'Assessment Performance Overview':'Drill down into performance using the selected filters.'}
-function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,page}:any){const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='region'?{board:'',rec:''}:k==='board'?{rec:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/>}<S k="pt" lab="Participant" vals={pts}/><S k="assessment" lab="Assessment" vals={assessments}/><S k="theme" lab="Theme" vals={themes}/><S k="dim" lab="Dimension" vals={dims}/><S k="year" lab="Year" vals={years.map(String)}/></section>}
+function title(p:string){return ({dashboard:'KG II Assessment Dashboard',region:'Region-wise Analysis',board:'Local Board-wise Analysis',rec:'REC-wise Analysis',teacher:'Teacher-wise Analysis',theme:'Theme-wise Analysis',dimension:'Dimension-wise Analysis',prepost:'Pre / Post Analysis',admin:'Users & Access',resources:'Mentoring & Assessment Strategies','student-survey':'Student Survey Entry','teacher-survey':'Teacher Survey Entry'} as any)[p]}
+function subtitle(p:string){if(p==='student-survey')return 'Enter student survey responses using the master Region → Local Board → REC hierarchy.';if(p==='teacher-survey')return 'Enter teacher survey responses using the master Region → Local Board → REC hierarchy.';if(p==='resources')return 'View and download mentoring and assessment resources.';return p==='dashboard'?'Assessment Performance Overview':p==='teacher'?'Review individual teacher performance across themes, dimensions and pre/post assessments.':'Drill down into performance using the selected filters.'}
+function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/>}{page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/>}<S k="assessment" lab="Assessment" vals={assessments}/><S k="theme" lab="Theme" vals={themes}/><S k="dim" lab="Dimension" vals={dims}/><S k="year" lab="Year" vals={years.map(String)}/></section>}
 function statusFor(p:number){return p>=80?'Excellent':p>=65?'Good':p>=50?'Satisfactory':'Need Attention'}
 
 function Kpis({rows}:{rows:Rec[]}) {
-  const overall = aggregate(rows);
-  const studentRows = rows.filter(r => r.ParticipantType === 'Student');
-  const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
-  const preRows = rows.filter(r => assessmentIs(r.Assessment, 'Pre'));
-  const postRows = rows.filter(r => assessmentIs(r.Assessment, 'Post'));
-  // Count Pre students from the rows currently in scope so the KPI responds
-  // to Region / Local Board / REC / Participant / Assessment / Theme / Year filters.
-  // APP_Records has multiple indicator rows per child, so deduplicate by source
-  // participant ID (preferred) or child name, within each REC.
-  const preStudents = (() => {
-    const groups = new Map<string, Set<string>>();
-    preRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)
-      .forEach(r => {
-        const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-        const identity=norm(r.SourceRecordID)||norm(r.ChildName);
-        if(!identity) return;
-        const set=groups.get(rec)||new Set<string>();
-        set.add(identity.toLocaleLowerCase());
-        groups.set(rec,set);
-      });
-    let total=0; groups.forEach(children=>total+=children.size); return total;
-  })();
-  const participantCountByRec = (source:Rec[], type:'Student'|'Teacher') => {
-    const groups = new Map<string, Set<string>>();
-    source.filter(r => r.ParticipantType.toLowerCase()===type.toLowerCase() && r.Region && r.LocalBoard && r.REC)
-      .forEach(r => {
-        const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-        const identity=(type==='Student'
-          ? (norm(r.SourceRecordID)||norm(r.ChildName))
-          : norm(r.TeacherName));
-        if(!identity) return;
-        const set=groups.get(rec)||new Set<string>();
-        set.add(identity.toLocaleLowerCase());
-        groups.set(rec,set);
-      });
-    let total=0;
-    groups.forEach(identities=>total+=identities.size);
-    return total;
-  };
-
-  const studentPct = aggregate(studentRows).p;
-  const teacherPct = aggregate(teacherRows).p;
-  const prePct = aggregate(preRows).p;
-  const postPct = aggregate(postRows).p;
-  const score = overall.p * 206 / 100;
-
-  // Pre-assessment student count is supplied as an authoritative total by the existing
-  // assessment source. Preserve that count rather than deduplicating names in score rows.
-  // Post-assessment remains a distinct-child count per REC + theme, using the maximum
-  // theme count per REC to avoid adding the same children across themes.
-  const childKey = (r:Rec) => (norm(r.SourceRecordID) || norm(r.ChildName)).toLocaleLowerCase();
-  const postStudents = (() => {
-    const byRecTheme = new Map<string, Set<string>>();
-    postRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)
-      .forEach(r => {
-        const child=childKey(r); if(!child) return;
-        const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC),norm(r.ThemeID)].join('||');
-        const set=byRecTheme.get(key)||new Set<string>(); set.add(child); byRecTheme.set(key,set);
-      });
-    const byRec = new Map<string, number>();
-    byRecTheme.forEach((children,key) => {
-      const rec=key.split('||').slice(0,3).join('||');
-      byRec.set(rec,Math.max(byRec.get(rec)||0,children.size));
-    });
-    let total=0; byRec.forEach(n=>total+=n); return total;
-  })();
-  // Teacher Pre and Post ratings are collected together for each theme.
-  // Count each teacher only once within a REC across all themes and both ratings.
-  // TeacherName is preferred; RecordID is a fallback when the source has no name field.
-  const uniqueTeacherCount = (source:Rec[]) => {
-    const groups = new Map<string, Set<string>>();
-    source.filter(r => r.ParticipantType.toLowerCase()==='teacher' && r.Region && r.LocalBoard && r.REC)
-      .forEach(r => {
-        const rec = [norm(r.Region), norm(r.LocalBoard), norm(r.REC)].join('||');
-        const teacher = norm(r.TeacherName);
-        if (!teacher) return;
-        const names = groups.get(rec) || new Set<string>();
-        names.add(teacher.toLocaleLowerCase());
-        groups.set(rec, names);
-      });
-    let total = 0;
-    groups.forEach(names => total += names.size);
-    return total;
-  };
-  const teachers = uniqueTeacherCount(teacherRows);
-
-  const recKey = (r: Rec) =>
-    [norm(r.Region), norm(r.LocalBoard), norm(r.REC)].join('||');
-
-  const preRecs = new Set(
-    preRows.filter(r => r.Region && r.LocalBoard && r.REC).map(recKey)
-  ).size;
-  const postRecs = new Set(
-    postRows.filter(r => r.Region && r.LocalBoard && r.REC).map(recKey)
-  ).size;
-
-  const cards = [
-    ['Overall Score', score.toFixed(1) + ' / 206'],
-    ['Performance', fmt(overall.p)],
-    ['Status', statusFor(overall.p)],
-    ['No. of Students', preStudents + ' / ' + postStudents],
-    ['No. of Teachers (Unique)', String(teachers)],
-    ['No. of RECs', preRecs + ' / ' + postRecs],
-    ['Students Overall', fmt(studentPct)],
-    ['Teachers Overall', fmt(teacherPct)],
-    ['Theme Overall', fmt(overall.p)],
-    ['Dimension Overall', fmt(overall.p)],
-    ['Pre Overall', fmt(prePct)],
-    ['Post Overall', fmt(postPct)]
+  const overall=aggregate(rows);
+  const studentPct=aggregate(rows.filter(r=>r.ParticipantType==='Student')).p;
+  const teacherPct=aggregate(rows.filter(r=>r.ParticipantType==='Teacher')).p;
+  const preRows=rows.filter(r=>assessmentIs(r.Assessment,'Pre'));
+  const postRows=rows.filter(r=>assessmentIs(r.Assessment,'Post'));
+  const score=overall.p*206/100;
+  const cards=[
+    ['Overall Score',score.toFixed(1)+' / 206'],
+    ['Performance',fmt(overall.p)],
+    ['Status',statusFor(overall.p)],
+    ['Students Overall',fmt(studentPct)],
+    ['Teachers Overall',fmt(teacherPct)],
+    ['Theme Overall',fmt(overall.p)],
+    ['Dimension Overall',fmt(overall.p)],
+    ['Pre Overall',fmt(aggregate(preRows).p)],
+    ['Post Overall',fmt(aggregate(postRows).p)]
   ];
-
-  return (
-    <div className="kpis">
-      {cards.map(([label, value]) => (
-        <div className="kpi" key={label}>
-          <span>
-            {label === 'No. of RECs'
-              ? 'No. of RECs (Pre / Post)'
-              : label}
-          </span>
-          <strong
-            className={
-              label === 'Status'
-                ? 'status-kpi ' + value.toLowerCase().replace(/ /g, '-')
-                : ''
-            }
-          >
-            {value}
-          </strong>
-        </div>
-      ))}
-    </div>
-  );
+  return <div className="kpis">{cards.map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}</div>;
 }
 
 function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a=aggregate(rows.filter(r=>norm(r[key])===k));return {key:k,p:a.p,score:a.score,max:a.max}})}
@@ -584,7 +469,20 @@ function PerformanceHighlights({rows}:{rows:Rec[]}){
  return <HighlightTable title="Performance Highlights" items={cards}/>
 }
 function Chart({title,data}:{title:string;data:{label:string;value:number}[]}){return <section className="card chart"><h2>{title}</h2>{data.length?data.map(d=><div className="barrow" key={d.label}><span>{d.label}</span><div><i style={{width:Math.max(0,Math.min(100,d.value))+'%'}}/></div><b>{fmt(d.value)}</b></div>):<div className="empty">No matching data</div>}</section>}
-function Analysis({page,rows,all,f,setF,nav}:{page:string;rows:Rec[];all:Rec[];f:any;setF:(x:any)=>void;nav:(p:string)=>void}){if(page==='prepost')return <PrePost rows={rows}/>;if(page==='theme')return <ThemeAnalysis rows={rows}/>;if(page==='dimension')return <DimensionAnalysis rows={rows}/>;if(page==='rec')return <RecAnalysis rows={rows} f={f}/>;const key=page==='region'?'LocalBoard':'REC';const items=unique(rows,key as keyof Rec);return <><Kpis rows={rows}/><section className="card"><h2>{page==='region'?'Local Board Performance':'REC Performance'}</h2><table><thead><tr><th>{page==='region'?'Local Board':'REC'}</th><th>Students</th><th>Teachers</th><th>Overall</th><th>UA</th><th>A</th><th>Pre</th><th>Post</th></tr></thead><tbody>{items.map(item=><tr key={item} onClick={()=>{if(page==='region'){setF((x:any)=>({...x,board:item,rec:''}));nav('board')}else{setF((x:any)=>({...x,rec:item}));nav('rec')}}}><td className="link">{item}</td><td>{count(rows,item,'Student',key as 'LocalBoard'|'REC')}</td><td>{count(rows,item,'Teacher',key as 'LocalBoard'|'REC')}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item)).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&r.DimensionID==='UA')).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&r.DimensionID==='A')).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&assessmentIs(r.Assessment,'Pre'))).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&assessmentIs(r.Assessment,'Post'))).p)}</td></tr>)}</tbody></table></section>{page==='region'?<><ChildPerformanceHighlights rows={rows} level="Local Board"/><ChildPerformanceHighlights rows={rows} level="REC"/></>:<ChildPerformanceHighlights rows={rows} level="REC"/>}<div className="grid2"><CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(rows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/><CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(rows,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/></div><Chart title="Assessment Performance — Pre vs Post" data={group(rows,'Assessment').map(x=>({label:x.key,value:x.p}))}/><WayForward rows={rows} scope={page} f={f}/></>}
+function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:any)=>void}) {
+  const base=filterRows(all.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'),{...f,teacher:''});
+  const names=unique(base,'TeacherName');
+  const selected=rows.filter(r=>norm(r.TeacherName)===norm(f.teacher));
+  const pre=stageAggregate(selected,'Pre'),post=stageAggregate(selected,'Post'),overall=aggregate(selected);
+  const ranked=names.map(name=>{const rs=base.filter(r=>norm(r.TeacherName)===name);const p=stageAggregate(rs,'Pre'),q=stageAggregate(rs,'Post');return {name,rows:rs,overall:aggregate(rs).p,pre:p.p,post:q.p,change:q.p-p.p};}).sort((a,b)=>a.name.localeCompare(b.name));
+  return <><section className="card"><div className="section-head"><div><h2>{f.teacher ? 'Teacher Profile — '+f.teacher : 'Teacher Performance Overview'}</h2><p>{f.teacher ? [f.region,f.board,f.rec].filter(Boolean).join(' · ') || 'All locations' : 'Select a teacher name below or use the Teacher Name filter to view individual results.'}</p></div>{f.teacher&&<button className="secondary" type="button" onClick={()=>setF((x:any)=>({...x,teacher:''}))}>Clear teacher selection</button>}</div>
+    {!f.teacher ? (ranked.length ? <div className="table-wrap"><table><thead><tr><th>Teacher Name</th><th>Overall Performance</th><th>Pre</th><th>Post</th><th>Change</th><th>REC</th></tr></thead><tbody>{ranked.map(t=><tr key={t.name} onClick={()=>setF((x:any)=>({...x,teacher:t.name}))}><td className="link">{t.name}</td><td>{fmt(t.overall)}</td><td>{fmt(t.pre)}</td><td>{fmt(t.post)}</td><td className={t.change>=0?'positive':'negative'}>{t.change>=0?'+':''}{t.change.toFixed(1)} pp</td><td>{unique(t.rows,'REC').join(', ')||'—'}</td></tr>)}</tbody></table></div> : <p className="empty">No teacher assessment records with a teacher name match these filters.</p>) : !selected.length ? <p className="empty">No assessment records were found for this teacher with the selected filters.</p> : <div className="kpis">
+      {[['Overall Performance',fmt(overall.p)],['Pre-assessment',pre.max?fmt(pre.p):'—'],['Post-assessment',post.max?fmt(post.p):'—'],['Change',post.max&&pre.max?(post.p-pre.p>=0?'+':'')+(post.p-pre.p).toFixed(1)+' pp':'—'],['Status',statusFor(overall.p)]].map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+String(value).toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}
+    </div>}</section>
+    {f.teacher&&selected.length>0&&<><div className="grid2"><CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(selected,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/><CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(selected,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/></div><Chart title="Indicator Performance" data={group(selected,'IndicatorID').map(x=>({label:x.key+' — '+rubricDescription(x.key),value:x.p}))}/><RubricDetailTable title={f.teacher+' — Indicator Details'} rows={selected}/><p className="card">Use the lowest-performing theme and indicators to plan targeted mentoring, then review the same measures in the next assessment cycle.</p></>}
+  </>;
+}
+function Analysis({page,rows,all,f,setF,nav}:{page:string;rows:Rec[];all:Rec[];f:any;setF:(x:any)=>void;nav:(p:string)=>void}){if(page==='teacher')return <TeacherAnalysis rows={rows} all={all} f={f} setF={setF}/>;if(page==='prepost')return <PrePost rows={rows}/>;if(page==='theme')return <ThemeAnalysis rows={rows}/>;if(page==='dimension')return <DimensionAnalysis rows={rows}/>;if(page==='rec')return <RecAnalysis rows={rows} f={f}/>;const key=page==='region'?'LocalBoard':'REC';const items=unique(rows,key as keyof Rec);return <><Kpis rows={rows}/><section className="card"><h2>{page==='region'?'Local Board Performance':'REC Performance'}</h2><table><thead><tr><th>{page==='region'?'Local Board':'REC'}</th><th>Students</th><th>Teachers</th><th>Overall</th><th>UA</th><th>A</th><th>Pre</th><th>Post</th></tr></thead><tbody>{items.map(item=><tr key={item} onClick={()=>{if(page==='region'){setF((x:any)=>({...x,board:item,rec:''}));nav('board')}else{setF((x:any)=>({...x,rec:item}));nav('rec')}}}><td className="link">{item}</td><td>{count(rows,item,'Student',key as 'LocalBoard'|'REC')}</td><td>{count(rows,item,'Teacher',key as 'LocalBoard'|'REC')}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item)).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&r.DimensionID==='UA')).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&r.DimensionID==='A')).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&assessmentIs(r.Assessment,'Pre'))).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&assessmentIs(r.Assessment,'Post'))).p)}</td></tr>)}</tbody></table></section>{page==='region'?<><ChildPerformanceHighlights rows={rows} level="Local Board"/><ChildPerformanceHighlights rows={rows} level="REC"/></>:<ChildPerformanceHighlights rows={rows} level="REC"/>}<div className="grid2"><CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(rows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/><CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(rows,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/></div><Chart title="Assessment Performance — Pre vs Post" data={group(rows,'Assessment').map(x=>({label:x.key,value:x.p}))}/><WayForward rows={rows} scope={page} f={f}/></>}
 function ChildPerformanceHighlights({rows,level}:{rows:Rec[];level:'Local Board'|'REC'}){
  const key=level==='Local Board'?'LocalBoard':'REC';const map=new Map<string,Rec[]>();
  rows.filter(r=>r[key]).forEach(r=>{const id=level==='Local Board'?[norm(r.Region),norm(r.LocalBoard)].join('||'):[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});

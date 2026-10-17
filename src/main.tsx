@@ -307,11 +307,23 @@ function Kpis({rows}:{rows:Rec[]}) {
   const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
   const preRows = rows.filter(r => assessmentIs(r.Assessment, 'Pre'));
   const postRows = rows.filter(r => assessmentIs(r.Assessment, 'Post'));
-  // The authoritative Pre student total comes from the two source sheets:
-  // 874 in Student Pre Assessment + 18 Pre records in Student Post Assessment.
-  // Source rows may expand into many indicator rows in APP_Records, so don't
-  // attempt to reconstruct this authoritative total by deduplicating score rows.
-  const preStudents = 874 + 18;
+  // Count Pre students from the rows currently in scope so the KPI responds
+  // to Region / Local Board / REC / Participant / Assessment / Theme / Year filters.
+  // APP_Records has multiple indicator rows per child, so deduplicate by source
+  // participant ID (preferred) or child name, within each REC.
+  const preStudents = (() => {
+    const groups = new Map<string, Set<string>>();
+    preRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)
+      .forEach(r => {
+        const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+        const identity=norm(r.SourceRecordID)||norm(r.ChildName);
+        if(!identity) return;
+        const set=groups.get(rec)||new Set<string>();
+        set.add(identity.toLocaleLowerCase());
+        groups.set(rec,set);
+      });
+    let total=0; groups.forEach(children=>total+=children.size); return total;
+  })();
   const participantCountByRec = (source:Rec[], type:'Student'|'Teacher') => {
     const groups = new Map<string, Set<string>>();
     source.filter(r => r.ParticipantType.toLowerCase()===type.toLowerCase() && r.Region && r.LocalBoard && r.REC)

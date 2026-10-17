@@ -496,16 +496,7 @@ function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:a
  const chosen=ranked.find(t=>norm(t.name)===norm(f.teacher));
  const selectTeacher=(name:string)=>setF((x:any)=>({...x,teacher:name,pt:''}));
  return <>
-   <Kpis rows={analysisRows} hideTeacherBreakdown hideAtGlance/>
-   {!hideAtGlance&&<section className="card performance-highlights">
-    <div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>Teacher Performance Highlights</h2></div><p>Select a teacher’s name to open their detailed analysis.</p></div>
-    <div className="highlight-card-grid">
-     {[{label:'Top-performing teacher',item:top,positive:true},{label:'Teacher needing most support',item:weak,positive:false}].map(({label,item,positive})=><article className="highlight-card" key={label}>
-      <div className="highlight-card-top"><span className={'highlight-status '+(positive?'status-strong':'status-support')}>{positive?'TOP PERFORMANCE':'NEEDS SUPPORT'}</span><span className="highlight-scope">TEACHER</span></div>
-      {item ? <><h3>{item.name}</h3><div className="highlight-overall"><span>Overall performance</span><strong>{fmt(item.overall)}</strong></div><div className="highlight-score-row"><div><span>Pre score</span><strong>{item.pre.max?fmt(item.pre.p):'No Pre data'}</strong></div><div><span>Post score</span><strong>{item.post.max?fmt(item.post.p):'No Post data'}</strong></div></div><button className="primary" type="button" onClick={()=>selectTeacher(item.name)}>{norm(f.teacher)===norm(item.name)?'Selected teacher':'View teacher analysis'}</button></> : <div className="empty">No named teacher assessment records match these filters.</div>}
-     </article>)}
-    </div>
-   </section>}
+   <Kpis rows={analysisRows} hideTeacherBreakdown/>
    <section className="card">
     <div className="section-head"><div><h2>{f.teacher?'Teacher Analysis — '+f.teacher:'Select a Teacher'}</h2><p>{f.teacher?'Theme, dimension, assessment and indicator results for the selected teacher.':'Choose a teacher from the Teacher Name filter or select View teacher analysis above.'}</p></div>
     {f.teacher&&<button className="secondary" type="button" onClick={()=>setF((x:any)=>({...x,teacher:''}))}>Clear teacher selection</button>}

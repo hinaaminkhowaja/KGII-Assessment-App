@@ -12,7 +12,7 @@ function aggregate(rows:Rec[]){let s=0,m=0;for(const r of rows){s+=Number(r.Scor
 function avgRating(rows:Rec[],participantType:string){const x=rows.filter(r=>r.ParticipantType===participantType);if(!x.length)return 0;return x.reduce((a,r)=>a+(Number(r.Score)||0),0)/x.length;}
 function scoreOutOf(rows:Rec[],participantType:string,unitMax:number){const x=rows.filter(r=>r.ParticipantType===participantType);return x.length?avgRating(rows,participantType)*unitMax:0;}
 function scoreModel(rows:Rec[]){const student=scoreOutOf(rows,'Student',29);const teacher=scoreOutOf(rows,'Teacher',4);return {student,teacher,total:student+teacher,max:103};}
-function combinedScore(rows:Rec[]){const pre=scoreModel(rows.filter(r=>assessmentIs(r.Assessment,'Pre'))),post=scoreModel(rows.filter(r=>assessmentIs(r.Assessment,'Post')));return {score:pre.total+post.total,max:206,percent:pct(pre.total+post.total,206),pre,post};}
+function combinedScore(rows:Rec[]){const pre=scoreModel(rows.filter(r=>assessmentIs(r.Assessment,'Pre'))),post=scoreModel(rows.filter(r=>assessmentIs(r.Assessment,'Post')));return {score:pre.total+post.total,max:32,percent:pct(pre.total+post.total,32),pre,post};}
 function unique(rows:Rec[],key:keyof Rec){return [...new Set(rows.map(r=>norm(r[key])) )].filter(Boolean).sort((a,b)=>a.localeCompare(b));}
 function labelTheme(id:string){const m:any={T1:'Theme 1 — Authority and Leadership',T2:'Theme 2 — Intellectual Traditions',T3:'Theme 3 — Role in Family, Community and Society',T4:'Theme 4 — Two Aspects of Life'};return m[id]||id}
 function displayGeo(value:string){
@@ -303,23 +303,26 @@ function subtitle(p:string){if(p==='student-survey')return 'Enter student survey
 function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/>}{page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/>}<S k="assessment" lab="Assessment" vals={assessments}/><S k="theme" lab="Theme" vals={themes}/><S k="dim" lab="Dimension" vals={dims}/><S k="year" lab="Year" vals={years.map(String)}/></section>}
 function statusFor(p:number){return p>=80?'Excellent':p>=65?'Good':p>=50?'Satisfactory':'Need Attention'}
 
-function Kpis({rows,hideTeacherBreakdown=false}:{rows:Rec[];hideTeacherBreakdown?:boolean}) {
+function Kpis({rows,hideTeacherBreakdown=false,hideAtGlance=false}:{rows:Rec[];hideTeacherBreakdown?:boolean;hideAtGlance?:boolean}) {
   const overall=aggregate(rows);
   const studentPct=aggregate(rows.filter(r=>r.ParticipantType==='Student')).p;
   const teacherPct=aggregate(rows.filter(r=>r.ParticipantType==='Teacher')).p;
   const preRows=rows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const postRows=rows.filter(r=>assessmentIs(r.Assessment,'Post'));
   const score=overall.p*206/100;
+  const teacherOnly=hideTeacherBreakdown;
+  const preScore=teacherOnly?scoreModel(preRows).total:aggregate(preRows).p;
+  const postScore=teacherOnly?scoreModel(postRows).total:aggregate(postRows).p;
   const cards=[
-    ['Overall Score',score.toFixed(1)+' / 206'],
+    ['Overall Score',teacherOnly?((preScore+postScore).toFixed(1)+' / 32'):(score.toFixed(1)+' / 206')],
     ['Performance',fmt(overall.p)],
     ['Status',statusFor(overall.p)],
     ['Students Overall',fmt(studentPct)],
     ['Teachers Overall',fmt(teacherPct)],
     ['Theme Overall',fmt(overall.p)],
     ['Dimension Overall',fmt(overall.p)],
-    ['Pre Overall',fmt(aggregate(preRows).p)],
-    ['Post Overall',fmt(aggregate(postRows).p)]
+    ['Pre Overall',teacherOnly?(preScore.toFixed(1)+' / 16'):fmt(aggregate(preRows).p)],
+    ['Post Overall',teacherOnly?(postScore.toFixed(1)+' / 16'):fmt(aggregate(postRows).p)]
   ];
   const visibleCards=hideTeacherBreakdown?cards.filter(([label])=>!['Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label)):cards;
   return <div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}</div>;
@@ -493,8 +496,8 @@ function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:a
  const chosen=ranked.find(t=>norm(t.name)===norm(f.teacher));
  const selectTeacher=(name:string)=>setF((x:any)=>({...x,teacher:name,pt:''}));
  return <>
-   <Kpis rows={analysisRows} hideTeacherBreakdown/>
-   <section className="card performance-highlights">
+   <Kpis rows={analysisRows} hideTeacherBreakdown hideAtGlance/>
+   {!hideAtGlance&&<section className="card performance-highlights">
     <div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>Teacher Performance Highlights</h2></div><p>Select a teacher’s name to open their detailed analysis.</p></div>
     <div className="highlight-card-grid">
      {[{label:'Top-performing teacher',item:top,positive:true},{label:'Teacher needing most support',item:weak,positive:false}].map(({label,item,positive})=><article className="highlight-card" key={label}>

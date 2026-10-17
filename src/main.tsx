@@ -307,6 +307,25 @@ function Kpis({rows}:{rows:Rec[]}) {
   const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
   const preRows = rows.filter(r => assessmentIs(r.Assessment, 'Pre'));
   const postRows = rows.filter(r => assessmentIs(r.Assessment, 'Post'));
+  // Use the existing participant count once per REC (not once per indicator row).
+  const participantCountByRec = (source:Rec[], type:'Student'|'Teacher') => {
+    const groups = new Map<string, Rec[]>();
+    source.filter(r => r.ParticipantType.toLowerCase()===type.toLowerCase() && r.Region && r.LocalBoard && r.REC)
+      .forEach(r => {
+        const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+        const arr=groups.get(key)||[]; arr.push(r); groups.set(key,arr);
+      });
+    let total=0;
+    groups.forEach(items => {
+      const counts=items.map(r=>Number(r.ParticipantCount)||0).filter(n=>n>0);
+      if(counts.length) total+=Math.max(...counts);
+      else {
+        const identities=items.map(r=>norm(r.SourceRecordID)||norm(r.ChildName)).filter(Boolean);
+        total+=new Set(identities.map(v=>v.toLocaleLowerCase())).size;
+      }
+    });
+    return total;
+  };
 
   const studentPct = aggregate(studentRows).p;
   const teacherPct = aggregate(teacherRows).p;

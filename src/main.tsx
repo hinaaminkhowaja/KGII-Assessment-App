@@ -470,17 +470,27 @@ function PerformanceHighlights({rows}:{rows:Rec[]}){
 }
 function Chart({title,data}:{title:string;data:{label:string;value:number}[]}){return <section className="card chart"><h2>{title}</h2>{data.length?data.map(d=><div className="barrow" key={d.label}><span>{d.label}</span><div><i style={{width:Math.max(0,Math.min(100,d.value))+'%'}}/></div><b>{fmt(d.value)}</b></div>):<div className="empty">No matching data</div>}</section>}
 function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:any)=>void}) {
-  const base=filterRows(all.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'),{...f,teacher:''});
-  const names=unique(base,'TeacherName');
-  const selected=rows.filter(r=>norm(r.TeacherName)===norm(f.teacher));
-  const pre=stageAggregate(selected,'Pre'),post=stageAggregate(selected,'Post'),overall=aggregate(selected);
-  const ranked=names.map(name=>{const rs=base.filter(r=>norm(r.TeacherName)===name);const p=stageAggregate(rs,'Pre'),q=stageAggregate(rs,'Post');return {name,rows:rs,overall:aggregate(rs).p,pre:p.p,post:q.p,change:q.p-p.p};}).sort((a,b)=>a.name.localeCompare(b.name));
-  return <><section className="card"><div className="section-head"><div><h2>{f.teacher ? 'Teacher Profile — '+f.teacher : 'Teacher Performance Overview'}</h2><p>{f.teacher ? [f.region,f.board,f.rec].filter(Boolean).join(' · ') || 'All locations' : 'Select a teacher name below or use the Teacher Name filter to view individual results.'}</p></div>{f.teacher&&<button className="secondary" type="button" onClick={()=>setF((x:any)=>({...x,teacher:''}))}>Clear teacher selection</button>}</div>
-    {!f.teacher ? (ranked.length ? <div className="table-wrap"><table><thead><tr><th>Teacher Name</th><th>Overall Performance</th><th>Pre</th><th>Post</th><th>Change</th><th>REC</th></tr></thead><tbody>{ranked.map(t=><tr key={t.name} onClick={()=>setF((x:any)=>({...x,teacher:t.name}))}><td className="link">{t.name}</td><td>{fmt(t.overall)}</td><td>{fmt(t.pre)}</td><td>{fmt(t.post)}</td><td className={t.change>=0?'positive':'negative'}>{t.change>=0?'+':''}{t.change.toFixed(1)} pp</td><td>{unique(t.rows,'REC').join(', ')||'—'}</td></tr>)}</tbody></table></div> : <p className="empty">No teacher assessment records with a teacher name match these filters.</p>) : !selected.length ? <p className="empty">No assessment records were found for this teacher with the selected filters.</p> : <div className="kpis">
-      {[['Overall Performance',fmt(overall.p)],['Pre-assessment',pre.max?fmt(pre.p):'—'],['Post-assessment',post.max?fmt(post.p):'—'],['Change',post.max&&pre.max?(post.p-pre.p>=0?'+':'')+(post.p-pre.p).toFixed(1)+' pp':'—'],['Status',statusFor(overall.p)]].map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+String(value).toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}
-    </div>}</section>
-    {f.teacher&&selected.length>0&&<><div className="grid2"><CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(selected,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/><CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(selected,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/></div><Chart title="Indicator Performance" data={group(selected,'IndicatorID').map(x=>({label:x.key+' — '+rubricDescription(x.key),value:x.p}))}/><RubricDetailTable title={f.teacher+' — Indicator Details'} rows={selected}/><p className="card">Use the lowest-performing theme and indicators to plan targeted mentoring, then review the same measures in the next assessment cycle.</p></>}
-  </>;
+ const teacherRows=all.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
+ const rankingRows=filterRows(teacherRows,{...f,teacher:''});
+ const ranked=unique(rankingRows,'TeacherName').map(name=>{
+   const rs=rankingRows.filter(r=>norm(r.TeacherName)===norm(name));
+   return {name,rows:rs,overall:aggregate(rs).p};
+ }).sort((a,b)=>b.overall-a.overall);
+ const top=ranked[0],weak=ranked[ranked.length-1];
+ const analysisRows=rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
+ return <>
+   <Kpis rows={analysisRows}/>
+   <HighlightTable title="Teacher Performance Highlights" items={[
+     {label:'Top-performing teacher',item:top?{rows:top.rows,name:top.name,overall:top.overall}:undefined},
+     {label:'Teacher needing most support',item:weak?{rows:weak.rows,name:weak.name,overall:weak.overall}:undefined}
+   ]}/>
+   <div className="grid2">
+     <CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(analysisRows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/>
+     <CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(analysisRows,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/>
+   </div>
+   <Chart title="Assessment Performance — Pre vs Post" data={group(analysisRows,'Assessment').map(x=>({label:x.key,value:x.p}))}/>
+   <WayForward rows={analysisRows} scope="teacher" f={f}/>
+ </>;
 }
 function Analysis({page,rows,all,f,setF,nav}:{page:string;rows:Rec[];all:Rec[];f:any;setF:(x:any)=>void;nav:(p:string)=>void}){if(page==='teacher')return <TeacherAnalysis rows={rows} all={all} f={f} setF={setF}/>;if(page==='prepost')return <PrePost rows={rows}/>;if(page==='theme')return <ThemeAnalysis rows={rows}/>;if(page==='dimension')return <DimensionAnalysis rows={rows}/>;if(page==='rec')return <RecAnalysis rows={rows} f={f}/>;const key=page==='region'?'LocalBoard':'REC';const items=unique(rows,key as keyof Rec);return <><Kpis rows={rows}/><section className="card"><h2>{page==='region'?'Local Board Performance':'REC Performance'}</h2><table><thead><tr><th>{page==='region'?'Local Board':'REC'}</th><th>Students</th><th>Teachers</th><th>Overall</th><th>UA</th><th>A</th><th>Pre</th><th>Post</th></tr></thead><tbody>{items.map(item=><tr key={item} onClick={()=>{if(page==='region'){setF((x:any)=>({...x,board:item,rec:''}));nav('board')}else{setF((x:any)=>({...x,rec:item}));nav('rec')}}}><td className="link">{item}</td><td>{count(rows,item,'Student',key as 'LocalBoard'|'REC')}</td><td>{count(rows,item,'Teacher',key as 'LocalBoard'|'REC')}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item)).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&r.DimensionID==='UA')).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&r.DimensionID==='A')).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&assessmentIs(r.Assessment,'Pre'))).p)}</td><td>{fmt(aggregate(rows.filter(r=>norm(r[key as keyof Rec])===item&&assessmentIs(r.Assessment,'Post'))).p)}</td></tr>)}</tbody></table></section>{page==='region'?<><ChildPerformanceHighlights rows={rows} level="Local Board"/><ChildPerformanceHighlights rows={rows} level="REC"/></>:<ChildPerformanceHighlights rows={rows} level="REC"/>}<div className="grid2"><CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(rows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/><CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(rows,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/></div><Chart title="Assessment Performance — Pre vs Post" data={group(rows,'Assessment').map(x=>({label:x.key,value:x.p}))}/><WayForward rows={rows} scope={page} f={f}/></>}
 function ChildPerformanceHighlights({rows,level}:{rows:Rec[];level:'Local Board'|'REC'}){

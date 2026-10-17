@@ -314,20 +314,12 @@ function Kpis({rows}:{rows:Rec[]}) {
   const postPct = aggregate(postRows).p;
   const score = overall.p * 206 / 100;
 
-  // Each APP_Records row is an indicator score, not a participant.
-  // Count distinct children per REC for Pre. For Post, count distinct children
-  // per REC + theme and use the maximum theme count per REC.
+  // Pre-assessment student count is supplied as an authoritative total by the existing
+  // assessment source. Preserve that count rather than deduplicating names in score rows.
+  // Post-assessment remains a distinct-child count per REC + theme, using the maximum
+  // theme count per REC to avoid adding the same children across themes.
+  const preStudents = participantCountByRec(preRows,'Student');
   const childKey = (r:Rec) => (norm(r.SourceRecordID) || norm(r.ChildName)).toLocaleLowerCase();
-  const preStudents = (() => {
-    const groups = new Map<string, Set<string>>();
-    preRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)
-      .forEach(r => {
-        const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-        const child=childKey(r); if(!child) return;
-        const set=groups.get(rec)||new Set<string>(); set.add(child); groups.set(rec,set);
-      });
-    let total=0; groups.forEach(set=>total+=set.size); return total;
-  })();
   const postStudents = (() => {
     const byRecTheme = new Map<string, Set<string>>();
     postRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)

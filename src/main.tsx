@@ -300,7 +300,7 @@ function ResourceLibrary({user}:{user:AppUser|null}){
 
 function title(p:string){return ({dashboard:'KG II Assessment Dashboard',region:'Region-wise Analysis',board:'Local Board-wise Analysis',rec:'REC-wise Analysis',teacher:'Teacher-wise Analysis',theme:'Theme-wise Analysis',dimension:'Dimension-wise Analysis',prepost:'Pre / Post Analysis',admin:'Users & Access',resources:'Mentoring & Assessment Strategies','student-survey':'Student Survey Entry','teacher-survey':'Teacher Survey Entry'} as any)[p]}
 function subtitle(p:string){if(p==='student-survey')return 'Enter student survey responses using the master Region → Local Board → REC hierarchy.';if(p==='teacher-survey')return 'Enter teacher survey responses using the master Region → Local Board → REC hierarchy.';if(p==='resources')return 'View and download mentoring and assessment resources.';return p==='dashboard'?'Assessment Performance Overview':p==='teacher'?'Review individual teacher performance across themes, dimensions and pre/post assessments.':'Drill down into performance using the selected filters.'}
-function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/>}{page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/>}<S k="assessment" lab="Assessment" vals={assessments}/><S k="theme" lab="Theme" vals={themes}/><S k="dim" lab="Dimension" vals={dims}/><S k="year" lab="Year" vals={years.map(String)}/></section>}
+function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const teacherPage=page==='teacher';const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/>}{page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/>}<S k="assessment" lab="Assessment" vals={assessments}/><S k="theme" lab="Theme" vals={themes}/>{!teacherPage&&<S k="dim" lab="Dimension" vals={dims}/>}<S k="year" lab="Year" vals={years.map(String)}/></section>}
 function statusFor(p:number){return p>=80?'Excellent':p>=65?'Good':p>=50?'Satisfactory':'Need Attention'}
 
 function Kpis({rows,hideTeacherBreakdown=false,hideAtGlance=false}:{rows:Rec[];hideTeacherBreakdown?:boolean;hideAtGlance?:boolean}) {
@@ -436,24 +436,24 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
       : 'Review the weakest rubric area with the team and agree on one observable child behaviour to practise and assess.';
   const titleScope = scope==='teacher'?'Teacher':scope==='dashboard'?'Overall':scope==='region'?'Region':scope==='board'?'Local Board':'REC';
   return <section className="card way-forward">
-    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>{scope==='teacher'?'Teacher priorities are based on the lowest-performing themes, dimensions and indicators in the selected teacher results.':'Student and teacher priorities are calculated separately from the lowest-performing themes in the current selection.'}</p></div></div>
+    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>{scope==='teacher'?'Teacher priorities are based on the selected teacher’s theme performance.':'Student and teacher priorities are calculated separately from the lowest-performing themes in the current selection.'}</p></div></div>
     {!rows.length ? <p className="empty">No assessment data is available for these filters yet.</p> : <>
       <div className="way-forward-priorities">
         {scope==='teacher' ? <>
           <div><span>Teacher · Strongest theme</span><b>{strongestTheme ? labelTheme(strongestTheme.key)+' · '+fmt(strongestTheme.p) : 'Not available'}</b><p>Build on this strength by sharing effective practice with peers and using it as a model for other themes.</p></div>
           <div><span>Teacher · Weakest theme</span><b>{weakestTeacherTheme ? labelTheme(weakestTeacherTheme.key)+' · '+fmt(weakestTeacherTheme.p) : 'Not available'}</b><p>{weakestTeacherTheme ? (teacherThemeActions[weakestTeacherTheme.key] || 'Plan focused professional learning and review progress against the same indicators.') : 'No teacher assessment data is available for this selection.'}</p></div>
-          <div><span>Teacher · Strongest dimension</span><b>{strongestDim ? labelDim(strongestDim.key)+' · '+fmt(strongestDim.p) : 'Not available'}</b><p>Identify the practices contributing to this result and use them to support improvement in other areas.</p></div>
-          <div><span>Teacher · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>Use a focused mentoring conversation, model the expected practice, and agree on one classroom strategy to apply and review.</p></div>
         </> : <>
           <div><span>Students · Weakest theme</span><b>{weakestStudentTheme ? labelTheme(weakestStudentTheme.key)+' · '+fmt(weakestStudentTheme.p) : 'Not available'}</b><p>{weakestStudentTheme ? (themeActions[weakestStudentTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'No student assessment data is available for this selection.'}</p></div>
           <div><span>Teachers · Weakest theme</span><b>{weakestTeacherTheme ? labelTheme(weakestTeacherTheme.key)+' · '+fmt(weakestTeacherTheme.p) : 'Not available'}</b><p>{weakestTeacherTheme ? (teacherThemeActions[weakestTeacherTheme.key] || 'Plan focused professional learning and review progress against the same indicators.') : 'No teacher assessment data is available for this selection.'}</p></div>
           <div><span>Students · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>{dimAction}</p></div>
         </>}
       </div>
-      <h3>{scope==='teacher'?'Teacher indicators requiring attention':'Student rubrics requiring attention'}</h3>
-      {(scope==='teacher' ? [...strongIndicators.map(x=>({...x,priority:'Strongest'})),...weakIndicators.map(x=>({...x,priority:'Needs support'}))] : weakIndicators.map(x=>({...x,priority:'Needs support'}))).length ? <div className="table-wrap"><table><thead><tr>{scope==='teacher'&&<th>Priority</th>}<th>Full rubric description</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
-        {(scope==='teacher' ? [...strongIndicators.map(x=>({...x,priority:'Strongest'})),...weakIndicators.map(x=>({...x,priority:'Needs support'}))] : weakIndicators.map(x=>({...x,priority:'Needs support'}))).map((x:any,i:number)=>{const sample=x.rows[0];const action=rubricAction(x.id,sample.ThemeID,sample.DimensionID);return <tr key={x.priority+'-'+x.id+'-'+i}>{scope==='teacher'&&<td>{x.priority}</td>}<td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{sample.DimensionID ? labelDim(sample.DimensionID) : '—'}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
-      </tbody></table></div> : <p className="empty">{scope==='teacher'?'Teacher indicator-level data is not available for this selection.':'Student indicator-level data is not available for this selection.'}</p>}
+      {scope!=='teacher'&&<>
+      <h3>Student rubrics requiring attention</h3>
+      {weakIndicators.length ? <div className="table-wrap"><table><thead><tr><th>Full rubric description</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
+        {weakIndicators.map((x:any,i:number)=>{const sample=x.rows[0];const action=rubricAction(x.id,sample.ThemeID,sample.DimensionID);return <tr key={x.id+'-'+i}><td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{sample.DimensionID ? labelDim(sample.DimensionID) : '—'}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
+      </tbody></table></div> : <p className="empty">Student indicator-level data is not available for this selection.</p>}
+      </>}
       <div className="way-forward-resources"><div><h3>Connect priorities to mentoring resources</h3><p>Use the recommended actions above to select a focused activity, mentoring strategy or assessment resource, then review the same indicators in the next assessment cycle.</p></div><button type="button" className="primary" onClick={()=>nav?.('resources')}>Open Mentoring & Assessment Strategies ↗</button></div>
       <p className="way-forward-note">{scope==='teacher'?'Next step: agree on one or two professional learning priorities, apply the strategy in practice, record evidence against the same indicators, and review progress in the next assessment cycle.':'Next step: select one or two priorities for students and teachers, plan targeted learning or professional development, record evidence against the same indicators, and review progress in the next assessment cycle.'}</p>
     </>}
@@ -498,19 +498,17 @@ function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:a
  return <>
    <Kpis rows={analysisRows} hideTeacherBreakdown/>
    <section className="card">
-    <div className="section-head"><div><h2>{f.teacher?'Teacher Analysis — '+f.teacher:'Select a Teacher'}</h2><p>{f.teacher?'Theme, dimension, assessment and indicator results for the selected teacher.':'Choose a teacher from the Teacher Name filter or select View teacher analysis above.'}</p></div>
+    <div className="section-head"><div><h2>{f.teacher?'Teacher Analysis — '+f.teacher:'Select a Teacher'}</h2><p>{f.teacher?'Theme and assessment results for the selected teacher.':'Choose a teacher from the Teacher Name filter or select View teacher analysis above.'}</p></div>
     {f.teacher&&<button className="secondary" type="button" onClick={()=>setF((x:any)=>({...x,teacher:''}))}>Clear teacher selection</button>}
     </div>
     {!f.teacher ? <div className="table-wrap"><table><thead><tr><th>Teacher Name</th><th>Overall</th><th>Pre</th><th>Post</th><th>Change</th></tr></thead><tbody>{ranked.map(t=><tr key={t.name} onClick={()=>selectTeacher(t.name)}><td className="link">{t.name}</td><td>{fmt(t.overall)}</td><td>{t.pre.max?fmt(t.pre.p):'—'}</td><td>{t.post.max?fmt(t.post.p):'—'}</td><td className={t.post.p-t.pre.p>=0?'positive':'negative'}>{t.post.max&&t.pre.max?(t.post.p-t.pre.p>=0?'+':'')+(t.post.p-t.pre.p).toFixed(1)+' pp':'—'}</td></tr>)}</tbody></table></div> :
     !analysisRows.length ? <p className="empty">No teacher assessment records were found for this teacher and the selected filters.</p> : <>
      <div className="grid2">
       <CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(analysisRows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/>
-      <CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(analysisRows,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/>
+      
      </div>
      <Chart title="Assessment Performance — Pre vs Post" data={group(analysisRows,'Assessment').map(x=>({label:x.key,value:x.p}))}/>
-     <Chart title="Indicator Performance" data={group(analysisRows,'IndicatorID').map(x=>({label:x.key+' — '+rubricDescription(x.key),value:x.p}))}/>
-     <RubricDetailTable title={f.teacher+' — Indicator Details'} rows={analysisRows}/>
-     <WayForward rows={analysisRows} scope="teacher" f={f}/>
+          <WayForward rows={analysisRows} scope="teacher" f={f}/>
     </>}
    </section>
  </>;

@@ -505,7 +505,7 @@ function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:a
       {item ? <><h3>{item.name}</h3><div className="highlight-overall"><span>Overall performance</span><strong>{fmt(item.overall)}</strong></div><div className="highlight-score-row"><div><span>Pre score</span><strong>{item.pre.max?fmt(item.pre.p):'No Pre data'}</strong></div><div><span>Post score</span><strong>{item.post.max?fmt(item.post.p):'No Post data'}</strong></div></div><button className="primary" type="button" onClick={()=>selectTeacher(item.name)}>{norm(f.teacher)===norm(item.name)?'Selected teacher':'View teacher analysis'}</button></> : <div className="empty">No named teacher assessment records match these filters.</div>}
      </article>)}
     </div>
-   </section>
+   </section>}
    <section className="card">
     <div className="section-head"><div><h2>{f.teacher?'Teacher Analysis — '+f.teacher:'Select a Teacher'}</h2><p>{f.teacher?'Theme, dimension, assessment and indicator results for the selected teacher.':'Choose a teacher from the Teacher Name filter or select View teacher analysis above.'}</p></div>
     {f.teacher&&<button className="secondary" type="button" onClick={()=>setF((x:any)=>({...x,teacher:''}))}>Clear teacher selection</button>}

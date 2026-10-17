@@ -399,9 +399,10 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
   const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
   const studentThemes = group(studentRows,'ThemeID').sort((a,b)=>a.p-b.p);
   const teacherThemes = group(teacherRows,'ThemeID').sort((a,b)=>a.p-b.p);
-  const dimGroups = group(studentRows,'DimensionID').sort((a,b)=>a.p-b.p);
-  const indicatorGroups = unique(studentRows,'IndicatorID').map(id => {
-    const subset = studentRows.filter(r => r.IndicatorID === id);
+  const priorityRows = scope==='teacher' ? teacherRows : studentRows;
+  const dimGroups = group(priorityRows,'DimensionID').sort((a,b)=>a.p-b.p);
+  const indicatorGroups = unique(priorityRows,'IndicatorID').map(id => {
+    const subset = priorityRows.filter(r => r.IndicatorID === id);
     const a = aggregate(subset);
     return {id, label:rubricDescription(id), p:a.p,rows:subset};
   }).sort((a,b)=>a.p-b.p);
@@ -426,21 +427,26 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
     : weakestDim?.key === 'A'
       ? 'Strengthen application: provide guided practice, role-play and repeated opportunities to demonstrate the learning during classroom and home routines.'
       : 'Review the weakest rubric area with the team and agree on one observable child behaviour to practise and assess.';
-  const titleScope = scope==='dashboard'?'Overall':scope==='region'?'Region':scope==='board'?'Local Board':'REC';
+  const titleScope = scope==='teacher'?'Teacher':scope==='dashboard'?'Overall':scope==='region'?'Region':scope==='board'?'Local Board':'REC';
   return <section className="card way-forward">
-    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>Student and teacher priorities are calculated separately from the lowest-performing themes in the current selection.</p></div></div>
+    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>{scope==='teacher'?'Teacher priorities are based on the lowest-performing themes, dimensions and indicators in the selected teacher results.':'Student and teacher priorities are calculated separately from the lowest-performing themes in the current selection.'}</p></div></div>
     {!rows.length ? <p className="empty">No assessment data is available for these filters yet.</p> : <>
       <div className="way-forward-priorities">
-        <div><span>Students · Weakest theme</span><b>{weakestStudentTheme ? labelTheme(weakestStudentTheme.key)+' · '+fmt(weakestStudentTheme.p) : 'Not available'}</b><p>{weakestStudentTheme ? (themeActions[weakestStudentTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'No student assessment data is available for this selection.'}</p></div>
-        <div><span>Teachers · Weakest theme</span><b>{weakestTeacherTheme ? labelTheme(weakestTeacherTheme.key)+' · '+fmt(weakestTeacherTheme.p) : 'Not available'}</b><p>{weakestTeacherTheme ? (teacherThemeActions[weakestTeacherTheme.key] || 'Plan focused professional learning and review progress against the same indicators.') : 'No teacher assessment data is available for this selection.'}</p></div>
-        <div><span>Students · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>{dimAction}</p></div>
+        {scope==='teacher' ? <>
+          <div><span>Teacher · Weakest theme</span><b>{weakestTeacherTheme ? labelTheme(weakestTeacherTheme.key)+' · '+fmt(weakestTeacherTheme.p) : 'Not available'}</b><p>{weakestTeacherTheme ? (teacherThemeActions[weakestTeacherTheme.key] || 'Plan focused professional learning and review progress against the same indicators.') : 'No teacher assessment data is available for this selection.'}</p></div>
+          <div><span>Teacher · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>Use a focused mentoring conversation, model the expected practice, and agree on one classroom strategy to apply and review.</p></div>
+        </> : <>
+          <div><span>Students · Weakest theme</span><b>{weakestStudentTheme ? labelTheme(weakestStudentTheme.key)+' · '+fmt(weakestStudentTheme.p) : 'Not available'}</b><p>{weakestStudentTheme ? (themeActions[weakestStudentTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'No student assessment data is available for this selection.'}</p></div>
+          <div><span>Teachers · Weakest theme</span><b>{weakestTeacherTheme ? labelTheme(weakestTeacherTheme.key)+' · '+fmt(weakestTeacherTheme.p) : 'Not available'}</b><p>{weakestTeacherTheme ? (teacherThemeActions[weakestTeacherTheme.key] || 'Plan focused professional learning and review progress against the same indicators.') : 'No teacher assessment data is available for this selection.'}</p></div>
+          <div><span>Students · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>{dimAction}</p></div>
+        </>}
       </div>
-      <h3>Student rubrics requiring attention</h3>
+      <h3>{scope==='teacher'?'Teacher indicators requiring attention':'Student rubrics requiring attention'}</h3>
       {weakIndicators.length ? <div className="table-wrap"><table><thead><tr><th>Full rubric description</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
         {weakIndicators.map(x=>{const sample=x.rows[0];const action=rubricAction(x.id,sample.ThemeID,sample.DimensionID);return <tr key={x.id}><td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{sample.DimensionID ? labelDim(sample.DimensionID) : '—'}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
-      </tbody></table></div> : <p className="empty">Student indicator-level data is not available for this selection.</p>}
+      </tbody></table></div> : <p className="empty">{scope==='teacher'?'Teacher indicator-level data is not available for this selection.':'Student indicator-level data is not available for this selection.'}</p>}
       <div className="way-forward-resources"><div><h3>Connect priorities to mentoring resources</h3><p>Use the recommended actions above to select a focused activity, mentoring strategy or assessment resource, then review the same indicators in the next assessment cycle.</p></div><button type="button" className="primary" onClick={()=>nav?.('resources')}>Open Mentoring & Assessment Strategies ↗</button></div>
-      <p className="way-forward-note">Next step: select one or two priorities for students and teachers, plan targeted learning or professional development, record evidence against the same indicators, and review progress in the next assessment cycle.</p>
+      <p className="way-forward-note">{scope==='teacher'?'Next step: agree on one or two professional learning priorities, apply the strategy in practice, record evidence against the same indicators, and review progress in the next assessment cycle.':'Next step: select one or two priorities for students and teachers, plan targeted learning or professional development, record evidence against the same indicators, and review progress in the next assessment cycle.'}</p>
     </>}
   </section>;
 }

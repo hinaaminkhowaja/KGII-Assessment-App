@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 
-type Rec={RecordID:string;TeacherName?:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
+type Rec={RecordID:string;SourceRecordID?:string;ChildName?:string;TeacherName?:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
 type Ref={Region:string;LocalBoard:string;REC:string};
 type Indicator={CycleID:string;ParticipantType:string;Assessment:string;ThemeID:string;ThemeName:string;DimensionID:string|null;IndicatorID:string;MaxScore:number;SourceSheet:string;SourceColumn:number};
 const pct=(n:number,d:number)=>d?100*n/d:0;
@@ -168,7 +168,7 @@ function App(){
  const [user,setUser]=useState<AppUser|null>(null);const [users,setUsers]=useState<AppUser[]>([]);const [access,setAccess]=useState<AccessRule[]>([]);
  useEffect(()=>{const sync=()=>{void syncOfflineSurveyQueue();};window.addEventListener('online',sync);if(navigator.onLine)sync();return()=>window.removeEventListener('online',sync);},[]);
  const loadReference=async()=>{const d=await apiGet('reference');const rr=arrayFrom(d,'refs','reference','records','data');const normalizedRefs=normalizeRefs(rr);const ii=arrayFrom(d,'indicators','APP_Indicators');setRefs(normalizedRefs);setIndicators(ii);localStorage.setItem('kgii_assessment_cached_refs',JSON.stringify(normalizedRefs));localStorage.setItem('kgii_assessment_cached_indicators',JSON.stringify(ii));};
- const loadDashboard=async(email:string)=>{const d=await apiGet('dashboard',{email});const rows=arrayFrom(d,'records','rows','data');const headers=Array.isArray(d.headers)?d.headers:[];const normalized=rows.map((x:any)=>{if(Array.isArray(x)){const o:any={};headers.forEach((h:string,i:number)=>o[h]=x[i]);x=o;}const field=(...names:string[])=>{const keys=Object.keys(x||{});for(const name of names){if(x[name]!==undefined&&x[name]!==null&&String(x[name]).trim()!=='')return x[name];const wanted=name.toLowerCase().replace(/[^a-z0-9]/g,'');const found=keys.find(k=>k.toLowerCase().replace(/[^a-z0-9]/g,'')===wanted);if(found&&x[found]!==undefined&&x[found]!==null&&String(x[found]).trim()!=='')return x[found];}return '';};return {RecordID:norm(field('RecordID','recordId','ID')),TeacherName:norm(field('TeacherName','Name of Teacher','Teacher Name','ParticipantName','Participant Name')),CycleID:norm(field('CycleID')),Year:Number(field('Year'))||0,ParticipantType:norm(field('ParticipantType','Participant Type')),Assessment:norm(field('Assessment','Assessment Stage')),Region:norm(field('Region')),LocalBoard:norm(field('LocalBoard','Local Board')),REC:norm(field('REC')),ParticipantCount:Number(field('ParticipantCount','Participant Count','No. of Participants','Number of Participants','Participants Count','No of Students','Student Count'))||0,Phase:norm(field('Phase')),ThemeID:norm(field('ThemeID','Theme ID')),DimensionID:norm(field('DimensionID','Dimension ID')),IndicatorID:norm(field('IndicatorID','Indicator ID')),Score:Number(field('Score'))||0,MaxScore:Number(field('MaxScore','Max Score'))||0} as Rec;});setRecords(normalized);try{localStorage.setItem('kgii_assessment_cached_records',JSON.stringify(normalized));}catch(e){console.warn('Could not cache assessment records',e)};};
+ const loadDashboard=async(email:string)=>{const d=await apiGet('dashboard',{email});const rows=arrayFrom(d,'records','rows','data');const headers=Array.isArray(d.headers)?d.headers:[];const normalized=rows.map((x:any)=>{if(Array.isArray(x)){const o:any={};headers.forEach((h:string,i:number)=>o[h]=x[i]);x=o;}const field=(...names:string[])=>{const keys=Object.keys(x||{});for(const name of names){if(x[name]!==undefined&&x[name]!==null&&String(x[name]).trim()!=='')return x[name];const wanted=name.toLowerCase().replace(/[^a-z0-9]/g,'');const found=keys.find(k=>k.toLowerCase().replace(/[^a-z0-9]/g,'')===wanted);if(found&&x[found]!==undefined&&x[found]!==null&&String(x[found]).trim()!=='')return x[found];}return '';};return {RecordID:norm(field('RecordID','recordId','ID')),SourceRecordID:norm(field('SourceRecordID','Source Record ID')),ChildName:norm(field('ChildName','Child Name','StudentName','Student Name')),TeacherName:norm(field('TeacherName','Teacher Name','Name of Teacher')),CycleID:norm(field('CycleID')),Year:Number(field('Year'))||0,ParticipantType:norm(field('ParticipantType','Participant Type')),Assessment:norm(field('Assessment','Assessment Stage')),Region:norm(field('Region')),LocalBoard:norm(field('LocalBoard','Local Board')),REC:norm(field('REC')),ParticipantCount:Number(field('ParticipantCount','Participant Count','No. of Participants','Number of Participants','Participants Count','No of Students','Student Count'))||0,Phase:norm(field('Phase')),ThemeID:norm(field('ThemeID','Theme ID')),DimensionID:norm(field('DimensionID','Dimension ID')),IndicatorID:norm(field('IndicatorID','Indicator ID')),Score:Number(field('Score'))||0,MaxScore:Number(field('MaxScore','Max Score'))||0} as Rec;});setRecords(normalized);try{localStorage.setItem('kgii_assessment_cached_records',JSON.stringify(normalized));}catch(e){console.warn('Could not cache assessment records',e)};};
  const loadAdmin=async(email:string)=>{const [u,a]=await Promise.all([apiGet('users',{email}),apiGet('access',{email})]);const us=arrayFrom(u,'users','data').map(mapUser);const ac=arrayFrom(a,'access','rules','data').map(mapAccess);setUsers(us);setAccess(ac);};
  useEffect(()=>{let active=true;let saved=localStorage.getItem(SESSION_KEY);let cached:AppUser|null=null;try{const raw=localStorage.getItem(USER_CACHE_KEY);if(raw)cached=mapUser(JSON.parse(raw));}catch{localStorage.removeItem(USER_CACHE_KEY);}if(!saved&&cached?.email)saved=cached.email;const validCached=!!saved&&!!cached&&cached!.email===saved&&(cached!.status==='approved'||cached!.role==='admin');if(validCached){localStorage.setItem(SESSION_KEY,cached!.email);setUser(cached);setPage(cached!.role==='admin'?'admin':'dashboard');}setLoading(!!saved&&!validCached);loadReference().catch(e=>{if(active)setApiError('Could not load reference data from Apps Script: '+e.message);});if(saved){const refreshSession=async()=>{try{let liveUser:AppUser;if(validCached){liveUser=cached!;}else{const d=await apiGet('login',{email:saved!});if(!d.user)throw new Error('This email is not approved for dashboard access.');liveUser=mapUser(d.user);if(liveUser.status!=='approved'&&liveUser.role!=='admin')throw new Error('This account is not approved.');}if(!active)return;setUser(liveUser);localStorage.setItem(SESSION_KEY,liveUser.email);localStorage.setItem(USER_CACHE_KEY,JSON.stringify(liveUser));setPage(liveUser.role==='admin'?'admin':'dashboard');const tasks=[loadDashboard(liveUser.email)];if(liveUser.role==='admin')tasks.push(loadAdmin(liveUser.email));setLoading(false);void Promise.all(tasks).catch((e:any)=>{if(active)setApiError('Dashboard data could not be refreshed. Your saved sign-in remains active. '+(e?.message||''));});}catch(e:any){if(!active)return;if(!validCached){setApiError('Could not verify the saved session with the server. Your saved sign-in was kept; please refresh and retry. '+(e.message||''));}else{setApiError('Dashboard data could not be refreshed. Your saved sign-in remains active. '+(e.message||''));}}finally{if(active)setLoading(false);}};refreshSession();}else{setLoading(false);}return()=>{active=false}},[]);
  
@@ -314,33 +314,44 @@ function Kpis({rows}:{rows:Rec[]}) {
   const postPct = aggregate(postRows).p;
   const score = overall.p * 206 / 100;
 
-  // Student counts are not stored reliably on every score row. When ParticipantCount
-  // exists, count the largest recorded total per REC (avoids repeating counts by indicator).
-  // Otherwise count unique participant records, but only if each RecordID identifies a child.
-  const participantCountByRec = (source:Rec[], type:'Student'|'Teacher') => {
-    const groups = new Map<string, Rec[]>();
-    source.filter(r => r.ParticipantType.toLowerCase() === type.toLowerCase() && r.Region && r.LocalBoard && r.REC)
-      .forEach(r => { const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||'); const arr=groups.get(key)||[]; arr.push(r); groups.set(key,arr); });
-    let total=0;
-    groups.forEach(items => {
-      const counts=items.map(r=>Number(r.ParticipantCount)||0).filter(n=>n>0);
-      if(counts.length) total+=Math.max(...counts);
-      else total+=new Set(items.map(r=>norm(r.RecordID)).filter(Boolean)).size;
+  // Each APP_Records row is an indicator score, not a participant.
+  // Count distinct children per REC for Pre. For Post, count distinct children
+  // per REC + theme and use the maximum theme count per REC.
+  const childKey = (r:Rec) => (norm(r.SourceRecordID) || norm(r.ChildName)).toLocaleLowerCase();
+  const preStudents = (() => {
+    const groups = new Map<string, Set<string>>();
+    preRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)
+      .forEach(r => {
+        const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+        const child=childKey(r); if(!child) return;
+        const set=groups.get(rec)||new Set<string>(); set.add(child); groups.set(rec,set);
+      });
+    let total=0; groups.forEach(set=>total+=set.size); return total;
+  })();
+  const postStudents = (() => {
+    const byRecTheme = new Map<string, Set<string>>();
+    postRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)
+      .forEach(r => {
+        const child=childKey(r); if(!child) return;
+        const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC),norm(r.ThemeID)].join('||');
+        const set=byRecTheme.get(key)||new Set<string>(); set.add(child); byRecTheme.set(key,set);
+      });
+    const byRec = new Map<string, number>();
+    byRecTheme.forEach((children,key) => {
+      const rec=key.split('||').slice(0,3).join('||');
+      byRec.set(rec,Math.max(byRec.get(rec)||0,children.size));
     });
-    return total;
-  };
-  // Pre and Post counts remain separate; Post uses the highest theme count per REC.
-  const preStudents = participantCountByRec(preRows,'Student');
-  const postStudents = participantCountByRec(postRows,'Student');
+    let total=0; byRec.forEach(n=>total+=n); return total;
+  })();
   // Teacher Pre and Post ratings are collected together for each theme.
   // Count each teacher only once within a REC across all themes and both ratings.
   // TeacherName is preferred; RecordID is a fallback when the source has no name field.
   const uniqueTeacherCount = (source:Rec[]) => {
     const groups = new Map<string, Set<string>>();
-    source.filter(r => r.ParticipantType === 'Teacher' && r.Region && r.LocalBoard && r.REC)
+    source.filter(r => r.ParticipantType.toLowerCase()==='teacher' && r.Region && r.LocalBoard && r.REC)
       .forEach(r => {
         const rec = [norm(r.Region), norm(r.LocalBoard), norm(r.REC)].join('||');
-        const teacher = norm(r.TeacherName) || norm(r.RecordID);
+        const teacher = norm(r.TeacherName);
         if (!teacher) return;
         const names = groups.get(rec) || new Set<string>();
         names.add(teacher.toLocaleLowerCase());

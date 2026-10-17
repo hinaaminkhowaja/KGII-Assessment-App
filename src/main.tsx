@@ -406,10 +406,13 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
     const a = aggregate(subset);
     return {id, label:rubricDescription(id), p:a.p,rows:subset};
   }).sort((a,b)=>a.p-b.p);
+  const strongestTheme = (scope==='teacher'?teacherThemes:studentThemes).slice().sort((a,b)=>b.p-a.p)[0];
   const weakestStudentTheme = studentThemes[0];
   const weakestTeacherTheme = teacherThemes[0];
   const weakestDim = dimGroups[0];
+  const strongestDim = dimGroups.slice().sort((a,b)=>b.p-a.p)[0];
   const weakIndicators = indicatorGroups.slice(0,3).filter(x=>x.rows.length);
+  const strongIndicators = indicatorGroups.slice().sort((a,b)=>b.p-a.p).slice(0,3).filter(x=>x.rows.length);
   const themeActions:Record<string,string> = {
     T1:'Use short stories, picture prompts and role-play. Ask children to explain their thinking, then demonstrate the expected action in a familiar daily routine.',
     T2:'Use concrete objects, story sequencing and guided questions. Invite children to describe what they notice, compare ideas and explain their answers in their own words.',
@@ -433,7 +436,9 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
     {!rows.length ? <p className="empty">No assessment data is available for these filters yet.</p> : <>
       <div className="way-forward-priorities">
         {scope==='teacher' ? <>
+          <div><span>Teacher · Strongest theme</span><b>{strongestTheme ? labelTheme(strongestTheme.key)+' · '+fmt(strongestTheme.p) : 'Not available'}</b><p>Build on this strength by sharing effective practice with peers and using it as a model for other themes.</p></div>
           <div><span>Teacher · Weakest theme</span><b>{weakestTeacherTheme ? labelTheme(weakestTeacherTheme.key)+' · '+fmt(weakestTeacherTheme.p) : 'Not available'}</b><p>{weakestTeacherTheme ? (teacherThemeActions[weakestTeacherTheme.key] || 'Plan focused professional learning and review progress against the same indicators.') : 'No teacher assessment data is available for this selection.'}</p></div>
+          <div><span>Teacher · Strongest dimension</span><b>{strongestDim ? labelDim(strongestDim.key)+' · '+fmt(strongestDim.p) : 'Not available'}</b><p>Identify the practices contributing to this result and use them to support improvement in other areas.</p></div>
           <div><span>Teacher · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>Use a focused mentoring conversation, model the expected practice, and agree on one classroom strategy to apply and review.</p></div>
         </> : <>
           <div><span>Students · Weakest theme</span><b>{weakestStudentTheme ? labelTheme(weakestStudentTheme.key)+' · '+fmt(weakestStudentTheme.p) : 'Not available'}</b><p>{weakestStudentTheme ? (themeActions[weakestStudentTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'No student assessment data is available for this selection.'}</p></div>
@@ -442,8 +447,8 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
         </>}
       </div>
       <h3>{scope==='teacher'?'Teacher indicators requiring attention':'Student rubrics requiring attention'}</h3>
-      {weakIndicators.length ? <div className="table-wrap"><table><thead><tr><th>Full rubric description</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
-        {weakIndicators.map(x=>{const sample=x.rows[0];const action=rubricAction(x.id,sample.ThemeID,sample.DimensionID);return <tr key={x.id}><td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{sample.DimensionID ? labelDim(sample.DimensionID) : '—'}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
+      {(scope==='teacher' ? [...strongIndicators.map(x=>({...x,priority:'Strongest'})),...weakIndicators.map(x=>({...x,priority:'Needs support'}))] : weakIndicators.map(x=>({...x,priority:'Needs support'}))).length ? <div className="table-wrap"><table><thead><tr>{scope==='teacher'&&<th>Priority</th>}<th>Full rubric description</th><th>Theme</th><th>Dimension</th><th>Performance</th><th>Suggested action</th></tr></thead><tbody>
+        {(scope==='teacher' ? [...strongIndicators.map(x=>({...x,priority:'Strongest'})),...weakIndicators.map(x=>({...x,priority:'Needs support'}))] : weakIndicators.map(x=>({...x,priority:'Needs support'}))).map((x:any,i:number)=>{const sample=x.rows[0];const action=rubricAction(x.id,sample.ThemeID,sample.DimensionID);return <tr key={x.priority+'-'+x.id+'-'+i}>{scope==='teacher'&&<td>{x.priority}</td>}<td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{sample.DimensionID ? labelDim(sample.DimensionID) : '—'}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
       </tbody></table></div> : <p className="empty">{scope==='teacher'?'Teacher indicator-level data is not available for this selection.':'Student indicator-level data is not available for this selection.'}</p>}
       <div className="way-forward-resources"><div><h3>Connect priorities to mentoring resources</h3><p>Use the recommended actions above to select a focused activity, mentoring strategy or assessment resource, then review the same indicators in the next assessment cycle.</p></div><button type="button" className="primary" onClick={()=>nav?.('resources')}>Open Mentoring & Assessment Strategies ↗</button></div>
       <p className="way-forward-note">{scope==='teacher'?'Next step: agree on one or two professional learning priorities, apply the strategy in practice, record evidence against the same indicators, and review progress in the next assessment cycle.':'Next step: select one or two priorities for students and teachers, plan targeted learning or professional development, record evidence against the same indicators, and review progress in the next assessment cycle.'}</p>

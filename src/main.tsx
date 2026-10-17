@@ -307,23 +307,24 @@ function Kpis({rows}:{rows:Rec[]}) {
   const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
   const preRows = rows.filter(r => assessmentIs(r.Assessment, 'Pre'));
   const postRows = rows.filter(r => assessmentIs(r.Assessment, 'Post'));
-  // Use the existing participant count once per REC (not once per indicator row).
+  // Pre participant totals: ParticipantCount is recorded per participant row in
+  // the source import, while each participant has multiple indicator-score rows.
+  // Deduplicate score rows by source participant ID/name within each REC, then sum.
   const participantCountByRec = (source:Rec[], type:'Student'|'Teacher') => {
-    const groups = new Map<string, Rec[]>();
+    const groups = new Map<string, Set<string>>();
     source.filter(r => r.ParticipantType.toLowerCase()===type.toLowerCase() && r.Region && r.LocalBoard && r.REC)
       .forEach(r => {
-        const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-        const arr=groups.get(key)||[]; arr.push(r); groups.set(key,arr);
+        const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+        const identity=(type==='Student'
+          ? (norm(r.SourceRecordID)||norm(r.ChildName))
+          : norm(r.TeacherName));
+        if(!identity) return;
+        const set=groups.get(rec)||new Set<string>();
+        set.add(identity.toLocaleLowerCase());
+        groups.set(rec,set);
       });
     let total=0;
-    groups.forEach(items => {
-      const counts=items.map(r=>Number(r.ParticipantCount)||0).filter(n=>n>0);
-      if(counts.length) total+=Math.max(...counts);
-      else {
-        const identities=items.map(r=>norm(r.SourceRecordID)||norm(r.ChildName)).filter(Boolean);
-        total+=new Set(identities.map(v=>v.toLocaleLowerCase())).size;
-      }
-    });
+    groups.forEach(identities=>total+=identities.size);
     return total;
   };
 

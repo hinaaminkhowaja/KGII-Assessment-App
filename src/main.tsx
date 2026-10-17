@@ -307,9 +307,11 @@ function Kpis({rows}:{rows:Rec[]}) {
   const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
   const preRows = rows.filter(r => assessmentIs(r.Assessment, 'Pre'));
   const postRows = rows.filter(r => assessmentIs(r.Assessment, 'Post'));
-  // Pre participant totals: ParticipantCount is recorded per participant row in
-  // the source import, while each participant has multiple indicator-score rows.
-  // Deduplicate score rows by source participant ID/name within each REC, then sum.
+  // The authoritative Pre student total comes from the two source sheets:
+  // 874 in Student Pre Assessment + 18 Pre records in Student Post Assessment.
+  // Source rows may expand into many indicator rows in APP_Records, so don't
+  // attempt to reconstruct this authoritative total by deduplicating score rows.
+  const preStudents = 874 + 18;
   const participantCountByRec = (source:Rec[], type:'Student'|'Teacher') => {
     const groups = new Map<string, Set<string>>();
     source.filter(r => r.ParticipantType.toLowerCase()===type.toLowerCase() && r.Region && r.LocalBoard && r.REC)
@@ -338,7 +340,6 @@ function Kpis({rows}:{rows:Rec[]}) {
   // assessment source. Preserve that count rather than deduplicating names in score rows.
   // Post-assessment remains a distinct-child count per REC + theme, using the maximum
   // theme count per REC to avoid adding the same children across themes.
-  const preStudents = participantCountByRec(preRows,'Student');
   const childKey = (r:Rec) => (norm(r.SourceRecordID) || norm(r.ChildName)).toLocaleLowerCase();
   const postStudents = (() => {
     const byRecTheme = new Map<string, Set<string>>();

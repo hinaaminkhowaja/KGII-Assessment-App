@@ -303,7 +303,7 @@ function subtitle(p:string){if(p==='student-survey')return 'Enter student survey
 function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/>}{page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/>}<S k="assessment" lab="Assessment" vals={assessments}/><S k="theme" lab="Theme" vals={themes}/><S k="dim" lab="Dimension" vals={dims}/><S k="year" lab="Year" vals={years.map(String)}/></section>}
 function statusFor(p:number){return p>=80?'Excellent':p>=65?'Good':p>=50?'Satisfactory':'Need Attention'}
 
-function Kpis({rows}:{rows:Rec[]}) {
+function Kpis({rows,hideTeacherBreakdown=false}:{rows:Rec[];hideTeacherBreakdown?:boolean}) {
   const overall=aggregate(rows);
   const studentPct=aggregate(rows.filter(r=>r.ParticipantType==='Student')).p;
   const teacherPct=aggregate(rows.filter(r=>r.ParticipantType==='Teacher')).p;
@@ -321,7 +321,7 @@ function Kpis({rows}:{rows:Rec[]}) {
     ['Pre Overall',fmt(aggregate(preRows).p)],
     ['Post Overall',fmt(aggregate(postRows).p)]
   ];
-  return <div className="kpis">{cards.map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}</div>;
+  const visibleCards=hideTeacherBreakdown?cards.filter(([label])=>!['Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label)):cards;\n  return <div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}</div>;
 }
 
 function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a=aggregate(rows.filter(r=>norm(r[key])===k));return {key:k,p:a.p,score:a.score,max:a.max}})}
@@ -492,7 +492,7 @@ function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:a
  const chosen=ranked.find(t=>norm(t.name)===norm(f.teacher));
  const selectTeacher=(name:string)=>setF((x:any)=>({...x,teacher:name,pt:''}));
  return <>
-   <Kpis rows={analysisRows}/>
+   <Kpis rows={analysisRows} hideTeacherBreakdown/>
    <section className="card performance-highlights">
     <div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>Teacher Performance Highlights</h2></div><p>Select a teacher’s name to open their detailed analysis.</p></div>
     <div className="highlight-card-grid">

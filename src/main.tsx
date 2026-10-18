@@ -505,7 +505,6 @@ function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:a
       <Chart title="Teacher Assessment Performance — Pre vs Post" data={[{label:'Pre Assessment',value:stageAggregate(analysisRows,'Pre').p},{label:'Post Assessment',value:stageAggregate(analysisRows,'Post').p}]}/>
      </div>
      <WayForward rows={analysisRows} scope="teacher" f={f}/>
-     {!f.teacher&&<div className="card"><h3>Individual teacher analysis</h3><p>Select a teacher below only when you need to review their individual results.</p><div className="teacher-select-list">{ranked.map(t=><button className="secondary" type="button" key={t.name} onClick={()=>selectTeacher(t.name)}>{t.name}</button>)}</div></div>}
     </>}
    </section>
  </>;

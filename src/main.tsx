@@ -305,27 +305,81 @@ function statusFor(p:number){return p>=80?'Excellent':p>=65?'Good':p>=50?'Satisf
 
 function Kpis({rows,hideTeacherBreakdown=false,hideAtGlance=false}:{rows:Rec[];hideTeacherBreakdown?:boolean;hideAtGlance?:boolean}) {
   const overall=aggregate(rows);
-  const studentPct=aggregate(rows.filter(r=>r.ParticipantType==='Student')).p;
-  const teacherPct=aggregate(rows.filter(r=>r.ParticipantType==='Teacher')).p;
+  const studentRows=rows.filter(r=>r.ParticipantType==='Student');
+  const teacherRows=rows.filter(r=>r.ParticipantType==='Teacher');
   const preRows=rows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const postRows=rows.filter(r=>assessmentIs(r.Assessment,'Post'));
-  const score=overall.p*206/100;
+  const studentPct=aggregate(studentRows).p;
+  const teacherPct=aggregate(teacherRows).p;
+  const prePct=aggregate(preRows).p;
+  const postPct=aggregate(postRows).p;
   const teacherOnly=hideTeacherBreakdown;
-  const preScore=teacherOnly?scoreModel(preRows).total:aggregate(preRows).p;
-  const postScore=teacherOnly?scoreModel(postRows).total:aggregate(postRows).p;
+  const score=overall.p*206/100;
+  const preScore=teacherOnly?scoreModel(preRows).total:prePct;
+  const postScore=teacherOnly?scoreModel(postRows).total:postPct;
+
+  // Keep the existing dashboard participant-count calculations and show them on
+  // the dashboard and all non-teacher analysis views.
+  const preStudents = (() => {
+    const groups = new Map<string, Set<string>>();
+    preRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)
+      .forEach(r => {
+        const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+        const identity=norm(r.SourceRecordID)||norm(r.ChildName);
+        if(!identity) return;
+        const set=groups.get(rec)||new Set<string>();
+        set.add(identity.toLocaleLowerCase());
+        groups.set(rec,set);
+      });
+    let total=0; groups.forEach(children=>total+=children.size); return total;
+  })();
+  const postStudents = (() => {
+    const childKey=(r:Rec)=>(norm(r.SourceRecordID)||norm(r.ChildName)).toLocaleLowerCase();
+    const byRecTheme=new Map<string,Set<string>>();
+    postRows.filter(r=>r.ParticipantType.toLowerCase()==='student'&&r.Region&&r.LocalBoard&&r.REC)
+      .forEach(r=>{
+        const child=childKey(r); if(!child)return;
+        const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC),norm(r.ThemeID)].join('||');
+        const set=byRecTheme.get(key)||new Set<string>(); set.add(child); byRecTheme.set(key,set);
+      });
+    const byRec=new Map<string,number>();
+    byRecTheme.forEach((children,key)=>{
+      const rec=key.split('||').slice(0,3).join('||');
+      byRec.set(rec,Math.max(byRec.get(rec)||0,children.size));
+    });
+    let total=0; byRec.forEach(n=>total+=n); return total;
+  })();
+  const teachers = (() => {
+    const groups=new Map<string,Set<string>>();
+    teacherRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).forEach(r=>{
+      const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+      const name=norm(r.TeacherName); if(!name)return;
+      const names=groups.get(rec)||new Set<string>(); names.add(name.toLocaleLowerCase()); groups.set(rec,names);
+    });
+    let total=0; groups.forEach(names=>total+=names.size); return total;
+  })();
+  const recKey=(r:Rec)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+  const preRecs=new Set(preRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
+  const postRecs=new Set(postRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
+
   const cards=[
     ['Overall Score',teacherOnly?((preScore+postScore).toFixed(1)+' / 32'):(score.toFixed(1)+' / 206')],
     ['Performance',fmt(overall.p)],
     ['Status',statusFor(overall.p)],
+    ['No. of Students',preStudents+' / '+postStudents],
+    ['No. of Teachers (Unique)',String(teachers)],
+    ['No. of RECs',preRecs+' / '+postRecs],
     ['Students Overall',fmt(studentPct)],
     ['Teachers Overall',fmt(teacherPct)],
     ['Theme Overall',fmt(overall.p)],
     ['Dimension Overall',fmt(overall.p)],
-    ['Pre Overall',teacherOnly?(preScore.toFixed(1)+' / 16'):fmt(aggregate(preRows).p)],
-    ['Post Overall',teacherOnly?(postScore.toFixed(1)+' / 16'):fmt(aggregate(postRows).p)]
+    ['Pre Overall',teacherOnly?(preScore.toFixed(1)+' / 16'):fmt(prePct)],
+    ['Post Overall',teacherOnly?(postScore.toFixed(1)+' / 16'):fmt(postPct)]
   ];
-  const visibleCards=hideTeacherBreakdown?cards.filter(([label])=>!['Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label)):cards;
-  return <div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}</div>;
+  const visibleCards=teacherOnly
+    ? cards.filter(([label])=>!['No. of Students','No. of Teachers (Unique)','No. of RECs','Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label))
+    : cards;
+  return <div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label==='No. of RECs'?'No. of RECs (Pre / Post)':label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong></div>)}</div>;
 }
 
 function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a=aggregate(rows.filter(r=>norm(r[key])===k));return {key:k,p:a.p,score:a.score,max:a.max}})}

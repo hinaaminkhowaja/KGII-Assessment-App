@@ -491,24 +491,21 @@ function TeacherAnalysis({rows,all,f,setF}:{rows:Rec[];all:Rec[];f:any;setF:(x:a
    const rs=rankingRows.filter(r=>norm(r.TeacherName)===norm(name));
    return {name,rows:rs,overall:aggregate(rs).p,pre:stageAggregate(rs,'Pre'),post:stageAggregate(rs,'Post')};
  }).sort((a,b)=>b.overall-a.overall);
- const top=ranked[0],weak=ranked[ranked.length-1];
  const analysisRows=rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.teacher||norm(r.TeacherName)===norm(f.teacher)));
- const chosen=ranked.find(t=>norm(t.name)===norm(f.teacher));
  const selectTeacher=(name:string)=>setF((x:any)=>({...x,teacher:name,pt:''}));
  return <>
    <Kpis rows={analysisRows} hideTeacherBreakdown/>
    <section className="card">
-    <div className="section-head"><div><h2>{f.teacher?'Teacher Analysis — '+f.teacher:'Select a Teacher'}</h2><p>{f.teacher?'Theme and assessment results for the selected teacher.':'Choose a teacher from the Teacher Name filter or select View teacher analysis above.'}</p></div>
-    {f.teacher&&<button className="secondary" type="button" onClick={()=>setF((x:any)=>({...x,teacher:''}))}>Clear teacher selection</button>}
+    <div className="section-head"><div><h2>{f.teacher?'Teacher Analysis — '+f.teacher:'Overall Teacher Analysis'}</h2><p>{f.teacher?'Theme and pre/post assessment results for the selected teacher.':'Combined results for all teachers. Individual teacher names and scores are hidden in this view.'}</p></div>
+    {f.teacher&&<button className="secondary" type="button" onClick={()=>setF((x:any)=>({...x,teacher:''}))}>View all teachers</button>}
     </div>
-    {!f.teacher ? <div className="table-wrap"><table><thead><tr><th>Teacher Name</th><th>Overall</th><th>Pre</th><th>Post</th><th>Change</th></tr></thead><tbody>{ranked.map(t=><tr key={t.name} onClick={()=>selectTeacher(t.name)}><td className="link">{t.name}</td><td>{fmt(t.overall)}</td><td>{t.pre.max?fmt(t.pre.p):'—'}</td><td>{t.post.max?fmt(t.post.p):'—'}</td><td className={t.post.p-t.pre.p>=0?'positive':'negative'}>{t.post.max&&t.pre.max?(t.post.p-t.pre.p>=0?'+':'')+(t.post.p-t.pre.p).toFixed(1)+' pp':'—'}</td></tr>)}</tbody></table></div> :
-    !analysisRows.length ? <p className="empty">No teacher assessment records were found for this teacher and the selected filters.</p> : <>
+    {!analysisRows.length ? <p className="empty">No teacher assessment records were found for the selected filters.</p> : <>
      <div className="grid2">
-      <CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(analysisRows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/>
-      
+      <CompareChart title="Teacher Theme Performance — Pre vs Post" data={compareGroup(analysisRows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/>
+      <Chart title="Teacher Assessment Performance — Pre vs Post" data={[{label:'Pre Assessment',value:stageAggregate(analysisRows,'Pre').p},{label:'Post Assessment',value:stageAggregate(analysisRows,'Post').p}]}/>
      </div>
-     <Chart title="Assessment Performance — Pre vs Post" data={group(analysisRows,'Assessment').map(x=>({label:x.key,value:x.p}))}/>
-          <WayForward rows={analysisRows} scope="teacher" f={f}/>
+     <WayForward rows={analysisRows} scope="teacher" f={f}/>
+     {!f.teacher&&<div className="card"><h3>Individual teacher analysis</h3><p>Select a teacher below only when you need to review their individual results.</p><div className="teacher-select-list">{ranked.map(t=><button className="secondary" type="button" key={t.name} onClick={()=>selectTeacher(t.name)}>{t.name}</button>)}</div></div>}
     </>}
    </section>
  </>;

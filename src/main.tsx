@@ -275,6 +275,15 @@ function ResourceLibrary({user}:{user:AppUser|null}){
     }catch(e:any){setMsg(e.message||'Could not upload the resource.');}
     finally{setBusy(false);}
   };
+  const moveResource=(resourceID:string,direction:-1|1)=>{
+    const ordered=[...resources];
+    const index=ordered.findIndex(r=>String(r.resourceID)===resourceID);
+    const next=index+direction;
+    if(index<0||next<0||next>=ordered.length)return;
+    [ordered[index],ordered[next]]=[ordered[next],ordered[index]];
+    setResources(ordered);
+    setMsg('Display order changed for this session. To keep the order after refresh, the Apps Script API must also save resource positions.');
+  };
   const visible=category==='All'?resources:resources.filter(r=>r.category===category);
   return <div className="admin-page">
     {user?.role==='admin'&&<section className="card">
@@ -307,7 +316,7 @@ function ResourceLibrary({user}:{user:AppUser|null}){
       <div className="section-head"><div><h2>Mentoring and Assessment Strategies</h2><p>Browse and open resources shared by the KG II Assessment team.</p></div><button className="secondary" onClick={load} disabled={busy}>{busy?'Loading…':'Refresh resources'}</button></div>
       <div className="survey-grid"><Field label="Category"><select value={category} onChange={e=>setCategory(e.target.value)}><option value="All">All categories</option>{resourceCategories.map((x:string)=><option key={x} value={x}>{x}</option>)}</select></Field></div>
       {msg&&user?.role!=='admin'&&<div className="auth-message">{msg}</div>}
-      {busy&&!resources.length?<p>Loading resources…</p>:visible.length===0?<p>No active resources are available in this category yet.</p>:<div className="resource-list">{visible.map((r:any)=><article className="card" key={r.resourceID||r.fileURL}><h3>{r.title||r.fileName||'Untitled resource'}</h3>{r.category&&<p><b>Category:</b> {r.category}</p>}{r.description&&<p>{r.description}</p>}<p className="admin-note">{r.fileName||''}</p>{r.fileURL&&<a href={r.fileURL} target="_blank" rel="noreferrer">Open / Download resource ↗</a>}{user?.role==='admin'&&<div className="form-actions"><button type="button" className="secondary" onClick={()=>{setEditing({...r});setMsg('')}}>Edit resource</button><button type="button" className="secondary" disabled={busy} onClick={async()=>{if(!window.confirm('Delete “'+(r.title||r.fileName)+'” from the resource library?'))return;setBusy(true);setMsg('');try{const out=await apiPost('deleteresource',{adminEmail:user.email,resourceID:r.resourceID});setMsg(out.message||'Resource deleted.');await load()}catch(e:any){setMsg(e.message||'Could not delete resource.')}finally{setBusy(false)}}}>Delete</button></div>}</article>)}</div>}
+      {busy&&!resources.length?<p>Loading resources…</p>:visible.length===0?<p>No active resources are available in this category yet.</p>:<div className="resource-list">{visible.map((r:any)=><article className="card" key={r.resourceID||r.fileURL}><h3>{r.title||r.fileName||'Untitled resource'}</h3>{r.category&&<p><b>Category:</b> {r.category}</p>}{r.description&&<p>{r.description}</p>}<p className="admin-note">{r.fileName||''}</p>{r.fileURL&&<a href={r.fileURL} target="_blank" rel="noreferrer">Open / Download resource ↗</a>}{user?.role==='admin'&&<div className="form-actions"><button type="button" className="secondary" disabled={busy||resources.findIndex(x=>String(x.resourceID)===String(r.resourceID))===0} onClick={()=>moveResource(String(r.resourceID),-1)}>Move up ↑</button><button type="button" className="secondary" disabled={busy||resources.findIndex(x=>String(x.resourceID)===String(r.resourceID))===resources.length-1} onClick={()=>moveResource(String(r.resourceID),1)}>Move down ↓</button><button type="button" className="secondary" onClick={()=>{setEditing({...r});setMsg('')}}>Edit resource</button><button type="button" className="secondary" disabled={busy} onClick={async()=>{if(!window.confirm('Delete “'+(r.title||r.fileName)+'” from the resource library?'))return;setBusy(true);setMsg('');try{const out=await apiPost('deleteresource',{adminEmail:user.email,resourceID:r.resourceID});setMsg(out.message||'Resource deleted.');await load()}catch(e:any){setMsg(e.message||'Could not delete resource.')}finally{setBusy(false)}}}>Delete</button></div>}</article>)}</div>}
     </section>
   </div>
 }

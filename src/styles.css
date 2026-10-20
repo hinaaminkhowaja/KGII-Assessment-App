@@ -264,3 +264,32 @@
     color: #172033 !important;
   }
 }
+
+
+/* Complete, all-theme survey copies: hidden on screen, included in print/PDF. */
+.survey-print-complete { display: none; }
+@media print {
+  .survey-print-complete {
+    display: block !important;
+    color: #172033 !important;
+    background: #fff !important;
+    font-size: 10pt !important;
+    line-height: 1.45 !important;
+  }
+  .survey-print-complete h2 { font-size: 17pt !important; margin: 0 0 14px !important; }
+  .survey-print-theme {
+    display: block !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    border-top: 1px solid #aab7b2 !important;
+    padding-top: 8px !important;
+    margin: 12px 0 18px !important;
+  }
+  .survey-print-theme h3 { font-size: 13pt !important; margin: 0 0 8px !important; break-after: avoid; }
+  .survey-print-complete ol { padding-left: 22px !important; margin-top: 6px !important; }
+  .survey-print-complete li { margin: 0 0 10px !important; break-inside: avoid !important; }
+  .survey-print-response { margin-top: 4px !important; color: #334155 !important; }
+  .survey-print-rubric { break-inside: auto !important; margin: 8px 0 14px !important; }
+  .survey-print-rubric h4 { margin: 8px 0 !important; break-after: avoid !important; }
+  .survey-print-rubric p { margin: 4px 0 8px !important; }
+}

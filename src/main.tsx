@@ -868,7 +868,7 @@ const save = async (finishAssessment: boolean) => {
   return (
     <div className="survey-page">
       <section className="card">
-        <div className="section-head">
+        <div className="section-head survey-print-head">
           <div>
             <h2>Student Survey</h2>
             <p>
@@ -876,6 +876,7 @@ const save = async (finishAssessment: boolean) => {
               included.
             </p>
           </div>
+          <button type="button" className="secondary print-action" onClick={()=>window.print()}>Print / Save PDF</button>
         </div>
 
         <GeoFields refs={refs} value={v} onChange={update} />
@@ -1254,7 +1255,7 @@ const save = async (finishAssessment: boolean) => {
   return (
     <div className="survey-page">
       <section className="card">
-        <h2>Teacher Survey</h2>
+        <div className="survey-title-row"><h2>Teacher Survey</h2><button type="button" className="secondary print-action" onClick={()=>window.print()}>Print / Save PDF</button></div>
         <p>
           Complete the teacher survey. Rubric descriptions are shown with
           each rating level.

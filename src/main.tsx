@@ -476,6 +476,8 @@ function rubricDescription(id:string){
 }
 
 function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:string)=>void}) {
+  const [wayForwardResources,setWayForwardResources]=useState<any[]>([]);
+  useEffect(()=>{let active=true;apiGet('resources').then(d=>{if(active)setWayForwardResources(Array.isArray(d.resources)?d.resources:[])}).catch(()=>{});return()=>{active=false}},[]);
   const studentRows = rows.filter(r => r.ParticipantType === 'Student');
   const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
   const studentThemes = group(studentRows,'ThemeID').sort((a,b)=>a.p-b.p);
@@ -531,7 +533,21 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
         {weakIndicators.map((x:any,i:number)=>{const sample=x.rows[0];const action=rubricAction(x.id,sample.ThemeID,sample.DimensionID);return <tr key={x.id+'-'+i}><td>{x.label}</td><td>{labelTheme(sample.ThemeID)}</td><td>{sample.DimensionID ? labelDim(sample.DimensionID) : '—'}</td><td>{fmt(x.p)}</td><td>{action}</td></tr>})}
       </tbody></table></div> : <p className="empty">Student indicator-level data is not available for this selection.</p>}
       </>}
-      <div className="way-forward-resources"><div><h3>Connect priorities to mentoring resources</h3><p>Use the recommended actions above to select a focused activity, mentoring strategy or assessment resource, then review the same indicators in the next assessment cycle.</p></div><button type="button" className="primary" onClick={()=>nav?.('resources')}>Open Mentoring & Assessment Strategies ↗</button></div>
+      <div className="way-forward-resources"><div><h3>Resources matched to the way forward</h3><p>Open mentoring presentations, reading materials and assessment strategies that match the theme needing support. Resource matching uses the theme number or theme name in each resource title, category or description.</p></div><button type="button" className="primary" onClick={()=>nav?.('resources')}>Browse all resources ↗</button></div>
+      {(()=>{
+        const weakThemes=[...(scope==='teacher'?teacherThemes:studentThemes)].sort((a,b)=>a.p-b.p).slice(0,2);
+        const matched=weakThemes.map(t=>{
+          const themeKey=String(t.key||'').toLowerCase();
+          const themeNo=themeKey.match(/[1-4]/)?.[0]||'';
+          const aliases=[themeKey,'theme '+themeNo,'theme'+themeNo,'t'+themeNo].filter(Boolean);
+          const hits=wayForwardResources.filter(r=>{
+            const hay=[r.title,r.category,r.description,r.fileName].join(' ').toLowerCase();
+            return aliases.some(a=>hay.includes(a));
+          });
+          return {theme:t,resources:hits};
+        });
+        return matched.length?<div className="resource-list">{matched.map((m:any)=><article className="card" key={String(m.theme.key)}><h3>{labelTheme(m.theme.key)} · {fmt(m.theme.p)} — Recommended resources</h3>{m.resources.length?<ul>{m.resources.map((r:any)=><li key={r.resourceID||r.fileURL}><a href={r.fileURL} target="_blank" rel="noreferrer">{r.title||r.fileName||'Open resource'} ↗</a>{r.category&&<span> — {r.category}</span>}{r.description&&<p>{r.description}</p>}</li>)}</ul>:<p className="admin-note">No resource title or description currently matches this theme. Add the theme number/name (for example, “Theme 1”) to the resource title or description to link it here.</p>}</article>)}</div>:null;
+      })()}
       <p className="way-forward-note">{scope==='teacher'?'Next step: agree on one or two professional learning priorities, apply the strategy in practice, record evidence against the same indicators, and review progress in the next assessment cycle.':'Next step: select one or two priorities for students and teachers, plan targeted learning or professional development, record evidence against the same indicators, and review progress in the next assessment cycle.'}</p>
     </>}
   </section>;

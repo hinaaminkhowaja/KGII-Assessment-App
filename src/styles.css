@@ -231,3 +231,36 @@
 @media screen {
   .survey-print-head { align-items:flex-start; }
 }
+
+
+/* Match dashboard top/weak status colours in all geography analysis tables. */
+.performance-top, td.performance-top {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  font-weight: 600;
+}
+.performance-weak, td.performance-weak {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  font-weight: 600;
+}
+@media print {
+  .performance-top, td.performance-top {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .performance-weak, td.performance-weak {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .survey-page .survey-print-head, .survey-page .survey-title-row {
+    display: flex !important;
+  }
+  .survey-page input, .survey-page select, .survey-page textarea {
+    color: #172033 !important;
+  }
+}

@@ -188,3 +188,46 @@
 .resource-order-button { min-width:34px !important; width:34px; height:32px; padding:0 !important; font-size:18px; line-height:1; }
 .geo-resource-links { margin-top:8px; display:grid; gap:4px; }
 .geo-resource-links a { overflow-wrap:anywhere; }
+
+
+/* Print/PDF: preserve the on-screen chart colors, bars, status fills and tables. */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  html, body, #root, main {
+    background: #fff !important;
+    color: #172033 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .sidebar, nav, .mobile-nav-toggle, .header-actions, .print-action,
+  .refresh, .form-actions button, .summary-action-row button {
+    display: none !important;
+  }
+  .app-shell, .app-layout, main, .survey-page, .survey-page .card,
+  .analysis-section, .chart-card, .table-wrap {
+    overflow: visible !important;
+    max-height: none !important;
+    box-shadow: none !important;
+  }
+  .survey-page, .survey-page .card, .chart-card, .analysis-section {
+    break-inside: avoid;
+  }
+  table { border-collapse: collapse !important; width: 100% !important; }
+  th, td { border: 1px solid #cbd5e1 !important; padding: 6px !important; }
+  svg, canvas, .recharts-wrapper, .recharts-surface {
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+  .recharts-cartesian-grid line { stroke: #d8dee9 !important; }
+  .survey-title-row { display: flex; align-items: center; justify-content: space-between; }
+  a { color: inherit !important; text-decoration: none !important; }
+  @page { size: auto; margin: 12mm; }
+}
+.survey-title-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+@media screen {
+  .survey-print-head { align-items:flex-start; }
+}

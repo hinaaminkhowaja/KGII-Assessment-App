@@ -178,3 +178,13 @@
 
 /* Users & Access layout refinements */
 .user-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:170px}.user-actions .small-button{margin:0;white-space:nowrap}.existing-access{margin-top:22px;padding-top:16px;border-top:1px solid #e5ece9}.existing-access h3{font-size:14px;margin:0 0 12px;color:#315b50}.admin-page table{min-width:680px}.admin-page .card{overflow-x:auto}.admin-page .form-message[role=status]{line-height:1.5}.admin-page .admin-note{overflow-wrap:anywhere}
+
+
+/* Compact resource library management controls */
+.resource-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; align-items:stretch; }
+.resource-list > .card { margin:0; padding:16px; min-width:0; }
+.resource-list > .card h3 { overflow-wrap:anywhere; margin-top:0; }
+.resource-list > .card .form-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:12px; }
+.resource-order-button { min-width:34px !important; width:34px; height:32px; padding:0 !important; font-size:18px; line-height:1; }
+.geo-resource-links { margin-top:8px; display:grid; gap:4px; }
+.geo-resource-links a { overflow-wrap:anywhere; }

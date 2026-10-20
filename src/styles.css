@@ -304,3 +304,35 @@
     display: none !important;
   }
 }
+
+
+/* Print reports as one continuous document: do not force each card/section
+   onto a fresh page or keep a large dashboard card together. */
+@media print {
+  html, body, #root, .app, .app > main, main, main > section,
+  .dashboard, .analysis, .analysis-content, .report-content,
+  .page-content, .content, .grid, .grid2, .grid3, .card-grid {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .card, .kpi, .chart, .rec-coverage, .way-forward,
+  .dashboard-section, .analysis-section, .report-section,
+  .grid2 > *, .grid3 > * {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* Keep only small individual elements together; large panels must flow. */
+  .kpi, tr, .barrow {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .kpis, .grid2, .grid3, .dashboard-grid, .analysis-grid {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+}

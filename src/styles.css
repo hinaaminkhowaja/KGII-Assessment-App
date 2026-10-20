@@ -350,7 +350,9 @@
   @bottom-right { content: none !important; }
 }
 @media print {
-  header, footer, .app-header, .app-footer, .print-header, .print-footer,
+  /* Hide only application chrome and explicitly marked print metadata.
+     Keep report headings (often rendered inside semantic header elements). */
+  .app-header, .app-footer, .print-header, .print-footer,
   .print-url, .print-date, .print-time, .print-page-number,
   [data-print-chrome="true"] {
     display: none !important;

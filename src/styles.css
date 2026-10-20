@@ -293,3 +293,14 @@
   .survey-print-rubric h4 { margin: 8px 0 !important; break-after: avoid !important; }
   .survey-print-rubric p { margin: 4px 0 8px !important; }
 }
+
+@media print {
+  .survey-page > .card {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  /* The all-theme print copy replaces the currently selected on-screen theme. */
+  .survey-page .survey-theme {
+    display: none !important;
+  }
+}

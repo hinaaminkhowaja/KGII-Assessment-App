@@ -338,6 +338,32 @@
 }
 
 
+/* Keep section headings attached to the content they introduce in print/PDF. */
+@media print {
+  .card h2,
+  .chart h2,
+  .analysis-section h2,
+  .chart-card h2,
+  .highlight-heading,
+  .section-head,
+  .card > h3,
+  .analysis-section > h3 {
+    break-after: avoid-page !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Avoid leaving a section title orphaned at the bottom of a printed page. */
+  .card h2 + *,
+  .chart h2 + *,
+  .analysis-section h2 + *,
+  .chart-card h2 + *,
+  .highlight-heading + *,
+  .section-head + * {
+    break-before: avoid-page !important;
+    page-break-before: avoid !important;
+  }
+}
+
 /* Suppress browser-generated print headers and footers (URL, date, time,
    page title) where supported, and remove any app-rendered print chrome. */
 @page {

@@ -240,14 +240,14 @@ function ResourceLibrary({user}:{user:AppUser|null}){
   const [titleValue,setTitleValue]=useState('');
   const [description,setDescription]=useState('');
   const [uploadCategory,setUploadCategory]=useState('Mentoring Strategies');
-  const [uploadPassword,setUploadPassword]=useState('');
+  const [editing,setEditing]=useState<any|null>(null);
   const [file,setFile]=useState<File|null>(null);
   const load=async()=>{setBusy(true);setMsg('');try{const d=await apiGet('resources');setResources(Array.isArray(d.resources)?d.resources:[]);}catch(e:any){setMsg(e.message||'Could not load resources.');}finally{setBusy(false)}};
   useEffect(()=>{load()},[]);
   const upload=async(e:any)=>{
     e.preventDefault();
     if(!user||user.role!=='admin'){setMsg('Administrator access is required to upload resources.');return;}
-    if(!titleValue.trim()||!uploadCategory||!file||!uploadPassword){setMsg('Complete the title, category, file and upload password fields.');return;}
+    if(!titleValue.trim()||!uploadCategory||!file){setMsg('Complete the title, category and file fields.');return;}
     if(file.size>10*1024*1024){setMsg('Please select a file smaller than 10 MB.');return;}
     setBusy(true);setMsg('');
     try{
@@ -259,7 +259,6 @@ function ResourceLibrary({user}:{user:AppUser|null}){
       });
       const result=await apiPost('uploadresource',{
         adminEmail:user.email,
-        uploadPassword,
         title:titleValue.trim(),
         description:description.trim(),
         category:uploadCategory,
@@ -268,7 +267,7 @@ function ResourceLibrary({user}:{user:AppUser|null}){
         fileBase64
       });
       setMsg(result.message||'Resource uploaded successfully.');
-      setTitleValue('');setDescription('');setUploadPassword('');setFile(null);
+      setTitleValue('');setDescription('');setFile(null);
       const input=document.getElementById('resource-upload-file') as HTMLInputElement|null;
       if(input)input.value='';
       await load();
@@ -286,9 +285,20 @@ function ResourceLibrary({user}:{user:AppUser|null}){
           <Field label="Category" required><select value={uploadCategory} onChange={e=>setUploadCategory(e.target.value)} required><option>Mentoring Strategies</option><option>Assessment Strategies</option></select></Field>
           <Field label="Description"><textarea value={description} onChange={e=>setDescription(e.target.value)} rows={3} maxLength={1000}/></Field>
           <Field label="Choose file (up to 10 MB)" required><input id="resource-upload-file" type="file" onChange={e=>setFile(e.target.files?.[0]||null)} required accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png"/></Field>
-          <Field label="Administrator upload password" required><input type="password" value={uploadPassword} onChange={e=>setUploadPassword(e.target.value)} required autoComplete="current-password"/></Field>
         </div>
         <div className="form-actions"><button className="primary" type="submit" disabled={busy}>{busy?'Please wait…':'Upload resource'}</button></div>
+      </form>
+      {msg&&<div className="auth-message" role="status">{msg}</div>}
+    </section>}
+    {editing&&user?.role==='admin'&&<section className="card">
+      <h2>Edit resource</h2>
+      <form onSubmit={async(e:any)=>{e.preventDefault();if(!editing.title.trim()||!editing.category){setMsg('Title and category are required.');return;}setBusy(true);setMsg('');try{const out=await apiPost('updateresource',{adminEmail:user.email,resourceID:editing.resourceID,title:editing.title.trim(),description:(editing.description||'').trim(),category:editing.category});setMsg(out.message||'Resource updated.');setEditing(null);await load()}catch(err:any){setMsg(err.message||'Could not update resource.')}finally{setBusy(false)}}}>
+        <div className="survey-grid">
+          <Field label="Resource title" required><input value={editing.title||''} onChange={e=>setEditing({...editing,title:e.target.value})} required maxLength={180}/></Field>
+          <Field label="Category" required><select value={editing.category||'Mentoring Strategies'} onChange={e=>setEditing({...editing,category:e.target.value})} required><option>Mentoring Strategies</option><option>Assessment Strategies</option></select></Field>
+          <Field label="Description"><textarea value={editing.description||''} onChange={e=>setEditing({...editing,description:e.target.value})} rows={3} maxLength={1000}/></Field>
+        </div>
+        <div className="form-actions"><button className="primary" type="submit" disabled={busy}>{busy?'Saving…':'Save changes'}</button><button className="secondary" type="button" onClick={()=>setEditing(null)} disabled={busy}>Cancel</button></div>
       </form>
       {msg&&<div className="auth-message" role="status">{msg}</div>}
     </section>}
@@ -296,7 +306,7 @@ function ResourceLibrary({user}:{user:AppUser|null}){
       <div className="section-head"><div><h2>Mentoring and Assessment Strategies</h2><p>Browse and open resources shared by the KG II Assessment team.</p></div><button className="secondary" onClick={load} disabled={busy}>{busy?'Loading…':'Refresh resources'}</button></div>
       <div className="survey-grid"><Field label="Category"><select value={category} onChange={e=>setCategory(e.target.value)}><option>All</option><option>Mentoring Strategies</option><option>Assessment Strategies</option></select></Field></div>
       {msg&&user?.role!=='admin'&&<div className="auth-message">{msg}</div>}
-      {busy&&!resources.length?<p>Loading resources…</p>:visible.length===0?<p>No active resources are available in this category yet.</p>:<div className="resource-list">{visible.map((r:any)=><article className="card" key={r.resourceID||r.fileURL}><h3>{r.title||r.fileName||'Untitled resource'}</h3>{r.category&&<p><b>Category:</b> {r.category}</p>}{r.description&&<p>{r.description}</p>}<p className="admin-note">{r.fileName||''}</p>{r.fileURL&&<a href={r.fileURL} target="_blank" rel="noreferrer">Open / Download resource ↗</a>}</article>)}</div>}
+      {busy&&!resources.length?<p>Loading resources…</p>:visible.length===0?<p>No active resources are available in this category yet.</p>:<div className="resource-list">{visible.map((r:any)=><article className="card" key={r.resourceID||r.fileURL}><h3>{r.title||r.fileName||'Untitled resource'}</h3>{r.category&&<p><b>Category:</b> {r.category}</p>}{r.description&&<p>{r.description}</p>}<p className="admin-note">{r.fileName||''}</p>{r.fileURL&&<a href={r.fileURL} target="_blank" rel="noreferrer">Open / Download resource ↗</a>}{user?.role==='admin'&&<div className="form-actions"><button type="button" className="secondary" onClick={()=>{setEditing({...r});setMsg('')}}>Edit resource</button><button type="button" className="secondary" disabled={busy} onClick={async()=>{if(!window.confirm('Delete “'+(r.title||r.fileName)+'” from the resource library?'))return;setBusy(true);setMsg('');try{const out=await apiPost('deleteresource',{adminEmail:user.email,resourceID:r.resourceID});setMsg(out.message||'Resource deleted.');await load()}catch(e:any){setMsg(e.message||'Could not delete resource.')}finally{setBusy(false)}}}>Delete</button></div>}</article>)}</div>}
     </section>
   </div>
 }

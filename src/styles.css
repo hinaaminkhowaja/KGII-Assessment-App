@@ -336,3 +336,23 @@
     page-break-inside: auto !important;
   }
 }
+
+
+/* Suppress browser-generated print headers and footers (URL, date, time,
+   page title) where supported, and remove any app-rendered print chrome. */
+@page {
+  margin: 12mm;
+  @top-left { content: none !important; }
+  @top-center { content: none !important; }
+  @top-right { content: none !important; }
+  @bottom-left { content: none !important; }
+  @bottom-center { content: none !important; }
+  @bottom-right { content: none !important; }
+}
+@media print {
+  header, footer, .app-header, .app-footer, .print-header, .print-footer,
+  .print-url, .print-date, .print-time, .print-page-number,
+  [data-print-chrome="true"] {
+    display: none !important;
+  }
+}

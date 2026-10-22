@@ -17,7 +17,7 @@ function unique(rows:Rec[],key:keyof Rec){return [...new Set(rows.map(r=>norm(r[
 function labelTheme(id:string){const m:any={T1:'Theme 1 — Authority and Leadership',T2:'Theme 2 — Intellectual Traditions',T3:'Theme 3 — Role in Family, Community and Society',T4:'Theme 4 — Two Aspects of Life'};return m[id]||id}
 function cycleLabel(value:string){
   const raw=norm(value);
-  const match=raw.match(/^cycle[\\s_-]*0?([12])(?:\\b|$)/i)||raw.match(/^c[\\s_-]*0?([12])$/i)||raw.match(/^0?([12])$/);
+  const match=raw.match(/^cycle[\s_-]*0?([12])(?:\b|$)/i)||raw.match(/^c[\s_-]*0?([12])$/i)||raw.match(/^0?([12])$/);
   return match?`Cycle ${match[1]}`:raw;
 }
 function displayGeo(value:string){

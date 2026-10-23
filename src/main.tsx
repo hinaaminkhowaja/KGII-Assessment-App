@@ -118,7 +118,7 @@ function teacherScore(value: string): number {
 
 function labelDim(id:string){return id==='UA'?'UA — Understanding / Articulation':id==='A'?'A — Application':id}
 
-function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.cycle||r.CycleID===f.cycle)&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||r.Assessment===f.assessment)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year)))}
+function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.cycle||cycleLabel(r.CycleID)===cycleLabel(f.cycle))&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||r.Assessment===f.assessment)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year)))}
 
 const studentIndicators={
  T1:[
@@ -200,7 +200,7 @@ const recs = useMemo(
   )].sort(),
   [records, f.region, f.board]
 );
- const allowedRecords=records;const cycles=unique(records,'CycleID').filter(Boolean).sort((a,b)=>{const aa=cycleLabel(a),bb=cycleLabel(b);return aa.localeCompare(bb)||a.localeCompare(b)});useEffect(()=>{if(!f.cycle&&cycles.length){const first=cycles.find(x=>cycleLabel(x)==='Cycle 1')||cycles[0];setF((x:any)=>x.cycle?x:{...x,cycle:first})}},[cycles,f.cycle]);const pageRecords=useMemo(()=>page==='teacher'?allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'):allowedRecords,[allowedRecords,page]);const filtered=useMemo(()=>filterRows(pageRecords,f),[pageRecords,f]);
+ const allowedRecords=records;const cycles=[...new Set([...unique(records,'CycleID').filter(Boolean).map(cycleLabel),'Cycle 1','Cycle 2'])].sort((a,b)=>a.localeCompare(b));useEffect(()=>{if(!f.cycle&&cycles.length){const first=cycles.find(x=>cycleLabel(x)==='Cycle 1')||cycles[0];setF((x:any)=>x.cycle?x:{...x,cycle:first})}},[cycles,f.cycle]);const pageRecords=useMemo(()=>page==='teacher'?allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'):allowedRecords,[allowedRecords,page]);const filtered=useMemo(()=>filterRows(pageRecords,f),[pageRecords,f]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
  // Region options are sourced from the current dashboard records (APP_Records).

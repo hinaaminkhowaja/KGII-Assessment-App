@@ -1210,14 +1210,12 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
   };
 
   return <section className="card teacher-cycle2-assessment">
+    <div className="rating-scale"><strong>Rating scale</strong><span>1 · Seeding — begin to use the skills</span><span>2 · Growing — sometimes use the skills</span><span>3 · Maturing — often use the skills</span><span>4 · Flourishing — always use the skills</span></div>
     <div className="survey-grid">
       <Field label="Name of teacher" required><input value={value.teacherName || ''} onChange={e => setField('teacherName', e.target.value)} /></Field>
       <Field label="Mentor" required><input value={value.mentorName || ''} onChange={e => setField('mentorName', e.target.value)} /></Field>
       <Field label="Date" required><input type="date" value={value.assessmentDate || new Date().toISOString().slice(0, 10)} onChange={e => setField('assessmentDate', e.target.value)} /></Field>
-      <Field label="Name of the person filling this form with designation" required><input value={value.filler || ''} onChange={e => setField('filler', e.target.value)} /></Field>
-      <Field label="Assessment stage" required><select value={value.assessmentStage || ''} onChange={e => setField('assessmentStage', e.target.value)}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>
     </div>
-    <div className="rating-scale"><strong>Rating scale</strong><span>1 · Seeding — begin to use the skills</span><span>2 · Growing — sometimes use the skills</span><span>3 · Maturing — often use the skills</span><span>4 · Flourishing — always use the skills</span></div>
     {teacherAssessmentSkills.map(skill => {
       const score = summaries.find(item => item.key === skill.key)?.score || 0;
       return <section className="card teacher-skill-card" key={skill.key}>
@@ -1447,9 +1445,14 @@ const save = async (finishAssessment: boolean) => {
         </div>}
 
         <GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} afterRec={<div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>} />
-        <div className="survey-grid"><Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => { setEntryStarted(false); setV({ ...v, cycle: e.target.value }); }}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>{v.cycle === 'Cycle 2' && <Field label="Phase"><input value="Phase 3" readOnly /></Field>}</div>
+
         {showRecSummary&&<RecSurveySummary records={records} participantType="Teacher" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}
+        {entryStarted && <div className="survey-grid">
+          <Field label="Name of the person filling this form with designation" required><input value={v.filler || ''} onChange={e => setV({ ...v, filler: e.target.value })} /></Field>
+          <Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => setV({ ...v, cycle: e.target.value })}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>
+          {v.cycle === 'Cycle 2' && <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>}
+        </div>}
         {entryStarted && (v.cycle || 'Cycle 1') === 'Cycle 1' && <>
         <div className="survey-grid">
           
@@ -1599,17 +1602,7 @@ const save = async (finishAssessment: boolean) => {
         />
       )}
 
-      <section className="card">
-        <Field
-          label="Name of the person filling this form with designation"
-          required
-        >
-          <input
-            value={v.filler}
-            onChange={e => setV({ ...v, filler: e.target.value })}
-          />
-        </Field>
-      </section>
+
       
 
       

@@ -678,6 +678,8 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
   };
 
   const [v, setV] = useSurveyState('kgii_student_survey_draft', initial);
+  const cycle = v.cycle || 'Cycle 1';
+  const phase = cycle === 'Cycle 2' ? 'Phase 3' : '';
   const [entryStarted, setEntryStarted] = useState(false);
   const [msg, setMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -729,8 +731,6 @@ const lookupChild = async () => {
   
 const save = async (finishAssessment: boolean) => {
   const assessment = v.assessment || 'Pre';
-  const cycle = v.cycle || 'Cycle 1';
-  const phase = cycle === 'Cycle 2' ? 'Phase 3' : '';
   const themeState = v.themes[v.theme] || {
     activities: [],
     otherActivity: '',

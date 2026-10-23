@@ -1435,7 +1435,7 @@ const save = async (finishAssessment: boolean) => {
           Complete the teacher survey. Rubric descriptions are shown with
           each rating level.
         </p>
-        <div className="survey-print-complete">
+{(v.cycle || 'Cycle 1') === 'Cycle 1' && <div className="survey-print-complete">
           <h2>Complete Teacher Survey — All Themes and Pre/Post Rubrics</h2>
           {(['T1','T2','T3','T4'] as const).map((theme) => (
             <section className="survey-print-theme" key={theme}>
@@ -1453,7 +1453,7 @@ const save = async (finishAssessment: boolean) => {
               ))}
             </section>
           ))}
-        </div>
+        </div>}
 
         <GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} />
         <div className="survey-grid"><Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => { setEntryStarted(false); setV({ ...v, cycle: e.target.value }); }}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>{v.cycle === 'Cycle 2' && <Field label="Phase"><input value="Phase 3" readOnly /></Field>}</div>

@@ -667,6 +667,7 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
     region: '',
     board: '',
     rec: '',
+    cycle: 'Cycle 1',
     childName: '',
     gender: '',
     designation: '',
@@ -702,6 +703,7 @@ const lookupChild = async () => {
       region: v.region,
       localBoard: v.board,
       rec: v.rec,
+      cycleID: v.cycle || 'Cycle 1',
       childName: v.childName.trim()
     });
 
@@ -727,6 +729,8 @@ const lookupChild = async () => {
   
 const save = async (finishAssessment: boolean) => {
   const assessment = v.assessment || 'Pre';
+  const cycle = v.cycle || 'Cycle 1';
+  const phase = cycle === 'Cycle 2' ? 'Phase 3' : '';
   const themeState = v.themes[v.theme] || {
     activities: [],
     otherActivity: '',
@@ -774,11 +778,14 @@ const save = async (finishAssessment: boolean) => {
   const themeName = surveyThemeName(v.theme);
 
   const duplicate = lookupMatches.some(
-    item =>
-      String(item.themeName || '').trim().toLowerCase() ===
-        themeName.trim().toLowerCase() &&
-      String(item.assessment || '').trim().toLowerCase() ===
-        assessment.toLowerCase()
+    item => {
+      const itemCycle = norm(item.cycleID || item.CycleID || item.cycle) || 'Cycle 1';
+      return itemCycle === cycle &&
+        String(item.themeName || '').trim().toLowerCase() ===
+          themeName.trim().toLowerCase() &&
+        String(item.assessment || '').trim().toLowerCase() ===
+          assessment.toLowerCase();
+    }
   );
 
   if (duplicate) {
@@ -809,6 +816,8 @@ const save = async (finishAssessment: boolean) => {
       region: v.region,
       localBoard: v.board,
       rec: v.rec,
+      cycleID: cycle,
+      phase,
       childName: v.childName.trim(),
       childGender: v.gender,
       assessorDesignation: v.designation.trim(),
@@ -831,6 +840,8 @@ const save = async (finishAssessment: boolean) => {
         name: v.childName.trim(),
         themeName,
         assessment,
+        cycleID: cycle,
+        phase,
         submittedAt: new Date().toISOString()
       }
     ]);
@@ -1013,6 +1024,14 @@ const save = async (finishAssessment: boolean) => {
               }
             />
           </Field>
+
+          <Field label="Cycle" required>
+            <select value={v.cycle || 'Cycle 1'} onChange={e => update({ ...v, cycle: e.target.value })}>
+              <option value="Cycle 1">Cycle 1</option>
+              <option value="Cycle 2">Cycle 2</option>
+            </select>
+          </Field>
+          {cycle === 'Cycle 2' && <Field label="Phase"><input value={phase} readOnly /></Field>}
 
           <Field label="Select Theme" required>
             <select

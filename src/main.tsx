@@ -1163,8 +1163,8 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
 
   const submit = async () => {
     const assessmentDate = value.assessmentDate || new Date().toISOString().slice(0, 10);
-    if (!value.teacherName?.trim() || !value.assessmentStage || !value.mentorName?.trim() || !assessmentDate) {
-      setMsg('Please select Pre or Post and enter the teacher, mentor and date.');
+    if (!value.teacherName?.trim() || !value.filler?.trim() || !value.assessmentStage || !value.mentorName?.trim() || !assessmentDate) {
+      setMsg('Please enter the teacher and form-filler name, select Pre or Post, and enter the mentor and date.');
       return;
     }
     if (teacherAssessmentSkills.some(skill => (ratings[skill.key] || []).length !== 4 || (ratings[skill.key] || []).some((score: any) => ![1, 2, 3, 4].includes(Number(score))))) {
@@ -1188,6 +1188,8 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
         rec: value.rec,
         teacherName: value.teacherName.trim(),
         mentorName: value.mentorName.trim(),
+        fillerName: value.filler.trim(),
+        fillerDesignation: '',
         assessmentDate,
         skillRatings: ratings,
         skillTotals,
@@ -1208,13 +1210,14 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
   };
 
   return <section className="card teacher-cycle2-assessment">
-    <div className="rating-scale"><strong>Rating scale</strong><span>1 · Seeding — begin to use the skills</span><span>2 · Growing — sometimes use the skills</span><span>3 · Maturing — often use the skills</span><span>4 · Flourishing — always use the skills</span></div>
     <div className="survey-grid">
       <Field label="Name of teacher" required><input value={value.teacherName || ''} onChange={e => setField('teacherName', e.target.value)} /></Field>
-      <Field label="Assessment stage" required><select value={value.assessmentStage || ''} onChange={e => setField('assessmentStage', e.target.value)}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>
       <Field label="Mentor" required><input value={value.mentorName || ''} onChange={e => setField('mentorName', e.target.value)} /></Field>
       <Field label="Date" required><input type="date" value={value.assessmentDate || new Date().toISOString().slice(0, 10)} onChange={e => setField('assessmentDate', e.target.value)} /></Field>
+      <Field label="Name of the person filling this form with designation" required><input value={value.filler || ''} onChange={e => setField('filler', e.target.value)} /></Field>
+      <Field label="Assessment stage" required><select value={value.assessmentStage || ''} onChange={e => setField('assessmentStage', e.target.value)}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>
     </div>
+    <div className="rating-scale"><strong>Rating scale</strong><span>1 · Seeding — begin to use the skills</span><span>2 · Growing — sometimes use the skills</span><span>3 · Maturing — often use the skills</span><span>4 · Flourishing — always use the skills</span></div>
     {teacherAssessmentSkills.map(skill => {
       const score = summaries.find(item => item.key === skill.key)?.score || 0;
       return <section className="card teacher-skill-card" key={skill.key}>

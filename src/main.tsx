@@ -1163,9 +1163,8 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
 
   const submit = async () => {
     const assessmentDate = value.assessmentDate || new Date().toISOString().slice(0, 10);
-    const schoolCentre = value.schoolCentre || value.rec || '';
-    if (!value.teacherName?.trim() || !schoolCentre.trim() || !value.mentorName?.trim() || !assessmentDate) {
-      setMsg('Please enter the teacher, school / centre, mentor and date.');
+    if (!value.teacherName?.trim() || !value.assessmentStage || !value.mentorName?.trim() || !assessmentDate) {
+      setMsg('Please select Pre or Post and enter the teacher, mentor and date.');
       return;
     }
     if (teacherAssessmentSkills.some(skill => (ratings[skill.key] || []).length !== 4 || (ratings[skill.key] || []).some((score: any) => ![1, 2, 3, 4].includes(Number(score))))) {
@@ -1183,11 +1182,11 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
         cycleID: 'Cycle 2',
         phase: 'Phase 3',
         assessmentTool: 'Teacher Assessment Rubrics',
+        assessment: value.assessmentStage,
         region: value.region,
         localBoard: value.board,
         rec: value.rec,
         teacherName: value.teacherName.trim(),
-        schoolCentre,
         mentorName: value.mentorName.trim(),
         assessmentDate,
         skillRatings: ratings,
@@ -1209,13 +1208,10 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
   };
 
   return <section className="card teacher-cycle2-assessment">
-    <h2>Teacher Assessment Rubrics · Cycle 2 · Phase 3</h2>
-    <h3>How to use</h3>
-    <p>Observe the teacher in the classroom and review the work from the three mentoring steps. For each indicator, choose the level that best matches what you see and write the score. Add the scores and discuss next steps with the teacher.</p>
     <div className="rating-scale"><strong>Rating scale</strong><span>1 · Seeding — begin to use the skills</span><span>2 · Growing — sometimes use the skills</span><span>3 · Maturing — often use the skills</span><span>4 · Flourishing — always use the skills</span></div>
     <div className="survey-grid">
       <Field label="Name of teacher" required><input value={value.teacherName || ''} onChange={e => setField('teacherName', e.target.value)} /></Field>
-      <Field label="School / centre" required><input value={value.schoolCentre || value.rec || ''} onChange={e => setField('schoolCentre', e.target.value)} /></Field>
+      <Field label="Assessment stage" required><select value={value.assessmentStage || ''} onChange={e => setField('assessmentStage', e.target.value)}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>
       <Field label="Mentor" required><input value={value.mentorName || ''} onChange={e => setField('mentorName', e.target.value)} /></Field>
       <Field label="Date" required><input type="date" value={value.assessmentDate || new Date().toISOString().slice(0, 10)} onChange={e => setField('assessmentDate', e.target.value)} /></Field>
     </div>
@@ -1230,14 +1226,6 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
         <Field label="Mentor’s notes and next steps"><textarea rows={3} value={notes[skill.key] || ''} onChange={e => setNote(skill.key, e.target.value)} /></Field>
       </section>;
     })}
-    <section className="card teacher-assessment-summary">
-      <h3>Teacher Assessment Summary</h3>
-      <div className="summary-student-meta"><span><strong>Teacher:</strong> {value.teacherName || '—'}</span><span><strong>School / centre:</strong> {value.schoolCentre || value.rec || '—'}</span><span><strong>Mentor:</strong> {value.mentorName || '—'}</span><span><strong>Date:</strong> {value.assessmentDate || new Date().toISOString().slice(0, 10)}</span></div>
-      <div className="table-wrap"><table><thead><tr><th>Skill</th><th>Total score</th><th>Level</th><th>Mentor’s notes and next steps</th></tr></thead><tbody>
-        {summaries.map(skill => <tr key={skill.key}><td>{skill.title}</td><td>{skill.score} / 16</td><td>{skill.level}</td><td>{notes[skill.key] || '—'}</td></tr>)}
-      </tbody></table></div>
-      <p className="admin-note">Skill levels: 4–7 Seeding · 8–10 Growing · 11–13 Maturing · 14–16 Flourishing.</p>
-    </section>
     <div className="form-actions"><button type="button" className="primary" disabled={saving} onClick={submit}>{saving ? 'Submitting…' : 'Submit Teacher Assessment'}</button>{msg && <span className="form-message">{msg}</span>}</div>
   </section>;
 }

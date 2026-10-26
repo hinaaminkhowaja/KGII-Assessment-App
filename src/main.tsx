@@ -1187,6 +1187,11 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
         localBoard: value.board,
         rec: value.rec,
         teacherName: value.teacherName.trim(),
+        teacherPosition: value.positions.join(', '),
+        otherPosition: value.positions.includes('Other') ? 'Other' : '',
+        yearsTeaching: value.years,
+        trainingAttended: value.training,
+        otherTraining: value.otherTraining || '',
         mentorName: value.mentorName.trim(),
         fillerName: value.filler.trim(),
         fillerDesignation: '',
@@ -1212,7 +1217,6 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
   return <section className="card teacher-cycle2-assessment">
     <div className="rating-scale"><strong>Rating scale</strong><span>1 · Seeding — begin to use the skills</span><span>2 · Growing — sometimes use the skills</span><span>3 · Maturing — often use the skills</span><span>4 · Flourishing — always use the skills</span></div>
     <div className="survey-grid">
-      <Field label="Name of teacher" required><input value={value.teacherName || ''} onChange={e => setField('teacherName', e.target.value)} /></Field>
       <Field label="Mentor" required><input value={value.mentorName || ''} onChange={e => setField('mentorName', e.target.value)} /></Field>
       <Field label="Date" required><input type="date" value={value.assessmentDate || new Date().toISOString().slice(0, 10)} onChange={e => setField('assessmentDate', e.target.value)} /></Field>
     </div>
@@ -1316,7 +1320,6 @@ const save = async (finishAssessment: boolean) => {
       v.years &&
       v.training &&
       (v.training !== 'other' || v.otherTraining?.trim()) &&
-      v.assessmentConducted &&
       v.theme &&
       v.ratings.pre &&
       v.ratings.post &&
@@ -1369,7 +1372,6 @@ const save = async (finishAssessment: boolean) => {
       yearsTeaching: v.years,
       trainingAttended: v.training,
       otherTraining: v.otherTraining || '',
-      assessmentContext: v.assessmentConducted,
       themeID: v.theme,
       themeName,
       preRating: teacherScore(v.ratings.pre),
@@ -1450,129 +1452,7 @@ const save = async (finishAssessment: boolean) => {
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}
         {entryStarted && <div className="survey-grid">
           <Field label="Name of the person filling this form with designation" required><input value={v.filler || ''} onChange={e => setV({ ...v, filler: e.target.value })} /></Field>
-          <Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => setV({ ...v, cycle: e.target.value })}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>
-          {v.cycle === 'Cycle 2' && <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>}
-        </div>}
-        {entryStarted && (v.cycle || 'Cycle 1') === 'Cycle 1' && <>
-        <div className="survey-grid">
-          
-<Field label="Name of teacher" required>
-  <input
-    value={v.teacherName}
-    onChange={e => {
-      setV({ ...v, teacherName: e.target.value });
-      setLookupMatches([]);
-      setLookupMsg('');
-    }}
-  />
-</Field>
-
-
-
-
-
-{lookupMsg && (
-  <p className="form-message">{lookupMsg}</p>
-)}
-
-{lookupMatches.length > 0 && (
-  <section className="card">
-    <h3>Previous Teacher Submissions</h3>
-
-    {lookupMatches.map((item, index) => (
-      <div
-        key={`${item.submissionId || 'record'}-${index}`}
-        style={{
-          borderBottom: '1px solid #ddd',
-          padding: '12px 0'
-        }}
-      >
-        <strong>{item.name || v.teacherName}</strong>
-        <p>Theme: {item.themeName || 'Not recorded'}</p>
-        <p>
-          Pre rating: {item.preRating ?? 'Not recorded'}
-          {' · '}
-          Post rating: {item.postRating ?? 'Not recorded'}
-        </p>
-        <p>
-          Submitted: {item.submittedAt || 'Date unavailable'}
-        </p>
-        <p>
-          Submission ID: {item.submissionId || 'Not recorded'}
-        </p>
-      </div>
-    ))}
-  </section>
-)}
-
-          <Field label="Position of teacher" required>
-            <div className="check-grid">
-              {['ECED Coordinator', 'ECED Educator', 'ECED Teacher', 'Other'].map(a => (
-                <label className="check" key={a}>
-                  <input
-                    type="checkbox"
-                    checked={v.positions.includes(a)}
-                    onChange={() =>
-                      setV({
-                        ...v,
-                        positions: v.positions.includes(a)
-                          ? v.positions.filter((x: string) => x !== a)
-                          : [...v.positions, a]
-                      })
-                    }
-                  />
-                  <span>{a}</span>
-                </label>
-              ))}
-            </div>
-          </Field>
-
-          <Field label="No. of years of teaching in RECs" required>
-            <select
-              value={v.years}
-              onChange={e => setV({ ...v, years: e.target.value })}
-            >
-              <option value="">Select</option>
-              {['0-1 year', '2-3 years', '3-5 years', '5-10 years', 'more than 10 years'].map(x => (
-                <option key={x}>{x}</option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Training attended by ITREB" required>
-            <select
-              value={v.training}
-              onChange={e => setV({ ...v, training: e.target.value })}
-            >
-              <option value="">Select</option>
-              {["Teacher's training", 'refresher', 'No', 'other'].map(x => (
-                <option key={x}>{x}</option>
-              ))}
-            </select>
-          </Field>
-
-          {v.training === 'other' && (
-            <Field label="If other, please mention about training" required>
-              <input
-                value={v.otherTraining}
-                onChange={e => setV({ ...v, otherTraining: e.target.value })}
-              />
-            </Field>
-          )}
-
-          <Field label="Select when this assessment conducted" required>
-            <select
-              value={v.assessmentConducted}
-              onChange={e =>
-                setV({ ...v, assessmentConducted: e.target.value })
-              }
-            >
-              <option value="">Select</option>
-              <option>Teachers training</option>
-              <option>mentoring session</option>
-            </select>
-          </Field>
-
+          <Field label="Name of teacher" required><input value={v.teacherName || ''} onChange={e => { setV({ ...v, teacherName: e.target.value }); setLookupMatches([]); setLookupMsg(''); }} /></Field>
           <Field label="Select the theme" required>
             <select
               value={v.theme}

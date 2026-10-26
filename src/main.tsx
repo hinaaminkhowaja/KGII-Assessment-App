@@ -1163,8 +1163,8 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
 
   const submit = async () => {
     const assessmentDate = value.assessmentDate || new Date().toISOString().slice(0, 10);
-    if (!value.teacherName?.trim() || !value.filler?.trim() || !value.assessmentStage || !value.mentorName?.trim() || !assessmentDate) {
-      setMsg('Please enter the teacher and form-filler name, select Pre or Post, and enter the mentor and date.');
+    if (!value.teacherName?.trim() || !value.positions?.length || !value.years || !value.training || (value.training === 'other' && !value.otherTraining?.trim()) || !value.filler?.trim() || !value.assessmentStage || !value.mentorName?.trim() || !assessmentDate) {
+      setMsg('Please complete the shared teacher and training details, select Pre or Post, and enter the mentor and date.');
       return;
     }
     if (teacherAssessmentSkills.some(skill => (ratings[skill.key] || []).length !== 4 || (ratings[skill.key] || []).some((score: any) => ![1, 2, 3, 4].includes(Number(score))))) {
@@ -1252,7 +1252,6 @@ function TeacherSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
     years: '',
     training: '',
     otherTraining: '',
-    assessmentConducted: '',
     theme: '',
     ratings: { pre: '', post: '' },
     filler: ''

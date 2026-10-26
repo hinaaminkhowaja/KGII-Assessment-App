@@ -349,8 +349,14 @@ function Kpis({rows,metricRows=rows,hideTeacherBreakdown=false,hideAtGlance=fals
   const teacherRows=scoreRows.filter(r=>r.ParticipantType==='Teacher');
   const preRows=scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const postRows=scoreRows.filter(r=>assessmentIs(r.Assessment,'Post'));
-  const countPreRows=metricRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
-  const countPostRows=metricRows.filter(r=>assessmentIs(r.Assessment,'Post'));
+  const studentCountRows=f.studentRating?rows:metricRows;
+  const teacherCountRows=f.teacherRating?rows:metricRows;
+  const recCountRows=ratingSelected?rows:metricRows;
+  const countPreRows=studentCountRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
+  const countPostRows=studentCountRows.filter(r=>assessmentIs(r.Assessment,'Post'));
+  const teacherCount=teacherCountRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
+  const recPreRows=recCountRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
+  const recPostRows=recCountRows.filter(r=>assessmentIs(r.Assessment,'Post'));
   const studentPct=aggregate(studentRows).p;
   const teacherPct=aggregate(teacherRows).p;
   const prePct=aggregate(preRows).p;
@@ -403,7 +409,7 @@ function Kpis({rows,metricRows=rows,hideTeacherBreakdown=false,hideAtGlance=fals
   })();
   const teachers = (() => {
     const groups=new Map<string,Set<string>>();
-    metricRows.filter(r=>r.ParticipantType==='Teacher'&&r.Region&&r.LocalBoard&&r.REC).forEach(r=>{
+    teacherCount.filter(r=>r.Region&&r.LocalBoard&&r.REC).forEach(r=>{
       const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
       const name=norm(r.TeacherName); if(!name)return;
       const names=groups.get(rec)||new Set<string>(); names.add(name.toLocaleLowerCase()); groups.set(rec,names);
@@ -411,8 +417,8 @@ function Kpis({rows,metricRows=rows,hideTeacherBreakdown=false,hideAtGlance=fals
     let total=0; groups.forEach(names=>total+=names.size); return total;
   })();
   const recKey=(r:Rec)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-  const preRecs=new Set(countPreRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
-  const postRecs=new Set(countPostRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
+  const preRecs=new Set(recPreRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
+  const postRecs=new Set(recPostRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
 
   const cards=[
     ['Overall Score',ratingSelected?(score.toFixed(1)+' / '+totalMax.toFixed(1)):teacherOnly?((preScore+postScore).toFixed(1)+' / 32'):(score.toFixed(1)+' / 206')],

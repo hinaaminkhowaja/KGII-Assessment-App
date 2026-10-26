@@ -353,11 +353,19 @@ function Kpis({rows,hideTeacherBreakdown=false,hideAtGlance=false,f={}}:{rows:Re
   const prePct=aggregate(preRows).p;
   const postPct=aggregate(postRows).p;
   const teacherOnly=hideTeacherBreakdown;
-  const score=ratingSelected?overall.score:overall.p*206/100;
-  const preScore=ratingSelected?preTotals.score:teacherOnly?scoreModel(preRows).total:prePct;
-  const postScore=ratingSelected?postTotals.score:teacherOnly?scoreModel(postRows).total:postPct;
-  const preMax=ratingSelected?preTotals.max:16;
-  const postMax=ratingSelected?postTotals.max:16;
+  const selectedRatingMax=(f.studentRating?87:0)+(f.teacherRating?16:0);
+  const preSelected=ratingSelected&&(!f.assessment||assessmentIs(f.assessment,'Pre'));
+  const postSelected=ratingSelected&&(!f.assessment||assessmentIs(f.assessment,'Post'));
+  const preScore=ratingSelected
+    ? (f.studentRating?scoreOutOf(preRows,'Student',29):0)+(f.teacherRating?scoreOutOf(preRows,'Teacher',4):0)
+    : teacherOnly?scoreModel(preRows).total:prePct;
+  const postScore=ratingSelected
+    ? (f.studentRating?scoreOutOf(postRows,'Student',29):0)+(f.teacherRating?scoreOutOf(postRows,'Teacher',4):0)
+    : teacherOnly?scoreModel(postRows).total:postPct;
+  const preMax=ratingSelected?(preSelected?selectedRatingMax:0):16;
+  const postMax=ratingSelected?(postSelected?selectedRatingMax:0):16;
+  const score=ratingSelected?preScore+postScore:overall.p*206/100;
+  const totalMax=ratingSelected?preMax+postMax:206;
 
   // Keep the existing dashboard participant-count calculations and show them on
   // the dashboard and all non-teacher analysis views.
@@ -404,7 +412,7 @@ function Kpis({rows,hideTeacherBreakdown=false,hideAtGlance=false,f={}}:{rows:Re
   const postRecs=new Set(postRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
 
   const cards=[
-    ['Overall Score',ratingSelected?(score.toFixed(1)+' / '+overall.max.toFixed(1)):teacherOnly?((preScore+postScore).toFixed(1)+' / 32'):(score.toFixed(1)+' / 206')],
+    ['Overall Score',ratingSelected?(score.toFixed(1)+' / '+totalMax.toFixed(1)):teacherOnly?((preScore+postScore).toFixed(1)+' / 32'):(score.toFixed(1)+' / 206')],
     ['Performance',fmt(overall.p)],
     ['Status',statusFor(overall.p)],
     ['No. of Students',preStudents+' / '+postStudents],

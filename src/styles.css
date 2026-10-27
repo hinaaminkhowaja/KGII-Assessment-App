@@ -496,3 +496,10 @@
 @media(max-width:650px){.cross-pathway{grid-template-columns:1fr!important}.cross-pathway>span{transform:rotate(90deg);text-align:center}.cross-three strong{font-size:17px}.cross-dimension-row{grid-template-columns:minmax(0,1fr) auto;gap:8px}.cross-dimension-row .cross-change{grid-column:2}.cross-actions{grid-template-columns:1fr}.cross-section-head{min-width:0}.cross-matrix{min-width:1000px}}
 
 .cross-priority-scores{display:block;margin-top:4px;font-size:12px;line-height:1.45;font-weight:600;color:#42566d}
+
+/* Display rubric support priorities horizontally across the available width */
+.cross-priority-rubrics .cross-priority-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;list-style:none;padding:0;margin:10px 0 0}
+.cross-priority-rubrics .cross-priority-list>li{min-width:0;border:1px solid #e2ebf3;border-radius:9px;padding:11px;background:#fbfdff;overflow-wrap:anywhere}
+.cross-priority-rubrics .cross-priority-list>li>strong{display:block;line-height:1.4}
+@media(max-width:900px){.cross-priority-rubrics .cross-priority-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.cross-priority-rubrics .cross-priority-list{grid-template-columns:1fr}}

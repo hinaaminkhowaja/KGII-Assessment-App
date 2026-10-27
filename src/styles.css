@@ -503,3 +503,9 @@
 .cross-priority-rubrics .cross-priority-list>li>strong{display:block;line-height:1.4}
 @media(max-width:900px){.cross-priority-rubrics .cross-priority-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.cross-priority-rubrics .cross-priority-list{grid-template-columns:1fr}}
+
+/* Let rubric support span the full way-forward row so long indicator descriptions have room */
+.cross-actions>.cross-priority-rubrics{grid-column:1 / -1;width:100%;min-width:0}
+.cross-actions>.cross-priority-rubrics .cross-priority-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cross-actions>.cross-priority-rubrics .cross-priority-list>li{overflow-wrap:break-word;word-break:normal;hyphens:auto}
+@media(max-width:650px){.cross-actions>.cross-priority-rubrics .cross-priority-list{grid-template-columns:1fr}}

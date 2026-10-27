@@ -401,10 +401,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,hideTeacherBreakdown=f
   const cycle1Score=aggregate(cycle1Rows).p*206/100;
   const cycle2TeacherPre=aggregate(cycle2Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre'))).p*48/100;
   const cycle2TeacherPost=aggregate(cycle2Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post'))).p*48/100;
-  const cycle2StudentScore=includeStudent?aggregate(phase3Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student')).p*87/100:0;
+  const cycle2StudentScore=includeStudent?aggregate(phase3Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&(!f.studentRating||ratingFilterMatch(r,f)))).p*87/100:0;
   const allCycleScore=cycle1Score+cycle2StudentScore+(includeTeacher?cycle2TeacherPre+cycle2TeacherPost:0);
   const allCycleMax=ratingSelected
-    ? (f.studentRating?174:0)+(f.teacherRating?96:0)
+    ? 2*selectedRatingMax+(f.studentRating?87:0)+(f.teacherRating?96:0)
     : 389;
   const score=cycleAll?allCycleScore:cycle2?cycle2Score:ratingSelected?preScore+postScore:overall.p*206/100;
   const totalMax=cycleAll?allCycleMax:cycle2?cycle2Max:ratingSelected?preMax+postMax:206;

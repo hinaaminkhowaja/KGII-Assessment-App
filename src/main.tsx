@@ -395,9 +395,20 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,hideTeacherBreakdown=f
   const phase3Max=cycle2&&includeStudent?87:0;
   const cycle2Score=phase3Score+preScore+postScore;
   const cycle2Max=phase3Max+preMax+postMax;
-  const score=cycle2?cycle2Score:ratingSelected?preScore+postScore:overall.p*206/100;
-  const totalMax=cycle2?cycle2Max:ratingSelected?preMax+postMax:206;
-  const overallPerformance=cycle2?pct(score,totalMax):overall.p;
+  const cycleAll=!f.cycle||f.cycle==='All';
+  const cycle1Rows=scoreRows.filter(r=>cycleLabel(r.CycleID)==='Cycle 1');
+  const cycle2Rows=scoreRows.filter(r=>cycleLabel(r.CycleID)==='Cycle 2');
+  const cycle1Score=aggregate(cycle1Rows).p*206/100;
+  const cycle2TeacherPre=aggregate(cycle2Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre'))).p*48/100;
+  const cycle2TeacherPost=aggregate(cycle2Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post'))).p*48/100;
+  const cycle2StudentScore=includeStudent?aggregate(phase3Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student')).p*87/100:0;
+  const allCycleScore=cycle1Score+cycle2StudentScore+(includeTeacher?cycle2TeacherPre+cycle2TeacherPost:0);
+  const allCycleMax=ratingSelected
+    ? (f.studentRating?174:0)+(f.teacherRating?96:0)
+    : 389;
+  const score=cycleAll?allCycleScore:cycle2?cycle2Score:ratingSelected?preScore+postScore:overall.p*206/100;
+  const totalMax=cycleAll?allCycleMax:cycle2?cycle2Max:ratingSelected?preMax+postMax:206;
+  const overallPerformance=cycleAll||cycle2?pct(score,totalMax):overall.p;
 
   // Keep the existing dashboard participant-count calculations and show them on
   // the dashboard and all non-teacher analysis views.

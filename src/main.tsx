@@ -362,19 +362,25 @@ function Kpis({rows,metricRows=rows,hideTeacherBreakdown=false,hideAtGlance=fals
   const prePct=aggregate(preRows).p;
   const postPct=aggregate(postRows).p;
   const teacherOnly=hideTeacherBreakdown;
-  const selectedRatingMax=(f.studentRating?87:0)+(f.teacherRating?16:0);
+  const cycle2=cycleLabel(f.cycle)==='Cycle 2';
+  const teacherStageMax=cycle2?48:16;
+  const selectedRatingMax=(f.studentRating?87:0)+(f.teacherRating?teacherStageMax:0);
   const preSelected=ratingSelected&&(!f.assessment||assessmentIs(f.assessment,'Pre'));
   const postSelected=ratingSelected&&(!f.assessment||assessmentIs(f.assessment,'Post'));
+  const studentStageScore=(stageRows:Rec[])=>aggregate(stageRows.filter(r=>r.ParticipantType==='Student')).p*87/100;
+  const teacherStageScore=(stageRows:Rec[])=>cycle2
+    ? aggregate(stageRows.filter(r=>r.ParticipantType==='Teacher')).p*48/100
+    : scoreOutOf(stageRows,'Teacher',4);
   const preScore=ratingSelected
-    ? (f.studentRating?scoreOutOf(preRows,'Student',29):0)+(f.teacherRating?scoreOutOf(preRows,'Teacher',4):0)
-    : teacherOnly?scoreModel(preRows).total:prePct;
+    ? (f.studentRating?studentStageScore(preRows):0)+(f.teacherRating?teacherStageScore(preRows):0)
+    : teacherOnly?(cycle2?aggregate(preRows).p*48/100:scoreModel(preRows).total):prePct;
   const postScore=ratingSelected
-    ? (f.studentRating?scoreOutOf(postRows,'Student',29):0)+(f.teacherRating?scoreOutOf(postRows,'Teacher',4):0)
-    : teacherOnly?scoreModel(postRows).total:postPct;
-  const preMax=ratingSelected?(preSelected?selectedRatingMax:0):16;
-  const postMax=ratingSelected?(postSelected?selectedRatingMax:0):16;
-  const score=ratingSelected?preScore+postScore:overall.p*206/100;
-  const totalMax=ratingSelected?preMax+postMax:206;
+    ? (f.studentRating?studentStageScore(postRows):0)+(f.teacherRating?teacherStageScore(postRows):0)
+    : teacherOnly?(cycle2?aggregate(postRows).p*48/100:scoreModel(postRows).total):postPct;
+  const preMax=ratingSelected?(preSelected?selectedRatingMax:0):cycle2?135:16;
+  const postMax=ratingSelected?(postSelected?selectedRatingMax:0):cycle2?135:16;
+  const score=ratingSelected?preScore+postScore:overall.p*(cycle2?270:206)/100;
+  const totalMax=ratingSelected?preMax+postMax:cycle2?270:206;
 
   // Keep the existing dashboard participant-count calculations and show them on
   // the dashboard and all non-teacher analysis views.
@@ -421,7 +427,7 @@ function Kpis({rows,metricRows=rows,hideTeacherBreakdown=false,hideAtGlance=fals
   const postRecs=new Set(recPostRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
 
   const cards=[
-    ['Overall Score',ratingSelected?(score.toFixed(1)+' / '+totalMax.toFixed(1)):teacherOnly?((preScore+postScore).toFixed(1)+' / 32'):(score.toFixed(1)+' / 206')],
+    ['Overall Score',ratingSelected?(score.toFixed(1)+' / '+totalMax.toFixed(1)):teacherOnly?((preScore+postScore).toFixed(1)+' / '+(cycle2?96:32)):(score.toFixed(1)+' / '+totalMax.toFixed(1))],
     ['Performance',fmt(overall.p)],
     ['Status',statusFor(overall.p)],
     ['No. of Students',preStudents+' / '+postStudents],
@@ -431,8 +437,8 @@ function Kpis({rows,metricRows=rows,hideTeacherBreakdown=false,hideAtGlance=fals
     ['Teachers Overall',fmt(teacherPct)],
     ['Theme Overall',fmt(overall.p)],
     ['Dimension Overall',fmt(overall.p)],
-    ['Pre Overall',ratingSelected?(preMax?preScore.toFixed(1)+' / '+preMax.toFixed(1):'—'):teacherOnly?(preScore.toFixed(1)+' / 16'):fmt(prePct)],
-    ['Post Overall',ratingSelected?(postMax?postScore.toFixed(1)+' / '+postMax.toFixed(1):'—'):teacherOnly?(postScore.toFixed(1)+' / 16'):fmt(postPct)]
+    ['Pre Overall',ratingSelected?(preMax?preScore.toFixed(1)+' / '+preMax.toFixed(1):'—'):teacherOnly?(preScore.toFixed(1)+' / '+(cycle2?48:16)):fmt(prePct)],
+    ['Post Overall',ratingSelected?(postMax?postScore.toFixed(1)+' / '+postMax.toFixed(1):'—'):teacherOnly?(postScore.toFixed(1)+' / '+(cycle2?48:16)):fmt(postPct)]
   ];
   const hiddenByRating=f.studentRating&&!f.teacherRating
     ? ['No. of Teachers (Unique)','Teachers Overall']

@@ -357,12 +357,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,hideTeacherBreakdown=f
   const teacherCount=teacherCountRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const recPreRows=recCountRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const recPostRows=recCountRows.filter(r=>assessmentIs(r.Assessment,'Post'));
+  const cycle2=cycleLabel(f.cycle)==='Cycle 2';
   const studentPct=cycle2?aggregate(phase3Rows).p:aggregate(studentRows).p;
   const teacherPct=aggregate(teacherRows).p;
   const prePct=aggregate(preRows).p;
   const postPct=aggregate(postRows).p;
   const teacherOnly=hideTeacherBreakdown;
-  const cycle2=cycleLabel(f.cycle)==='Cycle 2';
   const includeStudent=(!ratingSelected||!!f.studentRating)&&(!f.pt||norm(f.pt).toLowerCase()==='student');
   const includeTeacher=(!ratingSelected||!!f.teacherRating)&&(!f.pt||norm(f.pt).toLowerCase()==='teacher');
   const phase3StudentRows=includeStudent?phase3Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'):[];

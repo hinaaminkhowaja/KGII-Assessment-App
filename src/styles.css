@@ -385,7 +385,90 @@
   }
 }
 
-.rating-scale{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 18px;padding:12px;border:1px solid #dce7e3;border-radius:10px;background:#f7faf9}.rating-scale strong{width:100%;font-size:12px;color:#315b50}.rating-scale span{padding:7px 9px;border-radius:7px;background:white;border:1px solid #e1e9e6;font-size:11px;color:#4d655f}.teacher-skill-card{padding:14px}.teacher-skill-card h3{margin-top:0}.teacher-cycle2-assessment .table-wrap{overflow-x:auto}.teacher-cycle2-assessment table{min-width:980px}.teacher-assessment-summary .summary-student-meta{margin:12px 0}
+.rating-scale{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 18px;padding:12px;border:1px solid #dce7e3;border-radius:10px;background:#f7faf9}.rating-scale strong{width:100%;font-size:12px;color:#315b50}.rating-scale span{padding:7px 9px;border-radius:7px;background:white;border:1px solid #e1e9e6;font-size:11px;color:#4d655f}.teacher-skill-card{padding:14px}.teacher-skill-card h3{margin-top:0}.teacher-cycle2-assessment .table-wrap{overflow-x:auto}.teacher-cycle2-assessment table{min-width:980px}
+
+/* Cycle 2 teacher rubrics: fit the available page width without horizontal scrolling. */
+.teacher-cycle2-assessment,
+.teacher-cycle2-assessment .teacher-skill-card,
+.teacher-cycle2-assessment .table-wrap {
+  width: 100%;
+  min-width: 0;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.teacher-cycle2-assessment .table-wrap {
+  overflow-x: visible !important;
+}
+.teacher-cycle2-assessment table {
+  width: 100%;
+  min-width: 0 !important;
+  table-layout: fixed;
+  font-size: 11px;
+}
+.teacher-cycle2-assessment th,
+.teacher-cycle2-assessment td {
+  padding: 7px 5px;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.teacher-cycle2-assessment th:first-child,
+.teacher-cycle2-assessment td:first-child { width: 22%; }
+.teacher-cycle2-assessment th:last-child,
+.teacher-cycle2-assessment td:last-child { width: 10%; }
+.teacher-cycle2-assessment select { max-width: 100%; width: 100%; }
+@media (max-width: 700px) {
+  .teacher-cycle2-assessment { padding: 10px; }
+  .teacher-cycle2-assessment .teacher-skill-card { padding: 10px; }
+  .teacher-cycle2-assessment .table-wrap { overflow: visible !important; }
+  .teacher-cycle2-assessment table,
+  .teacher-cycle2-assessment tbody { display: block; width: 100%; }
+  .teacher-cycle2-assessment thead { display: none; }
+  .teacher-cycle2-assessment tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 9px;
+    margin: 0 0 9px;
+    border: 1px solid #dce7e3;
+    border-radius: 9px;
+    background: #fbfdfc;
+  }
+  .teacher-cycle2-assessment tbody td {
+    display: block;
+    width: auto !important;
+    min-width: 0;
+    padding: 7px;
+    border: 1px solid #e5ece9;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .teacher-cycle2-assessment tbody td:first-child {
+    grid-column: 1 / -1;
+    background: #edf6f2;
+    border-color: #d6e8e0;
+    font-size: 12px;
+  }
+  .teacher-cycle2-assessment tbody td:nth-child(2)::before { content: "1 · Seeding"; display:block; font-weight:700; color:#527168; margin-bottom:4px; }
+  .teacher-cycle2-assessment tbody td:nth-child(3)::before { content: "2 · Growing"; display:block; font-weight:700; color:#527168; margin-bottom:4px; }
+  .teacher-cycle2-assessment tbody td:nth-child(4)::before { content: "3 · Maturing"; display:block; font-weight:700; color:#527168; margin-bottom:4px; }
+  .teacher-cycle2-assessment tbody td:nth-child(5)::before { content: "4 · Flourishing"; display:block; font-weight:700; color:#527168; margin-bottom:4px; }
+  .teacher-cycle2-assessment tbody td:last-child {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f1f8f5;
+  }
+  .teacher-cycle2-assessment tbody td:last-child::before { content: "Selected score"; font-weight:700; flex:1; }
+  .teacher-cycle2-assessment tbody td:last-child select { width: 100px; }
+  .teacher-cycle2-assessment tfoot { display:block; }
+  .teacher-cycle2-assessment tfoot tr { display:flex; justify-content:space-between; align-items:center; }
+  .teacher-cycle2-assessment tfoot th { padding:7px 4px; }
+}
+.teacher-assessment-summary .summary-student-meta{margin:12px 0}
 
 
 /* Student–Teacher Cross-Analysis */

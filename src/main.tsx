@@ -1281,8 +1281,8 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
 
   const submit = async () => {
     const assessmentDate = value.assessmentDate || new Date().toISOString().slice(0, 10);
-    if (!value.teacherName?.trim() || !value.positions?.length || !value.years || !value.training || (value.training === 'other' && !value.otherTraining?.trim()) || !value.filler?.trim() || !value.assessmentStage || !value.mentorName?.trim() || !assessmentDate) {
-      setMsg('Please complete the shared teacher and training details, select Pre or Post, and enter the mentor and date.');
+    if (!value.teacherName?.trim() || !value.positions?.length || !value.years || !value.training || (value.training === 'other' && !value.otherTraining?.trim()) || !value.filler?.trim() || !value.assessmentStage) {
+      setMsg('Please complete the required teacher and training details and select Pre or Post.');
       return;
     }
     if (teacherAssessmentSkills.some(skill => (ratings[skill.key] || []).length !== 4 || (ratings[skill.key] || []).some((score: any) => ![1, 2, 3, 4].includes(Number(score))))) {
@@ -1310,10 +1310,8 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
         yearsTeaching: value.years,
         trainingAttended: value.training,
         otherTraining: value.otherTraining || '',
-        mentorName: value.mentorName.trim(),
         fillerName: value.filler.trim(),
         fillerDesignation: '',
-        assessmentDate,
         skillRatings: ratings,
         skillTotals,
         skillLevels,
@@ -1334,10 +1332,6 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
 
   return <section className="card teacher-cycle2-assessment">
     <div className="rating-scale"><strong>Rating scale</strong><span>1 · Seeding — begin to use the skills</span><span>2 · Growing — sometimes use the skills</span><span>3 · Maturing — often use the skills</span><span>4 · Flourishing — always use the skills</span></div>
-    <div className="survey-grid">
-      <Field label="Mentor" required><input value={value.mentorName || ''} onChange={e => setField('mentorName', e.target.value)} /></Field>
-      <Field label="Date" required><input type="date" value={value.assessmentDate || new Date().toISOString().slice(0, 10)} onChange={e => setField('assessmentDate', e.target.value)} /></Field>
-    </div>
     {teacherAssessmentSkills.map(skill => {
       const score = summaries.find(item => item.key === skill.key)?.score || 0;
       return <section className="card teacher-skill-card" key={skill.key}>

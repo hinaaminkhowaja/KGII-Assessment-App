@@ -341,7 +341,7 @@ function statusFor(p:number){return p>=80?'Excellent':p>=65?'Good':p>=50?'Satisf
 
 function Kpis({rows,metricRows=rows,hideTeacherBreakdown=false,hideAtGlance=false,f={}}:{rows:Rec[];metricRows?:Rec[];hideTeacherBreakdown?:boolean;hideAtGlance?:boolean;f?:any}) {
   const ratingSelected=!!(f.studentRating||f.teacherRating);
-  const scoreRows=ratingSelected?metricRows.filter(r=>(!f.studentRating||norm(r.ParticipantType).toLowerCase()==='student')&&(!f.teacherRating||norm(r.ParticipantType).toLowerCase()==='teacher')):metricRows;
+  const scoreRows=ratingSelected?metricRows.filter(r=>(!f.studentRating&&!f.teacherRating)||(!!f.studentRating&&norm(r.ParticipantType).toLowerCase()==='student')||(!!f.teacherRating&&norm(r.ParticipantType).toLowerCase()==='teacher')):metricRows;
   const overall=aggregate(scoreRows);
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
@@ -434,9 +434,14 @@ function Kpis({rows,metricRows=rows,hideTeacherBreakdown=false,hideAtGlance=fals
     ['Pre Overall',ratingSelected?(preMax?preScore.toFixed(1)+' / '+preMax.toFixed(1):'—'):teacherOnly?(preScore.toFixed(1)+' / 16'):fmt(prePct)],
     ['Post Overall',ratingSelected?(postMax?postScore.toFixed(1)+' / '+postMax.toFixed(1):'—'):teacherOnly?(postScore.toFixed(1)+' / 16'):fmt(postPct)]
   ];
+  const hiddenByRating=f.studentRating&&!f.teacherRating
+    ? ['No. of Teachers (Unique)','Teachers Overall']
+    : f.teacherRating&&!f.studentRating
+      ? ['No. of Students','Students Overall']
+      : [];
   const visibleCards=teacherOnly
     ? cards.filter(([label])=>!['No. of Students','No. of Teachers (Unique)','Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label))
-    : cards;
+    : cards.filter(([label])=>!hiddenByRating.includes(String(label)));
   return <div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label==='No. of RECs'?'No. of RECs (Pre / Post)':label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong>{label==='Status'&&<small className="status-criteria">Excellent ≥ 80% · Good ≥ 65% · Satisfactory ≥ 50% · Need Attention &lt; 50%</small>}</div>)}</div>;
 }
 

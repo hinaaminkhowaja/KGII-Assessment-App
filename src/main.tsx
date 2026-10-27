@@ -684,12 +684,12 @@ function StudentTeacherCrossAnalysis({rows,f}:{rows:Rec[];f:any}){
  const [view,setView]=useState<'matrix'|'charts'>('matrix');
  const [resources,setResources]=useState<any[]>([]);
  useEffect(()=>{let alive=true;apiGet('resources').then((d:any)=>{if(alive)setResources(Array.isArray(d.resources)?d.resources:[])}).catch(()=>{});return()=>{alive=false}},[]);
- const hasRegion=!!f.region,hasBoard=!!f.board,hasRec=!!f.rec;
+ const hasRegion=!!f.region&&f.region!=='All',hasBoard=!!f.board&&f.board!=='All',hasRec=!!f.rec&&f.rec!=='All';
  const selectedLevel: 'National'|'Region'|'Local Board'|'REC'=hasRec?'REC':hasBoard?'Local Board':hasRegion?'Region':'National';
  const levelKey:any=selectedLevel==='REC'?'REC':selectedLevel==='Local Board'?'LocalBoard':selectedLevel==='Region'?'Region':null;
  const names=levelKey?unique(clean,levelKey).sort((a,b)=>a.localeCompare(b)):['National'];
  const items=names.map(name=>{
-  const scoped=levelKey?clean.filter(r=>norm(r[levelKey])===name):clean;
+  const scoped=levelKey?clean.filter(r=>norm((r as any)[levelKey])===name):clean;
   const students=scoped.filter(r=>r.ParticipantType==='Student'),teachers=scoped.filter(r=>r.ParticipantType==='Teacher');
   const studentPre=stageAggregate(students,'Pre'),studentPost=stageAggregate(students,'Post'),teacherPre=stageAggregate(teachers,'Pre'),teacherPost=stageAggregate(teachers,'Post');
   const uaPre=stageAggregate(students.filter(r=>norm(r.DimensionID).toUpperCase()==='UA'),'Pre'),uaPost=stageAggregate(students.filter(r=>norm(r.DimensionID).toUpperCase()==='UA'),'Post');

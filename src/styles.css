@@ -386,3 +386,66 @@
 }
 
 .rating-scale{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 18px;padding:12px;border:1px solid #dce7e3;border-radius:10px;background:#f7faf9}.rating-scale strong{width:100%;font-size:12px;color:#315b50}.rating-scale span{padding:7px 9px;border-radius:7px;background:white;border:1px solid #e1e9e6;font-size:11px;color:#4d655f}.teacher-skill-card{padding:14px}.teacher-skill-card h3{margin-top:0}.teacher-cycle2-assessment .table-wrap{overflow-x:auto}.teacher-cycle2-assessment table{min-width:980px}.teacher-assessment-summary .summary-student-meta{margin:12px 0}
+
+
+/* Student–Teacher Cross-Analysis */
+.cross-analysis{display:grid;gap:16px}
+.cross-hero{background:linear-gradient(115deg,#f0f7ff,#f1fbf8);border-color:#cfe2f8}
+.cross-hero .eyebrow{font-size:10px;letter-spacing:.12em;font-weight:800;color:#2872b8}
+.cross-hero h2{margin:7px 0;font-size:22px;color:#163b65}
+.cross-hero>p{margin:0;color:#52677d;font-size:13px}
+.cross-cycle{display:inline-flex;margin-top:12px;padding:6px 10px;border-radius:999px;background:#e0edff;color:#165da8;font-size:12px;font-weight:700}
+.cross-pathway{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:14px;margin-top:18px}
+.cross-pathway>div{display:flex;flex-direction:column;gap:6px;padding:14px;background:rgba(255,255,255,.8);border:1px solid #d9e8f7;border-radius:12px;min-height:88px;justify-content:center}
+.cross-pathway b{font-size:13px;color:#164d80}
+.cross-pathway small{font-size:11px;line-height:1.5;color:#60758b}
+.cross-arrow{font-size:24px;color:#2585d8;font-weight:700}
+.cross-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.cross-summary h3{font-size:14px;margin:0 0 14px;color:#234b70}
+.cross-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.cross-three>div{display:flex;flex-direction:column;gap:6px;padding:2px 12px;border-right:1px solid #e2ebf4}
+.cross-three>div:first-child{padding-left:0}
+.cross-three>div:last-child{border-right:0}
+.cross-three small{font-size:11px;color:#61758a}
+.cross-three strong{font-size:22px;color:#123d67;line-height:1.2}
+.cross-three span{font-size:10px;line-height:1.4;color:#7b8da0}
+.cross-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.cross-section-head h2{margin:0 0 5px}
+.cross-section-head p{margin:0;color:#718196;font-size:12px}
+.cross-tabs{display:flex;gap:4px;padding:4px;background:#f0f5fa;border-radius:9px;flex-shrink:0}
+.cross-tabs button{border:0;border-radius:6px;padding:7px 13px;background:transparent;color:#50657a;cursor:pointer;font-weight:600}
+.cross-tabs button.active{background:#1678d3;color:#fff;box-shadow:0 2px 5px #0f5fa52b}
+.cross-matrix{min-width:1050px;font-size:11px}
+.cross-matrix th{background:#edf5fc;color:#234d76;white-space:nowrap}
+.cross-matrix td{white-space:nowrap}
+.cross-matrix tbody tr:nth-child(even){background:#f9fbfd}
+.cross-level{font-weight:700;color:#2a5e91}
+.cross-name{font-weight:650;color:#234d76}
+.cross-status{display:inline-flex;padding:5px 8px;border-radius:7px;font-size:10px;font-weight:750}
+.cross-status.excellent{background:#d8f7e9;color:#08784d}
+.cross-status.good{background:#dceeff;color:#155f9e}
+.cross-status.satisfactory{background:#fff0c9;color:#8b5b00}
+.cross-status.attention{background:#ffe0df;color:#a3312c}
+.cross-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.cross-charts h3{font-size:14px;color:#254f76}
+.cross-bar-row{display:grid;grid-template-columns:minmax(110px,1fr) minmax(90px,1.2fr) 90px;align-items:center;gap:9px;margin:12px 0;font-size:11px}
+.cross-bar-row>span{color:#536a80}
+.cross-bar-row>b{text-align:right;color:#2a4e70;font-size:10px}
+.cross-bar-pair{height:9px;background:#edf2f7;border-radius:8px;overflow:hidden;position:relative}
+.cross-bar-pair i{position:absolute;left:0;top:0;height:100%;background:#2695e8;border-radius:8px}
+.cross-bar-pair i+i{top:0;height:4px;margin-top:5px;background:#8b6de0;border-radius:8px}
+.cross-legend{display:flex;align-items:center;gap:6px;font-size:11px;color:#64778a}
+.cross-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#2695e8}
+.cross-legend i.teacher-legend{background:#8b6de0;margin-left:8px}
+.cross-progress-row{display:grid;gap:5px;padding:10px 0;border-bottom:1px solid #e8eef4;font-size:11px;color:#60748a}
+.cross-progress-row b{color:#254f76}
+.cross-way-forward h2{margin-top:0}
+.cross-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0}
+.cross-actions>div{padding:4px 14px;border-right:1px solid #e1eaf2}
+.cross-actions>div:first-child{padding-left:0}
+.cross-actions>div:last-child{border-right:0}
+.cross-actions b{font-size:12px;color:#23649c}
+.cross-actions p{font-size:11px;line-height:1.55;color:#60748a;margin:8px 0}
+.cross-note{margin:12px 0 0;padding-top:10px;border-top:1px solid #e4edf5;font-size:10px;line-height:1.5;color:#718398}
+@media(max-width:1000px){.cross-pathway{gap:7px}.cross-pathway>div{padding:10px}.cross-summary-grid,.cross-charts{grid-template-columns:1fr}.cross-actions{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:12px}.cross-actions>div:nth-child(2){border-right:0}.cross-actions>div:nth-child(3){padding-left:0}}
+@media(max-width:650px){.cross-pathway{grid-template-columns:1fr}.cross-arrow{transform:rotate(90deg);text-align:center;font-size:20px}.cross-three>div{padding:2px 7px}.cross-three strong{font-size:18px}.cross-section-head{align-items:flex-start;flex-direction:column}.cross-actions{grid-template-columns:1fr}.cross-actions>div{border-right:0;border-bottom:1px solid #e1eaf2;padding:10px 0}.cross-actions>div:last-child{border-bottom:0}.cross-bar-row{grid-template-columns:1fr 1fr}.cross-bar-row>b{grid-column:2;text-align:left}.cross-hero h2{font-size:19px}}

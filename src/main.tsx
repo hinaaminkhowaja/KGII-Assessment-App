@@ -478,7 +478,28 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,hideTeacherBreakdown=f
   const visibleCards=teacherOnly
     ? cards.filter(([label])=>!['No. of Students','No. of Teachers (Unique)','Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label))
     : cards.filter(([label])=>String(label)==='Phase 3 Overall'?!cycle2:!hiddenByRating.includes(String(label)));
-  return <div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label==='No. of RECs'?'No. of RECs (Pre / Post)':label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong>{label==='Status'&&<small className="status-criteria">Excellent ≥ 80% · Good ≥ 65% · Satisfactory ≥ 50% · Need Attention &lt; 50%</small>}</div>)}</div>;
+  const themeCoverage = ['T1','T2','T3','T4'].map(theme => {
+    const themeRows = metricRows.filter(r => r.ThemeID === theme);
+    const countStage = (stage:'Pre'|'Post') => {
+      const stageRows = themeRows.filter(r => assessmentIs(r.Assessment,stage));
+      const recKey = (r:Rec) => [norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+      const studentCounts = new Map<string,Set<string>>();
+      const teacherCounts = new Map<string,Set<string>>();
+      stageRows.filter(r => norm(r.ParticipantType).toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC).forEach(r => {
+        const key=recKey(r), id=(norm(r.SourceRecordID)||norm(r.ChildName)).toLocaleLowerCase();
+        if(!id)return; const set=studentCounts.get(key)||new Set<string>();set.add(id);studentCounts.set(key,set);
+      });
+      stageRows.filter(r => norm(r.ParticipantType).toLowerCase()==='teacher' && r.Region && r.LocalBoard && r.REC).forEach(r => {
+        const key=recKey(r), id=norm(r.TeacherName).toLocaleLowerCase();
+        if(!id)return; const set=teacherCounts.get(key)||new Set<string>();set.add(id);teacherCounts.set(key,set);
+      });
+      const sum=(m:Map<string,Set<string>>)=>[...m.values()].reduce((n,set)=>n+set.size,0);
+      const recs=new Set(stageRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey));
+      return {students:sum(studentCounts),teachers:sum(teacherCounts),recs:recs.size};
+    };
+    return {theme,name:labelTheme(theme),pre:countStage('Pre'),post:countStage('Post')};
+  });
+  return <><div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label==='No. of RECs'?'No. of RECs (Pre / Post)':label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong>{label==='Status'&&<small className="status-criteria">Excellent ≥ 80% · Good ≥ 65% · Satisfactory ≥ 50% · Need Attention &lt; 50%</small>}</div>)}</div>{!teacherOnly&&<section className="card theme-coverage"><h2>Theme-wise Assessment Coverage</h2><p className="admin-note">Distinct students and teachers counted within each REC for each theme; REC counts show RECs with at least one recorded assessment. Zero means no matching records under the current filters.</p><div className="table-wrap"><table><thead><tr><th rowSpan={2}>Theme</th><th colSpan={3}>Pre-assessment</th><th colSpan={3}>Post-assessment</th></tr><tr><th>Students</th><th>Teachers</th><th>RECs</th><th>Students</th><th>Teachers</th><th>RECs</th></tr></thead><tbody>{themeCoverage.map(t=><tr key={t.theme}><td><b>{t.theme}</b><br/><small>{t.name}</small></td><td>{t.pre.students}</td><td>{t.pre.teachers}</td><td>{t.pre.recs}</td><td>{t.post.students}</td><td>{t.post.teachers}</td><td>{t.post.recs}</td></tr>)}</tbody></table></div></section>}</>;
 }
 
 function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a=aggregate(rows.filter(r=>norm(r[key])===k));return {key:k,p:a.p,score:a.score,max:a.max}})}

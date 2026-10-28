@@ -592,3 +592,16 @@
 .cross-actions>.cross-priority-rubrics .cross-priority-list{grid-template-columns:repeat(3,minmax(0,1fr))}
 .cross-actions>.cross-priority-rubrics .cross-priority-list>li{overflow-wrap:break-word;word-break:normal;hyphens:auto}
 @media(max-width:650px){.cross-actions>.cross-priority-rubrics .cross-priority-list{grid-template-columns:1fr}}
+
+
+/* PWA scrolling: keep both the admin content and the navigation independently scrollable. */
+html,body,#root{min-height:100%;}
+body{overflow-x:hidden;}
+.app{min-height:100dvh;}
+.app>main{min-height:0;min-width:0;overflow-x:hidden;overflow-y:visible;-webkit-overflow-scrolling:touch;}
+.app>aside{height:100dvh;max-height:100dvh;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;}
+.theme-coverage{min-width:0;}
+.theme-coverage .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.theme-coverage table{min-width:680px;}
+.theme-coverage td:first-child small{display:inline-block;color:#71817d;margin-top:4px;}
+@media(max-width:900px){.app>aside{height:100dvh;max-height:100dvh;overflow-y:auto;overflow-x:hidden;}.app>main{padding-bottom:calc(30px + env(safe-area-inset-bottom));}}

@@ -498,12 +498,13 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,hideTeacherBreakdown=f
       const studentRecs=new Set(stageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&r.Region&&r.LocalBoard&&r.REC).map(recKey));
       const teacherRecs=new Set(stageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&r.Region&&r.LocalBoard&&r.REC).map(recKey));
       const coveredRecs=new Set([...studentRecs,...teacherRecs]);
-      const totalRecs=expectedRecKeys.size || new Set(stageRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
-      return {students:sum(studentCounts),teachers:sum(teacherCounts),studentRecs:studentRecs.size,teacherRecs:teacherRecs.size,totalRecs,coveredRecs:coveredRecs.size,missingRecs:Math.max(0,totalRecs-coveredRecs.size)};
+      const totalRecs=Math.max(studentRecs.size,teacherRecs.size);
+      const expectedRecs=expectedRecKeys.size || new Set(stageRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
+      return {students:sum(studentCounts),teachers:sum(teacherCounts),studentRecs:studentRecs.size,teacherRecs:teacherRecs.size,totalRecs,coveredRecs:coveredRecs.size,missingRecs:Math.max(0,expectedRecs-coveredRecs.size)};
     };
     return {theme,name:labelTheme(theme),pre:countStage('Pre'),post:countStage('Post')};
   });
-  return <><div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label==='No. of RECs'?'No. of RECs (Pre / Post)':label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong>{label==='Status'&&<small className="status-criteria">Excellent ≥ 80% · Good ≥ 65% · Satisfactory ≥ 50% · Need Attention &lt; 50%</small>}</div>)}</div>{!teacherOnly&&<section className="card theme-coverage"><h2>Theme-wise Assessment Coverage</h2><p className="admin-note">Distinct students and teachers counted within each REC for each theme; Student REC counts show RECs with student assessment records; Teacher REC counts show RECs with teacher assessment records. Zero means no matching records under the current filters.</p><div className="table-wrap"><table><thead><tr><th rowSpan={2}>Theme</th><th colSpan={2}>Students</th><th colSpan={2}>Student RECs</th><th colSpan={2}>Teachers</th><th colSpan={2}>Teacher RECs</th><th colSpan={2}>Total RECs</th><th colSpan={2}>Missing RECs</th></tr><tr><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th></tr></thead><tbody>{themeCoverage.map(t=><tr key={t.theme}><td><b>{t.theme}</b><br/><small>{t.name}</small></td><td>{t.pre.students}</td><td>{t.post.students}</td><td>{t.pre.studentRecs}</td><td>{t.post.studentRecs}</td><td>{t.pre.teachers}</td><td>{t.post.teachers}</td><td>{t.pre.teacherRecs}</td><td>{t.post.teacherRecs}</td><td>{t.pre.totalRecs}</td><td>{t.post.totalRecs}</td><td>{t.pre.missingRecs}</td><td>{t.post.missingRecs}</td></tr>)}</tbody></table></div></section>}</>;
+  return <><div className="kpis">{visibleCards.map(([label,value])=><div className="kpi" key={label}><span>{label==='No. of RECs'?'No. of RECs (Pre / Post)':label}</span><strong className={label==='Status'?'status-kpi '+value.toLowerCase().replace(/ /g,'-'):''}>{value}</strong>{label==='Status'&&<small className="status-criteria">Excellent ≥ 80% · Good ≥ 65% · Satisfactory ≥ 50% · Need Attention &lt; 50%</small>}</div>)}</div>{!teacherOnly&&<section className="card theme-coverage"><h2>Theme-wise Assessment Coverage</h2><p className="admin-note">Distinct students and teachers counted within each REC for each theme; Student REC counts show RECs with student assessment records; Teacher REC counts show RECs with teacher assessment records. Total RECs is the higher of the student and teacher REC counts received for that stage; Missing RECs is expected RECs minus the unique RECs with either type of record.</p><div className="table-wrap"><table><thead><tr><th rowSpan={2}>Theme</th><th colSpan={2}>Students</th><th colSpan={2}>Student RECs</th><th colSpan={2}>Teachers</th><th colSpan={2}>Teacher RECs</th><th colSpan={2}>Total RECs (highest received)</th><th colSpan={2}>Missing RECs</th></tr><tr><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th></tr></thead><tbody>{themeCoverage.map(t=><tr key={t.theme}><td><b>{t.theme}</b><br/><small>{t.name}</small></td><td>{t.pre.students}</td><td>{t.post.students}</td><td>{t.pre.studentRecs}</td><td>{t.post.studentRecs}</td><td>{t.pre.teachers}</td><td>{t.post.teachers}</td><td>{t.pre.teacherRecs}</td><td>{t.post.teacherRecs}</td><td>{t.pre.totalRecs}</td><td>{t.post.totalRecs}</td><td>{t.pre.missingRecs}</td><td>{t.post.missingRecs}</td></tr>)}</tbody></table></div></section>}</>;
 }
 
 function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a=aggregate(rows.filter(r=>norm(r[key])===k));return {key:k,p:a.p,score:a.score,max:a.max}})}
@@ -874,7 +875,7 @@ const lookupChild = async () => {
 
   
 const save = async (finishAssessment: boolean) => {
-  const assessment = v.assessment || 'Pre';
+  const assessment = cycle === 'Cycle 2' ? 'Pre' : (v.assessment || 'Pre');
   const themeState = v.themes[v.theme] || {
     activities: [],
     otherActivity: '',
@@ -1191,7 +1192,7 @@ const save = async (finishAssessment: boolean) => {
             </select>
           </Field>
 
-          <Field label="Assessment Stage" required>
+          {cycle !== 'Cycle 2' && <Field label="Assessment Stage" required>
             <select
               value={v.assessment || 'Pre'}
               onChange={e =>
@@ -1201,7 +1202,7 @@ const save = async (finishAssessment: boolean) => {
               <option value="Pre">Pre</option>
               <option value="Post">Post</option>
             </select>
-          </Field>
+          </Field>}
         </div>
       
 

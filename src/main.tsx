@@ -519,15 +519,26 @@ function ThemeWiseRecCoverage({records,refs,f,level='region'}:{records:Rec[];ref
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';
   const title=level==='region'?'Region-wise Theme REC Coverage':level==='board'?'Local Board-wise Theme REC Coverage':'REC-wise Theme Coverage';
-  // Merge source labels such as “Gupis Yasin” and “Gupis Yasin 2” into one displayed region.
+  // Canonicalize display labels once per source row so suffixed variants do not create duplicate rows.
   const groupKey=(value:any)=>geoNorm(displayGeo(norm(value)));
   const groupMap=new Map<string,string>();
-  [...scopedRefs,...scopedRecords].filter(r=>groupValue(r)&&geoMatches(r)).forEach(r=>{const raw=norm(groupValue(r));const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
+  [...scopedRefs,...scopedRecords].forEach(r=>{const raw=norm(groupValue(r));if(!raw)return;const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
   const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
-  const recCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>{
-    const matching=scopedRecords.filter(r=>groupKey(groupValue(r))===groupKey(group)&&norm(r.ThemeID)===theme&&assessmentIs(r.Assessment,stage)&&r.ParticipantType===participant&&r.REC);
-    return new Set(matching.map(r=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||'))).size;
-  };
+  // Build distinct REC sets in one pass. Avoid repeatedly scanning all assessment records for every table cell.
+  const coverage=new Map<string,Set<string>>();
+  for(const r of scopedRecords){
+    const group=groupKey(groupValue(r));
+    const theme=norm(r.ThemeID);
+    if(!group||!themes.includes(theme)||!r.REC)continue;
+    const stage=assessmentIs(r.Assessment,'Pre')?'Pre':assessmentIs(r.Assessment,'Post')?'Post':null;
+    const participant=r.ParticipantType;
+    if(!stage||(participant!=='Student'&&participant!=='Teacher'))continue;
+    const recId=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].map(geoNorm).join('||');
+    const key=[group,theme,stage,participant].join('|');
+    if(!coverage.has(key))coverage.set(key,new Set<string>());
+    coverage.get(key)!.add(recId);
+  }
+  const recCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>coverage.get([groupKey(group),theme,stage,participant].join('|'))?.size||0;
   return <section className="card theme-rec-coverage">
     <div className="section-head"><div><h2>{title}</h2><p>Distinct RECs with at least one assessment record, separated by participant type and assessment stage.</p></div></div>
     <div className="table-wrap"><table><thead><tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={4}>{labelTheme(theme)}</th>)}</tr><tr>{themes.flatMap(theme=>[<th key={theme+'-spre'}>Student Pre</th>,<th key={theme+'-spost'}>Student Post</th>,<th key={theme+'-tpre'}>Teacher Pre</th>,<th key={theme+'-tpost'}>Teacher Post</th>])}</tr></thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>[<td key={theme+'-spre'}>{recCount(group,theme,'Pre','Student')}</td>,<td key={theme+'-spost'}>{recCount(group,theme,'Post','Student')}</td>,<td key={theme+'-tpre'}>{recCount(group,theme,'Pre','Teacher')}</td>,<td key={theme+'-tpost'}>{recCount(group,theme,'Post','Teacher')}</td>])}</tr>)}</tbody></table></div>

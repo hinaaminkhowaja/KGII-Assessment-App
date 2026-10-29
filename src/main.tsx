@@ -658,6 +658,8 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
 
 function ReportActions({rows,f,isAdmin}:{rows:Rec[];f:any;isAdmin:boolean}){
  const [busy,setBusy]=useState(false);
+ const [previewOpen,setPreviewOpen]=useState(false);
+ const [selectedSlides,setSelectedSlides]=useState<string[]>(['cover','dimensions','cross','region','board','rec','wayforward']);
  const reportRows=useMemo(()=>filterRows(rows,{...f,assessment:'',pt:'',dim:'',teacher:'',studentRating:'',teacherRating:''}),[rows,f]);
  const scope=[f.region,f.board,f.rec].filter(Boolean).join(' / ')||'All authorised areas';
  const stageRows=(stage:'Pre'|'Post',type?:string,subset=reportRows)=>subset.filter(r=>assessmentIs(r.Assessment,stage)&&(!type||norm(r.ParticipantType).toLowerCase()===type));

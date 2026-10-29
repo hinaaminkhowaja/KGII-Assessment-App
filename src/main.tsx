@@ -8,8 +8,8 @@ type Indicator={CycleID:string;ParticipantType:string;Assessment:string;ThemeID:
 const pct=(n:number,d:number)=>d?100*n/d:0;
 const fmt=(x:number)=>Number.isFinite(x)?x.toFixed(1)+'%':'—';
 const norm=(v:any)=>String(v??'').trim();
-const geoNorm=(v:any)=>norm(v).replace(/\\s+/g,' ').toLocaleLowerCase();
-function uniqueGeoValues(values:any[]){const map=new Map<string,string>();for(const value of values){const raw=norm(value);const key=geoNorm(raw);if(key&&!map.has(key))map.set(key,raw.replace(/\\s+/g,' '));}return [...map.values()].sort((a,b)=>a.localeCompare(b));}
+const geoNorm=(v:any)=>norm(displayGeo(norm(v))).replace(/\s+/g,' ').toLocaleLowerCase();
+function uniqueGeoValues(values:any[]){const map=new Map<string,string>();for(const value of values){const raw=norm(value);const key=geoNorm(raw);if(key&&!map.has(key))map.set(key,raw.replace(/\s+/g,' '));}return [...map.values()].sort((a,b)=>a.localeCompare(b));}
 function aggregate(rows:Rec[]){let s=0,m=0;for(const r of rows){s+=Number(r.Score)||0;m+=Number(r.MaxScore)||0}return {score:s,max:m,p:pct(s,m)};}
 function avgRating(rows:Rec[],participantType:string){const x=rows.filter(r=>r.ParticipantType===participantType);if(!x.length)return 0;return x.reduce((a,r)=>a+(Number(r.Score)||0),0)/x.length;}
 function scoreOutOf(rows:Rec[],participantType:string,unitMax:number){const x=rows.filter(r=>r.ParticipantType===participantType);return x.length?avgRating(rows,participantType)*unitMax:0;}

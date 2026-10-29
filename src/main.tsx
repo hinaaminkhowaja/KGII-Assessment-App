@@ -700,13 +700,19 @@ function ReportActions({rows,f,isAdmin}:{rows:Rec[];f:any;isAdmin:boolean}){
    const cards:Array<[string,{score:number;max:number;p:number}]>=[['Student Pre',studentPre],['Student Post',studentPost],['Teacher Pre',teacherPre],['Teacher Post',teacherPost]];
    cards.forEach((c,i)=>{const x=0.75+i*3.08;cover.addShape(pptx.ShapeType.roundRect,{x,y:4,w:2.72,h:1.25,rectRadius:0.08,line:{color:C.line},fill:{color:C.white}});addText(cover,c[0],x+0.15,4.18,2.4,0.3,{fontSize:12,bold:true,color:C.muted});addText(cover,c[1].max?fmt(c[1].p):'N/A',x+0.15,4.53,2.4,0.48,{fontSize:25,bold:true,color:C.green});addText(cover,c[1].max?'Assessment records included':'No matching data',x+0.15,5.05,2.4,0.22,{fontSize:8,color:C.muted});});
    addText(cover,'Prepared from the records available to the signed-in user. Results may be limited where pre/post or participant data is incomplete.',0.8,6.05,11.6,0.55,{fontSize:11,color:C.muted});
+   }
+   if(selectedSlides.includes('dimensions')){
    const dims=dimensionRows.filter(d=>d.pre.max||d.post.max||d.teacherPre.max||d.teacherPost.max);
    const dimSlide=addBase('Dimension-wise Pre/Post Analysis','Green bars = Pre · Orange bars = Post · Percentages are calculated from score / maximum score');
    if(dims.length){addBarChart(dimSlide,dims.flatMap(d=>[{label:'Students · '+label(d.dim),pre:d.pre.max?d.pre.p:null,post:d.post.max?d.post.p:null},{label:'Teachers · '+label(d.dim),pre:d.teacherPre.max?d.teacherPre.p:null,post:d.teacherPost.max?d.teacherPost.p:null}]),0.7,1.55,11.9,4.8);}else addText(dimSlide,'No dimension-wise Pre/Post data is available for the selected filters.',0.8,1.8,11,0.6,{fontSize:16});
+   }
+   if(selectedSlides.includes('cross')){
    const cross=addBase('Student–Teacher Cross-Analysis','Comparisons are descriptive; differences do not establish cause or effect.');
    const crossItems=unique(reportRows,'ThemeID').filter(Boolean).map(theme=>({theme,sp:score(stageRows('Post','student',reportRows.filter(r=>r.ThemeID===theme))),tp:score(stageRows('Post','teacher',reportRows.filter(r=>r.ThemeID===theme))),spre:score(stageRows('Pre','student',reportRows.filter(r=>r.ThemeID===theme))),tpre:score(stageRows('Pre','teacher',reportRows.filter(r=>r.ThemeID===theme)))})).filter(x=>x.sp.max||x.tp.max||x.spre.max||x.tpre.max);
    if(crossItems.length){crossItems.forEach((it,i)=>{const yy=1.5+i*1.18;addText(cross,labelTheme(it.theme),0.8,yy,2.7,0.4,{fontSize:14,bold:true});addText(cross,'Students: '+(it.spre.max?fmt(it.spre.p):'Pre N/A')+' → '+(it.sp.max?fmt(it.sp.p):'Post N/A'),3.6,yy,4.1,0.4,{fontSize:12});addText(cross,'Teachers: '+(it.tpre.max?fmt(it.tpre.p):'Pre N/A')+' → '+(it.tp.max?fmt(it.tp.p):'Post N/A'),7.7,yy,4.6,0.4,{fontSize:12});if(it.sp.max&&it.tp.max)addText(cross,'Post gap: '+(it.sp.p-it.tp.p>=0?'+':'')+(it.sp.p-it.tp.p).toFixed(1)+' pp (students − teachers)',3.6,yy+0.42,6,0.28,{fontSize:10,color:C.muted});});}else addText(cross,'No matching student/teacher assessment data is available.',0.8,1.8,11,0.5,{fontSize:15});
+   }
    for(const [level,list] of Object.entries(rankings) as [string,any[]][]){
+    if(!selectedSlides.includes(level==='Region'?'region':level==='Local Board'?'board':'rec'))continue;
     const slide=addBase(level+' Performance Rankings','Ranked by Post-assessment score across the selected and authorised scope; insufficient data is excluded.');
     if(!list.length){addText(slide,'No comparable Post-assessment data is available for this level.',0.8,1.7,11,0.5,{fontSize:15});continue;}
     const top=list.slice(0,5),bottom=[...list].sort((a,b)=>a.post.p-b.post.p).slice(0,5);
@@ -715,9 +721,11 @@ function ReportActions({rows,f,isAdmin}:{rows:Rec[];f:any;isAdmin:boolean}){
     top.forEach((it,i)=>{const yy=1.95+i*0.78;addText(slide,(i+1)+'. '+it.name,0.85,yy,3.5,0.28,{fontSize:11,bold:i===0});addText(slide,'Student '+fmt(it.studentPost.p),4.05,yy,1.6,0.28,{fontSize:11,bold:true,color:C.green});addText(slide,'Student Pre '+(it.studentPre.max?fmt(it.studentPre.p):'N/A')+' · Teacher Post '+(it.teacherPost.max?fmt(it.teacherPost.p):'N/A'),0.9,yy+0.3,5.2,0.22,{fontSize:8,color:C.muted});});
     bottom.forEach((it,i)=>{const yy=1.95+i*0.78;addText(slide,(i+1)+'. '+it.name,6.85,yy,3.5,0.28,{fontSize:11,bold:i===0});addText(slide,'Student '+fmt(it.studentPost.p),10.05,yy,1.6,0.28,{fontSize:11,bold:true,color:C.red});addText(slide,'Student Pre '+(it.studentPre.max?fmt(it.studentPre.p):'N/A')+' · Teacher Post '+(it.teacherPost.max?fmt(it.teacherPost.p):'N/A'),6.9,yy+0.3,5.2,0.22,{fontSize:8,color:C.muted});});
    }
+   if(selectedSlides.includes('wayforward')){
    const priority=dimensionRows.filter(d=>d.post.max).sort((a,b)=>a.post.p-b.post.p).slice(0,4);
    const wf=addBase('Way Forward & Priority Actions','Priorities are based on the lowest available student post-assessment dimensions in this scope.');
    if(priority.length){priority.forEach((d,i)=>{const yy=1.5+i*1.15;addText(wf,(i+1)+'. '+label(d.dim)+' — '+fmt(d.post.p),0.85,yy,10.8,0.35,{fontSize:15,bold:true,color:C.green});addText(wf,wayForwardForDimension(d.dim,reportRows.filter(r=>r.DimensionID===d.dim)),1.15,yy+0.4,10.7,0.5,{fontSize:11,color:C.ink});});}else addText(wf,'Collect sufficient assessment evidence before setting dimension-level priorities.',0.85,1.7,11,0.5,{fontSize:14});
+   }
    const filename='KGII_Assessment_Report_'+new Date().toISOString().slice(0,10)+'.pptx';
    await pptx.writeFile({fileName:filename});
   }catch(e:any){alert('Could not generate the PowerPoint report. Please try again. '+(e?.message||''));}

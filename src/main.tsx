@@ -514,21 +514,16 @@ function ThemeWiseRecCoverage({records,refs,f}:{records:Rec[];refs:Ref[];f:any})
   const scopedRecords=records.filter(r=>geoMatches(r)&&(!f.cycle||f.cycle==='All'||cycleLabel(r.CycleID)===cycleLabel(f.cycle))&&(!f.year||String(r.Year)===String(f.year)));
   const scopedRefs=refs.filter(geoMatches);
   const key=(r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-  const expectedKeys=new Set(scopedRefs.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(key));
-  const expected=expectedKeys.size || new Set(scopedRecords.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(key)).size;
   const themes=['T1','T2','T3','T4'];
-  const stageCovered=(theme:string,pt:'Student'|'Teacher',stage:'Pre'|'Post')=>{
-    const matching=scopedRecords.filter(r=>norm(r.ThemeID)===theme&&norm(r.ParticipantType).toLowerCase()===pt.toLowerCase()&&assessmentIs(r.Assessment,stage)&&r.Region&&r.LocalBoard&&r.REC);
+  const regions=unique([...scopedRefs,...scopedRecords].filter(r=>r.Region&&geoMatches(r)) as any[],'Region').sort((a,b)=>a.localeCompare(b));
+  const recCount=(region:string,theme:string,stage:'Pre'|'Post')=>{
+    const matching=scopedRecords.filter(r=>norm(r.Region)===region&&norm(r.ThemeID)===theme&&assessmentIs(r.Assessment,stage)&&r.REC);
     return new Set(matching.map(key)).size;
   };
   return <section className="card theme-rec-coverage">
-    <div className="section-head"><div><h2>Theme-wise REC Coverage</h2><p>Number of RECs with submitted assessment records for each theme and assessment stage. Coverage denominator: {expected} expected RECs in the selected scope.</p></div></div>
-    <div className="table-wrap"><table><thead><tr><th rowSpan={2}>Theme</th><th colSpan={2}>Student REC Coverage</th><th colSpan={2}>Teacher REC Coverage</th><th rowSpan={2}>RECs with any data</th><th rowSpan={2}>No data yet</th></tr><tr><th>Pre</th><th>Post</th><th>Pre</th><th>Post</th></tr></thead><tbody>{themes.map(theme=>{
-      const studentPre=stageCovered(theme,'Student','Pre'),studentPost=stageCovered(theme,'Student','Post'),teacherPre=stageCovered(theme,'Teacher','Pre'),teacherPost=stageCovered(theme,'Teacher','Post');
-      const covered=new Set(scopedRecords.filter(r=>norm(r.ThemeID)===theme&&r.Region&&r.LocalBoard&&r.REC).map(key)).size;
-      return <tr key={theme}><td><strong>{theme}</strong><br/><small>{labelTheme(theme)}</small></td><td>{studentPre}/{expected} <small>({fmt(pct(studentPre,expected))})</small></td><td>{studentPost}/{expected} <small>({fmt(pct(studentPost,expected))})</small></td><td>{teacherPre}/{expected} <small>({fmt(pct(teacherPre,expected))})</small></td><td>{teacherPost}/{expected} <small>({fmt(pct(teacherPost,expected))})</small></td><td>{covered}/{expected}</td><td>{Math.max(0,expected-covered)}</td></tr>;
-    })}</tbody></table></div>
-    {!expected&&<p className="empty">No expected REC list or assessment records found for the selected scope.</p>}
+    <div className="section-head"><div><h2>Region-wise Theme REC Coverage</h2><p>Each value is the number of distinct RECs in the region with at least one assessment record for that theme and stage. A REC is counted once per theme per stage.</p></div></div>
+    <div className="table-wrap"><table><thead><tr><th>Region</th>{themes.map(theme=><th key={theme} colSpan={2}>{labelTheme(theme)}</th>)}</tr><tr><th></th>{themes.flatMap(theme=>[<th key={theme+'-pre'}>Pre</th>,<th key={theme+'-post'}>Post</th>])}</tr></thead><tbody>{regions.map(region=><tr key={region}><td><strong>{displayGeo(region)}</strong></td>{themes.flatMap(theme=>[<td key={theme+'-pre'}>{recCount(region,theme,'Pre')}</td>,<td key={theme+'-post'}>{recCount(region,theme,'Post')}</td>])}</tr>)}</tbody></table></div>
+    {!regions.length&&<p className="empty">No matching region data found for the selected filters.</p>}
   </section>;
 }
 

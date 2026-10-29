@@ -605,3 +605,13 @@ body{overflow-x:hidden;}
 .theme-coverage table{min-width:680px;}
 .theme-coverage td:first-child small{display:inline-block;color:#71817d;margin-top:4px;}
 @media(max-width:900px){.app>aside{height:100dvh;max-height:100dvh;overflow-y:auto;overflow-x:hidden;}.app>main{padding-bottom:calc(30px + env(safe-area-inset-bottom));}}
+
+
+/* Report sharing and PowerPoint export */
+.report-actions{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:14px 0;flex-wrap:wrap}
+.report-actions h2{margin:0 0 5px;font-size:1.05rem}
+.report-actions .admin-note{margin:0;max-width:700px}
+.report-action-buttons{display:flex;gap:10px;flex-wrap:wrap}
+.report-action-buttons button{white-space:normal}
+@media(max-width:700px){.report-actions{align-items:stretch}.report-action-buttons{width:100%;display:grid;grid-template-columns:1fr}.report-action-buttons button{width:100%}}
+@media print{.report-actions{display:none!important}}

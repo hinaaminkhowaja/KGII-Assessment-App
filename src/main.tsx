@@ -519,9 +519,13 @@ function ThemeWiseRecCoverage({records,refs,f,level='region'}:{records:Rec[];ref
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';
   const title=level==='region'?'Region-wise Theme REC Coverage':level==='board'?'Local Board-wise Theme REC Coverage':'REC-wise Theme Coverage';
-  const groups=uniqueGeoValues([...scopedRefs,...scopedRecords].filter(r=>groupValue(r)&&geoMatches(r)).map(groupValue));
+  // Merge source labels such as “Gupis Yasin” and “Gupis Yasin 2” into one displayed region.
+  const groupKey=(value:any)=>geoNorm(displayGeo(norm(value)));
+  const groupMap=new Map<string,string>();
+  [...scopedRefs,...scopedRecords].filter(r=>groupValue(r)&&geoMatches(r)).forEach(r=>{const raw=norm(groupValue(r));const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
+  const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
   const recCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>{
-    const matching=scopedRecords.filter(r=>geoNorm(groupValue(r))===geoNorm(group)&&norm(r.ThemeID)===theme&&assessmentIs(r.Assessment,stage)&&r.ParticipantType===participant&&r.REC);
+    const matching=scopedRecords.filter(r=>groupKey(groupValue(r))===groupKey(group)&&norm(r.ThemeID)===theme&&assessmentIs(r.Assessment,stage)&&r.ParticipantType===participant&&r.REC);
     return new Set(matching.map(r=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||'))).size;
   };
   return <section className="card theme-rec-coverage">

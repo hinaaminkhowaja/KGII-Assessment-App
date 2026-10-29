@@ -697,7 +697,7 @@ function ReportActions({rows,f}:{rows:Rec[];f:any}){
    addText(cover,scope,0.75,2.0,11.5,0.7,{fontSize:24,bold:true,color:C.ink});
    addText(cover,'Cycle: '+(f.cycle||'All cycles')+'     Year: '+(f.year||'All years')+'     Theme: '+(f.theme?labelTheme(f.theme):'All themes')+'     Dimension: '+(f.dim?labelDim(f.dim):'All dimensions'),0.75,2.85,11.6,0.55,{fontSize:13,color:C.muted});
    const studentPre=overall('student','Pre'),studentPost=overall('student','Post'),teacherPre=overall('teacher','Pre'),teacherPost=overall('teacher','Post');
-   const cards=[['Student Pre',studentPre],['Student Post',studentPost],['Teacher Pre',teacherPre],['Teacher Post',teacherPost]];
+   const cards:Array<[string,{score:number;max:number;p:number}]>=[['Student Pre',studentPre],['Student Post',studentPost],['Teacher Pre',teacherPre],['Teacher Post',teacherPost]];
    cards.forEach((c,i)=>{const x=0.75+i*3.08;cover.addShape(pptx.ShapeType.roundRect,{x,y:4,w:2.72,h:1.25,rectRadius:0.08,line:{color:C.line},fill:{color:C.white}});addText(cover,c[0],x+0.15,4.18,2.4,0.3,{fontSize:12,bold:true,color:C.muted});addText(cover,c[1].max?fmt(c[1].p):'N/A',x+0.15,4.53,2.4,0.48,{fontSize:25,bold:true,color:C.green});addText(cover,c[1].max?'Assessment records included':'No matching data',x+0.15,5.05,2.4,0.22,{fontSize:8,color:C.muted});});
    addText(cover,'Prepared from the records available to the signed-in user. Results may be limited where pre/post or participant data is incomplete.',0.8,6.05,11.6,0.55,{fontSize:11,color:C.muted});
    const dims=dimensionRows.filter(d=>d.pre.max||d.post.max||d.teacherPre.max||d.teacherPost.max);

@@ -670,6 +670,7 @@ function ReportActions({rows,f,isAdmin}:{rows:Rec[];f:any;isAdmin:boolean}){
  const groupRank=(key:'Region'|'LocalBoard'|'REC')=>unique(reportRows,key).filter(Boolean).map(name=>({name,pre:score(stageRows('Pre',undefined,reportRows.filter(r=>norm(r[key])===name))),post:score(stageRows('Post',undefined,reportRows.filter(r=>norm(r[key])===name))),studentPre:score(stageRows('Pre','student',reportRows.filter(r=>norm(r[key])===name))),studentPost:score(stageRows('Post','student',reportRows.filter(r=>norm(r[key])===name))),teacherPost:score(stageRows('Post','teacher',reportRows.filter(r=>norm(r[key])===name))),recs:new Set(reportRows.filter(r=>norm(r[key])===name).map(r=>r.REC)).size})).filter(x=>x.studentPost.max>0).sort((a,b)=>b.studentPost.p-a.studentPost.p);
  const rankings={Region:groupRank('Region'), 'Local Board':groupRank('LocalBoard'), REC:groupRank('REC')};
  const change=(a:{p:number;max:number},b:{p:number;max:number})=>a.max&&b.max?(b.p-a.p):null;
+ const changeText=(a:{p:number;max:number},b:{p:number;max:number})=>a.max&&b.max?((b.p-a.p>0?'+':'')+(b.p-a.p).toFixed(1)+' pp'):'N/A';
  const label=(x:any)=>labelDim(x);
  const generatePptx=async()=>{
   setBusy(true);

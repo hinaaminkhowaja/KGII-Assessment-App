@@ -670,18 +670,6 @@ function ReportActions({rows,f,isAdmin}:{rows:Rec[];f:any;isAdmin:boolean}){
  const rankings={Region:groupRank('Region'), 'Local Board':groupRank('LocalBoard'), REC:groupRank('REC')};
  const change=(a:{p:number;max:number},b:{p:number;max:number})=>a.max&&b.max?(b.p-a.p):null;
  const label=(x:any)=>labelDim(x);
- const textSummary=()=>{
-  const lines=[ 'KG II Assessment Report', 'Scope: '+scope, 'Cycle: '+(f.cycle||'All cycles'), 'Year: '+(f.year||'All years'), 'Theme: '+(f.theme?labelTheme(f.theme):'All themes'), ''];
-  for(const type of ['student','teacher']){
-   const pre=overall(type,'Pre'),post=overall(type,'Post');
-   lines.push((type==='student'?'Students':'Teachers')+': Pre '+(pre.max?fmt(pre.p):'N/A')+' | Post '+(post.max?fmt(post.p):'N/A')+(change(pre,post)!==null?' | Change '+(change(pre,post)!==null?(change(pre,post)!>=0?'+':'')+change(pre,post)!.toFixed(1)+' pp':'' ):''));
-  }
-  const dims=dimensionRows.filter(d=>d.post.max).sort((a,b)=>a.post.p-b.post.p);
-  if(dims.length)lines.push('Priority dimension: '+label(dims[0].dim)+' ('+fmt(dims[0].post.p)+' student post)');
-  lines.push('', 'Generated from KG II Assessment App.');
-  return lines.join('\n');
- };
- const shareWhatsApp=()=>{const url='https://wa.me/?text='+encodeURIComponent(textSummary());window.open(url,'_blank','noopener,noreferrer');};
  const generatePptx=async()=>{
   setBusy(true);
   try{

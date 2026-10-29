@@ -683,7 +683,7 @@ function ReportActions({rows,f}:{rows:Rec[];f:any}){
  const generatePptx=async()=>{
   setBusy(true);
   try{
-   const mod:any=await import('pptxgenjs');
+   const moduleUrl='https://esm.sh/pptxgenjs@3.12.0';const mod:any=await import(/* @vite-ignore */ moduleUrl);
    const PptxGenJS=mod.default||mod;
    const pptx=new PptxGenJS();
    pptx.layout='LAYOUT_WIDE';pptx.author='KG II Assessment App';pptx.subject='Filter-based KG II assessment analysis';pptx.title='KG II Assessment Report';

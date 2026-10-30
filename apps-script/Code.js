@@ -566,6 +566,8 @@ function handleApiLogin(e) {
 
 function getReferenceData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Existing reference data
   const sheet = ss.getSheetByName(CONFIG.REFERENCE_SHEET);
 
   if (!sheet) {
@@ -574,48 +576,99 @@ function getReferenceData() {
 
   const values = sheet.getDataRange().getValues();
 
-  if (values.length < 2) {
-    return {
-      success: true,
-      data: []
-    };
+  let data = [];
+
+  if (values.length >= 2) {
+    const headers = values[0].map(h => String(h).trim());
+
+    const regionCol = headers.indexOf('Region');
+    const lbCol = headers.indexOf('LocalBoard');
+    const recCol = headers.indexOf('REC');
+
+    if (regionCol === -1 || lbCol === -1 || recCol === -1) {
+      throw new Error('APP_Reference headers are incorrect.');
+    }
+
+    function displayRegion(value) {
+      return String(value == null ? '' : value)
+        .trim()
+        .replace(/_\\d+$/, '');
+    }
+
+    data = values.slice(1)
+      .filter(row =>
+        String(row[regionCol] || '').trim() !== '' &&
+        String(row[lbCol] || '').trim() !== '' &&
+        String(row[recCol] || '').trim() !== ''
+      )
+      .map(row => ({
+        region: displayRegion(row[regionCol]),
+        localBoard: String(row[lbCol]).trim(),
+        rec: String(row[recCol]).trim()
+      }));
   }
 
-  const headers = values[0].map(h => String(h).trim());
+  // Target REC list for cycle and phase coverage
+  const targetSheet = ss.getSheetByName('RECs_list_Phase_Wise');
 
-  const regionCol = headers.indexOf('Region');
-  const lbCol = headers.indexOf('LocalBoard');
-  const recCol = headers.indexOf('REC');
-
-  if (regionCol === -1 || lbCol === -1 || recCol === -1) {
-    throw new Error('APP_Reference headers are incorrect.');
+  if (!targetSheet) {
+    throw new Error('RECs_list_Phase_Wise sheet not found.');
   }
 
-  // Convert coded region values such as Central_01 to Central.
-  function displayRegion(value) {
-    return String(value == null ? '' : value)
-      .trim()
-      .replace(/_\d+$/, '');
+  const targetValues = targetSheet.getDataRange().getValues();
+
+  if (targetValues.length < 2) {
+    throw new Error('RECs_list_Phase_Wise has no target REC rows.');
   }
 
-  const data = values.slice(1)
+  const targetHeaders = targetValues[0].map(h =>
+    String(h).trim()
+  );
+
+  const requiredHeaders = [
+    'Region',
+    'LocalBoard',
+    'REC',
+    'Cycle 1 Phase',
+    'Cycle 2 Phase',
+    'Status'
+  ];
+
+  const columnIndexes = {};
+
+  requiredHeaders.forEach(header => {
+    columnIndexes[header] = targetHeaders.indexOf(header);
+
+    if (columnIndexes[header] === -1) {
+      throw new Error(
+        'Missing header in RECs_list_Phase_Wise: ' + header
+      );
+    }
+  });
+
+  const targetRecs = targetValues.slice(1)
     .filter(row =>
-      String(row[regionCol] || '').trim() !== '' &&
-      String(row[lbCol] || '').trim() !== '' &&
-      String(row[recCol] || '').trim() !== ''
+      String(row[columnIndexes.Region] || '').trim() !== '' &&
+      String(row[columnIndexes.LocalBoard] || '').trim() !== '' &&
+      String(row[columnIndexes.REC] || '').trim() !== ''
     )
     .map(row => ({
-      region: displayRegion(row[regionCol]),
-      localBoard: row[lbCol],
-      rec: row[recCol]
+      Region: String(row[columnIndexes.Region]).trim()
+        .replace(/_\\d+$/, ''),
+      LocalBoard: String(row[columnIndexes.LocalBoard]).trim(),
+      REC: String(row[columnIndexes.REC]).trim(),
+      Cycle1Phase: String(row[columnIndexes['Cycle 1 Phase']] || '').trim(),
+      Cycle2Phase: String(row[columnIndexes['Cycle 2 Phase']] || '').trim(),
+      Status: String(row[columnIndexes.Status] || '').trim()
     }));
 
   return {
     success: true,
-    data: data
+    data: data,
+    refs: data,
+    targetRecs: targetRecs
   };
 }
-
 
 /* =========================================================
    DASHBOARD

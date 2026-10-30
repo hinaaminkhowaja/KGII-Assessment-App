@@ -539,16 +539,17 @@ function ThemeWiseRecCoverage({records,refs,f,level='region'}:{records:Rec[];ref
     const identity=geoNorm(participantId || personName || r.SourceRecordID || r.RecordID || '');
     if(!identity)continue;
     const recId=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].map(geoNorm).join('||');
-    const key=[group,recId,theme,stage,participant].join('|');
+    // JSON encoding keeps REC names such as "4110|Bilphuk" intact.
+    const key=JSON.stringify([group,recId,theme,stage,participant]);
     if(!participants.has(key))participants.set(key,new Set<string>());
     participants.get(key)!.add(identity);
   }
   const participantCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>{
-    const prefix=[groupKey(group)];
+    const targetGroup=groupKey(group);
     let total=0;
     for(const [key,people] of participants){
-      const parts=key.split('|');
-      if(parts[0]===prefix[0]&&parts[2]===theme&&parts[3]===stage&&parts[4]===participant)total+=people.size;
+      const parts=JSON.parse(key) as string[];
+      if(parts[0]===targetGroup&&parts[2]===theme&&parts[3]===stage&&parts[4]===participant)total+=people.size;
     }
     return total;
   };

@@ -598,7 +598,7 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
   }
   const participantCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>
     participants.get([groupKey(group),theme,stage,participant].join('||'))?.size||0;
-  return <section className="card theme-rec-coverage">
+  return <section className={`card theme-rec-coverage ${level==='region'?'theme-rec-coverage-region':''}`}>
     <div className="section-head"><div><h2>{title}</h2><p>Distinct students and teachers assessed in each theme, counted once per person for each REC and assessment stage.</p></div></div>
     <div className="table-wrap"><table><thead>
       <tr><th rowSpan={3}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={4}>{labelTheme(theme)}</th>)}</tr>

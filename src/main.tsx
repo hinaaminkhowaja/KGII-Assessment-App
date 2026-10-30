@@ -642,19 +642,39 @@ function rubricDescription(id:string){
   return index >= 0 && descriptions[index] ? descriptions[index] : id;
 }
 
+let wayForwardResourcesCache:any[]|null=null;
+let wayForwardResourcesRequest:Promise<any[]>|null=null;
+
 function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:string)=>void}) {
-  const [wayForwardResources,setWayForwardResources]=useState<any[]>([]);
-  useEffect(()=>{let active=true;apiGet('resources').then(d=>{if(active)setWayForwardResources(Array.isArray(d.resources)?d.resources:[])}).catch(()=>{});return()=>{active=false}},[]);
+  const [wayForwardResources,setWayForwardResources]=useState<any[]>(()=>wayForwardResourcesCache||[]);
+  useEffect(()=>{
+    let active=true;
+    if(wayForwardResourcesCache){setWayForwardResources(wayForwardResourcesCache);return()=>{active=false};}
+    if(!wayForwardResourcesRequest){
+      wayForwardResourcesRequest=apiGet('resources')
+        .then(d=>{wayForwardResourcesCache=Array.isArray(d.resources)?d.resources:[];return wayForwardResourcesCache;})
+        .catch(()=>{wayForwardResourcesRequest=null;return [];});
+    }
+    wayForwardResourcesRequest.then(items=>{if(active)setWayForwardResources(items);});
+    return()=>{active=false};
+  },[]);
   const studentRows = rows.filter(r => r.ParticipantType === 'Student');
   const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
   const studentThemes = group(studentRows,'ThemeID').sort((a,b)=>a.p-b.p);
   const teacherThemes = group(teacherRows,'ThemeID').sort((a,b)=>a.p-b.p);
   const priorityRows = scope==='teacher' ? teacherRows : studentRows;
   const dimGroups = group(priorityRows,'DimensionID').sort((a,b)=>a.p-b.p);
-  const indicatorGroups = unique(priorityRows,'IndicatorID').map(id => {
-    const subset = priorityRows.filter(r => r.IndicatorID === id);
-    const a = aggregate(subset);
-    return {id, label:rubricDescription(id), p:a.p,rows:subset};
+  const indicatorBuckets=new Map<string,Rec[]>();
+  priorityRows.forEach(r=>{
+    const id=norm(r.IndicatorID);
+    if(!id)return;
+    const bucket=indicatorBuckets.get(id)||[];
+    bucket.push(r);
+    indicatorBuckets.set(id,bucket);
+  });
+  const indicatorGroups=[...indicatorBuckets.entries()].map(([id,subset])=>{
+    const a=aggregate(subset);
+    return {id,label:rubricDescription(id),p:a.p,rows:subset};
   }).sort((a,b)=>a.p-b.p);
   const strongestTheme = (scope==='teacher'?teacherThemes:studentThemes).slice().sort((a,b)=>b.p-a.p)[0];
   const weakestStudentTheme = studentThemes[0];

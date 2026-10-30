@@ -621,3 +621,11 @@ body{overflow-x:hidden;}
 /* Panel-specific component selection for Print / Save PDF */
 .print-select-backdrop{position:fixed;inset:0;background:rgba(12,35,29,.62);z-index:10000;display:grid;place-items:center;padding:20px}.print-select-modal{width:min(680px,96vw);max-height:86vh;overflow:auto}.print-select-modal .section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.print-select-modal .section-head h2{margin:0 0 6px}.print-select-modal .section-head p{margin:0;color:#65756f}.print-select-all{display:flex;align-items:center;gap:10px;padding:12px;background:#edf5f1;border-radius:10px;margin:14px 0}.print-select-options{display:grid;grid-template-columns:1fr 1fr;gap:9px}.print-select-options .check{display:flex;align-items:flex-start;gap:9px;padding:10px;border:1px solid #dfe8e3;border-radius:8px}.print-select-modal .form-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px}@media(max-width:700px){.print-select-options{grid-template-columns:1fr}.print-select-modal .form-actions{align-items:stretch;flex-direction:column}}
 @media print{body.kgii-print-mode aside,body.kgii-print-mode main>header,body.kgii-print-mode #dashboard-report-builder,body.kgii-print-mode .filters,body.kgii-print-mode .report-actions,body.kgii-print-mode .print-select-backdrop,body.kgii-print-mode button{display:none!important}body.kgii-print-mode main section.card:not([data-print-selected="true"]){display:none!important}body.kgii-print-mode main{position:absolute!important;left:0!important;top:0!important;width:100%!important;margin:0!important;padding:0!important}body.kgii-print-mode .table-wrap{overflow:visible!important}body.kgii-print-mode .card{break-inside:avoid;box-shadow:none!important}body.kgii-print-mode table{font-size:9pt!important}}
+
+
+/* REC-wise Theme Assessment: reserve enough space to display the complete REC name. */
+.theme-rec-coverage .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.theme-rec-coverage table{min-width:1500px;}
+.theme-rec-coverage th:first-child,
+.theme-rec-coverage td:first-child{width:260px;min-width:260px;max-width:320px;white-space:normal;overflow-wrap:anywhere;word-break:normal;vertical-align:top;}
+.theme-rec-coverage td:first-child strong{display:block;white-space:normal;overflow-wrap:anywhere;line-height:1.4;}

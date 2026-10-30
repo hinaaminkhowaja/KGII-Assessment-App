@@ -632,3 +632,45 @@ body{overflow-x:hidden;}
 .theme-rec-coverage tbody td{text-align:center;vertical-align:middle;}
 .theme-rec-coverage tbody td:first-child{text-align:left;}
 .theme-rec-coverage td:first-child strong{display:block;white-space:normal;overflow-wrap:anywhere;line-height:1.4;}
+
+/* Region-wise Theme Assessment: fit all 16 assessment columns within the page. */
+.theme-rec-coverage-region .table-wrap{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+.theme-rec-coverage-region table{
+  width:100%;
+  min-width:0;
+  table-layout:fixed;
+  border-collapse:collapse;
+}
+.theme-rec-coverage-region th:first-child,
+.theme-rec-coverage-region td:first-child{
+  width:132px;
+  min-width:132px;
+  max-width:132px;
+  padding:8px 7px;
+  white-space:normal;
+  overflow-wrap:break-word;
+}
+.theme-rec-coverage-region thead th{
+  padding:7px 3px;
+  font-size:.76rem;
+  line-height:1.2;
+  white-space:normal;
+  overflow-wrap:break-word;
+}
+.theme-rec-coverage-region tbody td{
+  padding:8px 2px;
+  font-size:.78rem;
+  white-space:nowrap;
+}
+.theme-rec-coverage-region tbody td:first-child{
+  text-align:left;
+  font-weight:600;
+}
+@media(max-width:760px){
+  .theme-rec-coverage-region .table-wrap{overflow-x:auto;}
+  .theme-rec-coverage-region table{min-width:1050px;}
+}

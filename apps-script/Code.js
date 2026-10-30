@@ -592,7 +592,7 @@ function getReferenceData() {
     function displayRegion(value) {
       return String(value == null ? '' : value)
         .trim()
-        .replace(/_\\d+$/, '');
+        .replace(/_\d+$/, '');
     }
 
     data = values.slice(1)
@@ -654,7 +654,7 @@ function getReferenceData() {
     )
     .map(row => ({
       Region: String(row[columnIndexes.Region]).trim()
-        .replace(/_\\d+$/, ''),
+        .replace(/_\d+$/, ''),
       LocalBoard: String(row[columnIndexes.LocalBoard]).trim(),
       REC: String(row[columnIndexes.REC]).trim(),
       Cycle1Phase: String(row[columnIndexes['Cycle 1 Phase']] || '').trim(),

@@ -518,30 +518,42 @@ function ThemeWiseRecCoverage({records,refs,f,level='region'}:{records:Rec[];ref
   const themes=['T1','T2','T3','T4'];
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';
-  const title=level==='region'?'Region-wise Theme REC Coverage':level==='board'?'Local Board-wise Theme REC Coverage':'REC-wise Theme Coverage';
-  // Canonicalize display labels once per source row so suffixed variants do not create duplicate rows.
+  const title=level==='region'?'Region-wise Theme Assessment':level==='board'?'Local Board-wise Theme Assessment':'REC-wise Theme Assessment';
   const groupKey=(value:any)=>geoNorm(displayGeo(norm(value)));
   const groupMap=new Map<string,string>();
   [...scopedRefs,...scopedRecords].forEach(r=>{const raw=norm(groupValue(r));if(!raw)return;const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
   const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
-  // Build distinct REC sets in one pass. Avoid repeatedly scanning all assessment records for every table cell.
-  const coverage=new Map<string,Set<string>>();
+
+  // Each assessment can contain several indicator rows for the same participant.
+  // Count a student/teacher once per REC, theme and assessment stage.
+  const participants=new Map<string,Set<string>>();
   for(const r of scopedRecords){
     const group=groupKey(groupValue(r));
     const theme=norm(r.ThemeID);
     if(!group||!themes.includes(theme)||!r.REC)continue;
     const stage=assessmentIs(r.Assessment,'Pre')?'Pre':assessmentIs(r.Assessment,'Post')?'Post':null;
-    const participant=r.ParticipantType;
+    const participant=norm(r.ParticipantType);
     if(!stage||(participant!=='Student'&&participant!=='Teacher'))continue;
+    const personName=participant==='Student'?norm(r.ChildName):norm(r.TeacherName);
+    const identity=geoNorm(personName || r.SourceRecordID || r.RecordID || '');
+    if(!identity)continue;
     const recId=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].map(geoNorm).join('||');
-    const key=[group,theme,stage,participant].join('|');
-    if(!coverage.has(key))coverage.set(key,new Set<string>());
-    coverage.get(key)!.add(recId);
+    const key=[group,recId,theme,stage,participant].join('|');
+    if(!participants.has(key))participants.set(key,new Set<string>());
+    participants.get(key)!.add(identity);
   }
-  const recCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>coverage.get([groupKey(group),theme,stage,participant].join('|'))?.size||0;
+  const participantCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>{
+    const prefix=[groupKey(group)];
+    let total=0;
+    for(const [key,people] of participants){
+      const parts=key.split('|');
+      if(parts[0]===prefix[0]&&parts[2]===theme&&parts[3]===stage&&parts[4]===participant)total+=people.size;
+    }
+    return total;
+  };
   return <section className="card theme-rec-coverage">
-    <div className="section-head"><div><h2>{title}</h2><p>Distinct RECs with at least one assessment record, separated by participant type and assessment stage.</p></div></div>
-    <div className="table-wrap"><table><thead><tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={4}>{labelTheme(theme)}</th>)}</tr><tr>{themes.flatMap(theme=>[<th key={theme+'-spre'}>Student Pre</th>,<th key={theme+'-spost'}>Student Post</th>,<th key={theme+'-tpre'}>Teacher Pre</th>,<th key={theme+'-tpost'}>Teacher Post</th>])}</tr></thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>[<td key={theme+'-spre'}>{recCount(group,theme,'Pre','Student')}</td>,<td key={theme+'-spost'}>{recCount(group,theme,'Post','Student')}</td>,<td key={theme+'-tpre'}>{recCount(group,theme,'Pre','Teacher')}</td>,<td key={theme+'-tpost'}>{recCount(group,theme,'Post','Teacher')}</td>])}</tr>)}</tbody></table></div>
+    <div className="section-head"><div><h2>{title}</h2><p>Distinct students and teachers assessed in each theme, counted once per person for each REC and assessment stage.</p></div></div>
+    <div className="table-wrap"><table><thead><tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={4}>{labelTheme(theme)}</th>)}</tr><tr>{themes.flatMap(theme=>[<th key={theme+'-spre'}>Students Pre</th>,<th key={theme+'-spost'}>Students Post</th>,<th key={theme+'-tpre'}>Teachers Pre</th>,<th key={theme+'-tpost'}>Teachers Post</th>])}</tr></thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>[<td key={theme+'-spre'}>{participantCount(group,theme,'Pre','Student')}</td>,<td key={theme+'-spost'}>{participantCount(group,theme,'Post','Student')}</td>,<td key={theme+'-tpre'}>{participantCount(group,theme,'Pre','Teacher')}</td>,<td key={theme+'-tpost'}>{participantCount(group,theme,'Post','Teacher')}</td>])}</tr>)}</tbody></table></div>
     {!groups.length&&<p className="empty">No matching {groupLabel.toLowerCase()} data found for the selected filters.</p>}
   </section>;
 }

@@ -674,3 +674,74 @@ body{overflow-x:hidden;}
   .theme-rec-coverage-region .table-wrap{overflow-x:auto;}
   .theme-rec-coverage-region table{min-width:1050px;}
 }
+
+
+/* Local Board-wise and REC-wise Theme Assessment: fit the full table within the page on desktop. */
+.theme-rec-coverage-board .table-wrap,
+.theme-rec-coverage-rec .table-wrap{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+.theme-rec-coverage-board table,
+.theme-rec-coverage-rec table{
+  width:100%;
+  min-width:0;
+  table-layout:fixed;
+  border-collapse:collapse;
+}
+.theme-rec-coverage-board th:first-child,
+.theme-rec-coverage-board td:first-child{
+  width:160px;
+  min-width:160px;
+  max-width:160px;
+  padding:8px 6px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.theme-rec-coverage-rec th:first-child,
+.theme-rec-coverage-rec td:first-child{
+  width:190px;
+  min-width:190px;
+  max-width:190px;
+  padding:8px 6px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.theme-rec-coverage-board thead th,
+.theme-rec-coverage-rec thead th{
+  padding:7px 2px;
+  font-size:.72rem;
+  line-height:1.2;
+  text-align:center;
+  vertical-align:middle;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.theme-rec-coverage-board tbody td,
+.theme-rec-coverage-rec tbody td{
+  padding:8px 2px;
+  font-size:.74rem;
+  text-align:center;
+  vertical-align:middle;
+  white-space:nowrap;
+}
+.theme-rec-coverage-board tbody td:first-child,
+.theme-rec-coverage-rec tbody td:first-child{
+  text-align:left;
+  font-weight:600;
+  white-space:normal;
+  line-height:1.35;
+}
+.theme-rec-coverage-board td:first-child strong,
+.theme-rec-coverage-rec td:first-child strong{
+  display:block;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+@media(max-width:760px){
+  .theme-rec-coverage-board .table-wrap,
+  .theme-rec-coverage-rec .table-wrap{overflow-x:auto;}
+  .theme-rec-coverage-board table,
+  .theme-rec-coverage-rec table{min-width:1050px;}
+}

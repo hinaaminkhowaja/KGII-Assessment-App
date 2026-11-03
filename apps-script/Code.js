@@ -1032,11 +1032,12 @@ function handleSaveAccess(body) {
     return { success: false, message: 'User email is required.' };
   }
 
-  const user = getUserByEmail(email);
-  if (!user.success) {
+  const userResult = getUserByEmail(email);
+  if (!userResult.success) {
     return { success: false, message: 'User not found.' };
   }
 
+  const user = userResult.user;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.ACCESS_SHEET);
   if (!sheet) throw new Error('APP_Access sheet not found.');
@@ -1069,6 +1070,8 @@ function handleSaveAccess(body) {
         active: body.active !== false
       }];
 
+  const newlyGranted = [];
+
   for (const scope of scopes) {
     const region = clean(scope.region);
     const board = clean(scope.localBoard || scope.board);
@@ -1080,9 +1083,9 @@ function handleSaveAccess(body) {
     }
 
     let found = false;
+    let wasActive = false;
 
-    // Find this exact access assignment, without changing
-    // the user's other regions, boards, or RECs.
+    // Find this exact assignment without changing the user's other scopes.
     for (let i = 1; i < values.length; i++) {
       const sameUser =
         normalizeEmail(values[i][emailCol]) === email;
@@ -1092,15 +1095,29 @@ function handleSaveAccess(body) {
         clean(values[i][recCol]) === rec;
 
       if (sameUser && sameScope) {
-        sheet.getRange(i + 1, activeCol + 1).setValue(active);
         found = true;
+        const currentActive = clean(values[i][activeCol]).toLowerCase();
+        wasActive = wasActive ||
+          currentActive === 'true' ||
+          currentActive === 'yes' ||
+          currentActive === '1';
+        sheet.getRange(i + 1, activeCol + 1).setValue(active);
       }
     }
 
-    // Add the scope if it doesn't already exist and is being enabled.
+    // A notification is due only when an active permission is newly granted.
+    if (active && (!found || !wasActive)) {
+      newlyGranted.push({
+        region: region,
+        localBoard: board,
+        rec: rec
+      });
+    }
+
+    // Add the scope if it does not already exist and is being enabled.
     if (!found && active) {
       const row = new Array(headers.length).fill('');
-      row[nameCol] = user.user.name;
+      row[nameCol] = user.name;
       row[emailCol] = email;
       row[regionCol] = region;
       row[lbCol] = board;
@@ -1110,10 +1127,117 @@ function handleSaveAccess(body) {
     }
   }
 
+  // Permissions are saved first. Email failure must not undo a valid assignment.
+  let notification = {
+    attempted: false,
+    sent: false
+  };
+
+  if (newlyGranted.length) {
+    notification = sendAccessGrantedEmail_(user, newlyGranted);
+  }
+
   return {
     success: true,
-    message: 'Access updated successfully.'
+    message: 'Access updated successfully.',
+    notification: notification
   };
+}
+
+
+/**
+ * Sends a notification only after a new or re-enabled access scope is saved.
+ * Set the optional APP_URL script property to include the application link.
+ */
+function sendAccessGrantedEmail_(user, accessScopes) {
+  const recipient = normalizeEmail(user && user.email);
+  if (!recipient) {
+    return {
+      attempted: true,
+      sent: false,
+      error: 'The user does not have a valid email address.'
+    };
+  }
+
+  try {
+    const appUrl = PropertiesService.getScriptProperties().getProperty('APP_URL') || '';
+    const scopeLines = accessScopes.map(function(scope) {
+      return [
+        'Region: ' + scope.region,
+        'Local Board: ' + (scope.localBoard || 'All Local Boards'),
+        'REC: ' + (scope.rec || 'All RECs under the selected level')
+      ].join('\n');
+    });
+
+    const subject = 'KG II Assessment App — Access Granted';
+    const greeting = clean(user.name) || 'User';
+    let bodyText =
+      'Dear ' + greeting + ',\n\n' +
+      'Your access to the KG II Assessment App has been successfully granted.\n\n' +
+      'Your assigned access:\n\n' + scopeLines.join('\n\n') + '\n\n';
+
+    if (appUrl) {
+      bodyText += 'Open the application: ' + appUrl + '\n\n';
+    } else {
+      bodyText += 'Please open the KG II Assessment App using the application link shared by your administrator.\n\n';
+    }
+
+    bodyText +=
+      'Please sign in using this registered email address: ' + recipient + '\n\n' +
+      'For assistance, please contact the application administrator.\n\n' +
+      'Regards,\nKG II Assessment App Administration';
+
+    const escapeHtml = function(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    const scopeHtml = accessScopes.map(function(scope) {
+      return '<li><strong>Region:</strong> ' + escapeHtml(scope.region) +
+        '<br><strong>Local Board:</strong> ' + escapeHtml(scope.localBoard || 'All Local Boards') +
+        '<br><strong>REC:</strong> ' + escapeHtml(scope.rec || 'All RECs under the selected level') +
+        '</li>';
+    }).join('');
+
+    const linkHtml = appUrl
+      ? '<p><a href="' + escapeHtml(appUrl) + '">Open KG II Assessment App</a></p>'
+      : '<p>Please use the application link shared by your administrator.</p>';
+
+    const htmlBody =
+      '<p>Dear ' + escapeHtml(greeting) + ',</p>' +
+      '<p>Your access to the <strong>KG II Assessment App</strong> has been successfully granted.</p>' +
+      '<p><strong>Your assigned access:</strong></p><ul>' + scopeHtml + '</ul>' +
+      linkHtml +
+      '<p>Please sign in using this registered email address: ' + escapeHtml(recipient) + '</p>' +
+      '<p>For assistance, please contact the application administrator.</p>' +
+      '<p>Regards,<br>KG II Assessment App Administration</p>';
+
+    MailApp.sendEmail({
+      to: recipient,
+      subject: subject,
+      body: bodyText,
+      htmlBody: htmlBody,
+      name: 'KG II Assessment App'
+    });
+
+    return {
+      attempted: true,
+      sent: true,
+      recipient: recipient
+    };
+  } catch (error) {
+    console.error('Access notification email failed for ' + recipient + ': ' + error.message);
+    return {
+      attempted: true,
+      sent: false,
+      recipient: recipient,
+      error: error.message || 'Email could not be sent.'
+    };
+  }
 }
 
 

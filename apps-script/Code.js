@@ -5421,6 +5421,11 @@ function inspectKoboSyncMappingsCompact() {
  * Reads indicator and source-column mappings from APP_Indicators.
  */
 function syncKoboToAPPRecords() {
+  const syncLock = LockService.getScriptLock();
+  if (!syncLock.tryLock(1000)) {
+    Logger.log('Kobo sync skipped: another sync is already running.');
+    return { status: 'Skipped — another sync is running', totalRowsAppended: 0 };
+  }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const recordsSheet = ss.getSheetByName('APP_Records');
   const mappingSheet = ss.getSheetByName('APP_Indicators');
@@ -5481,7 +5486,23 @@ function syncKoboToAPPRecords() {
 
   if (!mappings.length) throw new Error('No usable indicator mappings found.');
 
-  const recordData = recordsSheet.getDataRange().getValues();
+  // Process only rows added since the last successful sync for each Kobo source tab.
+  // A missing watermark triggers one safe full-history catch-up pass.
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const sourceNames = [...new Set(mappings.map(m => norm(m.sourceSheet)))];
+  const watermarkKey = sourceName => 'KOBO_SYNC_LAST_ROW_' + sourceName;
+  const needsInitialDedupe = sourceNames.some(
+    sourceName => scriptProperties.getProperty(watermarkKey(sourceName)) === null
+  );
+  const sourceLastRows = {};
+
+  const recordsLastRow = recordsSheet.getLastRow();
+  const recordsLastColumn = recordsSheet.getLastColumn();
+  if (!recordsLastColumn) throw new Error('APP_Records has no header row.');
+  const recordHeaders = recordsSheet.getRange(1, 1, 1, recordsLastColumn).getValues()[0];
+  const recordData = needsInitialDedupe && recordsLastRow > 1
+    ? recordsSheet.getRange(1, 1, recordsLastRow, recordsLastColumn).getValues()
+    : [recordHeaders];
   const rh = recordData[0].map(clean);
   const rc = colMap(rh);
 
@@ -5600,8 +5621,6 @@ function syncKoboToAPPRecords() {
   const processedSubmissions = new Set();
 
   // Process each source tab once, using the mapping rows for that tab.
-  const sourceNames = [...new Set(mappings.map(m => norm(m.sourceSheet)))];
-
   sourceNames.forEach(sourceName => {
     const sourceSheet = sheetsByName[sourceName];
 
@@ -5612,17 +5631,29 @@ function syncKoboToAPPRecords() {
       );
     }
 
-    const sourceData = sourceSheet.getDataRange().getValues();
-    if (sourceData.length < 2) return;
+    const sourceLastRow = sourceSheet.getLastRow();
+    const sourceLastColumn = sourceSheet.getLastColumn();
+    sourceLastRows[sourceName] = sourceLastRow;
+    if (!sourceLastColumn || sourceLastRow < 2) return;
 
-    const headers = sourceData[0].map(clean);
+    const headers = sourceSheet.getRange(1, 1, 1, sourceLastColumn).getValues()[0].map(clean);
+    const lastProcessedRow = Number(scriptProperties.getProperty(watermarkKey(sourceName))) || 1;
+    const firstUnprocessedRow = Math.max(2, lastProcessedRow + 1);
+    if (firstUnprocessedRow > sourceLastRow) return;
+
+    const sourceData = sourceSheet.getRange(
+      firstUnprocessedRow,
+      1,
+      sourceLastRow - firstUnprocessedRow + 1,
+      sourceLastColumn
+    ).getValues();
     const hc = colMap(headers);
     const sourceMappings = mappings.filter(m =>
       norm(m.sourceSheet) === sourceName
     );
 
-    sourceData.slice(1).forEach((row, rowIndex) => {
-      const sourceRow = rowIndex + 2;
+    sourceData.forEach((row, rowIndex) => {
+      const sourceRow = firstUnprocessedRow + rowIndex;
       sourceRowsRead++;
 
       const participant = sourceMappings[0].participant;
@@ -5800,7 +5831,23 @@ function syncKoboToAPPRecords() {
     historicalRowsDeletedOrRewritten: 0
   };
 
+  // Advance watermarks only after APP_Records has been written successfully.
+  // If an execution fails before this point, the next run retries and duplicate checks protect existing rows.
+  const updatedWatermarks = {};
+  sourceNames.forEach(sourceName => {
+    const lastRow = sourceLastRows[sourceName];
+    if (Number.isFinite(lastRow)) {
+      updatedWatermarks[watermarkKey(sourceName)] = String(lastRow);
+    }
+  });
+  if (Object.keys(updatedWatermarks).length) {
+    scriptProperties.setProperties(updatedWatermarks, false);
+  }
+
+  result.sourceTabsChecked = sourceNames.length;
+  result.incrementalMode = !needsInitialDedupe;
   Logger.log(JSON.stringify(result, null, 2));
+  syncLock.releaseLock();
   return result;
 }
 

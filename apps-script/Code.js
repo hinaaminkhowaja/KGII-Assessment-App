@@ -1241,6 +1241,16 @@ function sendAccessGrantedEmail_(user, accessScopes) {
 }
 
 
+/**
+ * Run this function once from the Apps Script editor as the script owner.
+ * It prompts for the MailApp permission required by access notifications.
+ */
+function authorizeAccessNotificationEmail_() {
+  const remainingQuota = MailApp.getRemainingDailyQuota();
+  console.log('MailApp authorization checked. Remaining daily recipient quota: ' + remainingQuota);
+}
+
+
 
 /* =========================================================
    AUTHORIZATION FOR SURVEYS

@@ -252,6 +252,14 @@ const recs = useMemo(
  )].sort((a,b)=>displayGeo(a).localeCompare(displayGeo(b)));
 const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');const teacherNames=unique(allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)),'TeacherName');
  const refresh=async(u= user)=>{if(!u)return;setApiError('');try{if(page==='admin'&&u.role==='admin')await loadAdmin(u.email);else await loadDashboard(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
+ // Refresh dashboard data periodically so Kobo imports become visible without a new login.
+ // The five-minute interval matches the Apps Script Kobo sync trigger.
+ useEffect(()=>{
+  const dashboardPages=['dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis'];
+  if(!user?.email||!dashboardPages.includes(page))return;
+  const timer=window.setInterval(()=>{void refresh(user);},5*60*1000);
+  return()=>window.clearInterval(timer);
+ },[page,user?.email]);
  // Dashboard data is refreshed only at sign-in or when the user chooses Refresh data.
  // This prevents background refreshes from replacing visible data during active work.
  const nav=(p:string)=>{setMobileNavOpen(false);if(['dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis','admin','resources'].includes(p)&&!user){setPage('login');return}if(p==='teacher')setF((x:any)=>({...x,pt:'',teacher:'',studentRating:''}));else setF((x:any)=>x.teacher?({...x,teacher:''}):x);setPage(p)};

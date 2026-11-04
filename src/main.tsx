@@ -170,15 +170,42 @@ function accessMatches(r:Rec,a:AccessRule){return a.active&&(!a.region||r.Region
 function userHasAccess(u:AppUser|null,access:AccessRule[]){return !!u&&(u.role==='admin'||access.some(a=>a.userId===u.id&&a.active))}
 function arrayFrom(d:any,...keys:string[]):any[]{for(const k of keys)if(Array.isArray(d?.[k]))return d[k];if(Array.isArray(d))return d;return []}
 function normalizeRefs(rows:any[]):Ref[]{return rows.map((x:any)=>({Region:norm(x?.Region??x?.region??x?.REGION??x?.RegionName),LocalBoard:norm(x?.LocalBoard??x?.localBoard??x?.localboard??x?.['Local Board']??x?.LOCALBOARD),REC:norm(x?.REC??x?.rec??x?.Rec??x?.RECName)})).filter((x:Ref)=>x.Region&&x.LocalBoard&&x.REC)}
-function readCachedRefs():Ref[]{try{const rows=JSON.parse(localStorage.getItem('kgii_assessment_cached_refs')||'[]');return normalizeRefs(Array.isArray(rows)?rows:[])}catch{return []}}
-
 function App(){
- const [records,setRecords]=useState<Rec[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_records')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [refs,setRefs]=useState<Ref[]>(readCachedRefs);const [targetRecs,setTargetRecs]=useState<any[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [indicators,setIndicators]=useState<Indicator[]>([]);const [referenceLoaded,setReferenceLoaded]=useState(false);
+ const [records,setRecords]=useState<Rec[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_records')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [refs,setRefs]=useState<Ref[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return normalizeRefs(Array.isArray(cached)?cached:[])}catch{return []}});const [targetRecs,setTargetRecs]=useState<any[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [indicators,setIndicators]=useState<Indicator[]>([]);const [directoryLoaded,setDirectoryLoaded]=useState(false);
  const [page,setPage]=useState('home');const [mobileNavOpen,setMobileNavOpen]=useState(false);const [printOpen,setPrintOpen]=useState(false);const [apiError,setApiError]=useState('');const [loading,setLoading]=useState(false);
  const [f,setF]=useState<any>({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:'',phase:''});
  const [user,setUser]=useState<AppUser|null>(null);const [users,setUsers]=useState<AppUser[]>([]);const [access,setAccess]=useState<AccessRule[]>([]);
  useEffect(()=>{const sync=()=>{void syncOfflineSurveyQueue();};window.addEventListener('online',sync);if(navigator.onLine)sync();return()=>window.removeEventListener('online',sync);},[]);
- const loadReference=async()=>{if(referenceLoaded)return;const cachedRefs=readCachedRefs();const cachedIndicators=(()=>{try{return JSON.parse(localStorage.getItem('kgii_assessment_cached_indicators')||'[]')}catch{return []}})();if(cachedRefs.length)setRefs(cachedRefs);if(Array.isArray(cachedIndicators)&&cachedIndicators.length)setIndicators(cachedIndicators);const d=await apiGet('reference');const rr=arrayFrom(d,'refs','reference','records','data');const normalizedRefs=normalizeRefs(rr);const ii=arrayFrom(d,'indicators','APP_Indicators');const targets=arrayFrom(d,'targetRecs','targetRECs','target_recs').map((x:any)=>({Region:norm(x.Region??x.region),LocalBoard:norm(x.LocalBoard??x.localBoard??x.localboard),REC:norm(x.REC??x.rec),Cycle1Phase:norm(x.Cycle1Phase??x['Cycle 1 Phase']),Cycle2Phase:norm(x.Cycle2Phase??x['Cycle 2 Phase']),Status:norm(x.Status??x.status)})).filter((x:any)=>x.Region&&x.LocalBoard&&x.REC);if(normalizedRefs.length)setRefs(normalizedRefs);if(targets.length){setTargetRecs(targets);activeTargetRecs=targets;}if(ii.length)setIndicators(ii);localStorage.setItem('kgii_assessment_cached_refs',JSON.stringify(normalizedRefs));localStorage.setItem('kgii_assessment_cached_target_recs',JSON.stringify(targets));localStorage.setItem('kgii_assessment_cached_indicators',JSON.stringify(ii));setReferenceLoaded(true);};
+ const loadDirectory=async()=>{
+  if(directoryLoaded)return;
+  const cachedTargets=(()=>{try{return JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]')}catch{return []}})();
+  const cachedIndicators=(()=>{try{return JSON.parse(localStorage.getItem('kgii_assessment_cached_indicators')||'[]')}catch{return []}})();
+  if(Array.isArray(cachedTargets)&&cachedTargets.length){
+    setTargetRecs(cachedTargets);
+    setRefs(normalizeRefs(cachedTargets));
+    activeTargetRecs=cachedTargets;
+  }
+  if(Array.isArray(cachedIndicators)&&cachedIndicators.length)setIndicators(cachedIndicators);
+
+  const d=await apiGet('directory');
+  const targets=arrayFrom(d,'targetRecs','targetRECs','target_recs').map((x:any)=>({
+    Region:norm(x.Region??x.region),
+    LocalBoard:norm(x.LocalBoard??x.localBoard??x.localboard),
+    REC:norm(x.REC??x.rec),
+    Cycle1Phase:norm(x.Cycle1Phase??x['Cycle 1 Phase']),
+    Cycle2Phase:norm(x.Cycle2Phase??x['Cycle 2 Phase']),
+    Status:norm(x.Status??x.status)
+  })).filter((x:any)=>x.Region&&x.LocalBoard&&x.REC);
+  const normalizedRefs=normalizeRefs(targets);
+  const ii=arrayFrom(d,'indicators','APP_Indicators');
+  setTargetRecs(targets);
+  activeTargetRecs=targets;
+  setRefs(normalizedRefs);
+  if(ii.length)setIndicators(ii);
+  localStorage.setItem('kgii_assessment_cached_target_recs',JSON.stringify(targets));
+  localStorage.setItem('kgii_assessment_cached_indicators',JSON.stringify(ii));
+  setDirectoryLoaded(true);
+ };
  const loadDashboard=async(email:string)=>{
   const d=await apiGet('dashboard',{email});
   const rows=arrayFrom(d,'records','rows','data');
@@ -212,7 +239,7 @@ function App(){
  };
  const loadAdmin=async(email:string)=>{const [u,a]=await Promise.all([apiGet('users',{email}),apiGet('access',{email})]);const uu=arrayFrom(u,'users','records','data').map(mapUser);const ac=arrayFrom(a,'access','rules','data').map(mapAccess);setUsers(uu);setAccess(ac);};
  // Load reference lists only when a page needs them. Keeping this request off the initial dashboard path reduces competing Apps Script calls.
- useEffect(()=>{if(!['student-survey','teacher-survey','admin','dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis'].includes(page))return;let active=true;loadReference().catch(e=>{if(active)setApiError('Could not load reference data from Apps Script: '+e.message)});return()=>{active=false}},[page]);
+ useEffect(()=>{if(!['student-survey','teacher-survey','admin','dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis'].includes(page))return;let active=true;loadDirectory().catch(e=>{if(active)setApiError('Could not load REC directory from Apps Script: '+e.message)});return()=>{active=false}},[page]);
  useEffect(()=>{if(page!=='admin'||user?.role!=='admin'||!user.email)return;let active=true;loadAdmin(user.email).catch((e:any)=>{if(active)setApiError('Could not load Users & Access data: '+(e?.message||''))});return()=>{active=false}},[page,user?.email,user?.role]);
  useEffect(()=>{let active=true;let saved=localStorage.getItem(SESSION_KEY);let cached:AppUser|null=null;try{const raw=localStorage.getItem(USER_CACHE_KEY);if(raw)cached=mapUser(JSON.parse(raw));}catch{localStorage.removeItem(USER_CACHE_KEY);}if(!saved&&cached?.email)saved=cached.email;const validCached=!!saved&&!!cached&&cached!.email===saved&&(cached!.status==='approved'||cached!.role==='admin');if(validCached){localStorage.setItem(SESSION_KEY,cached!.email);setUser(cached);setPage('dashboard');}setLoading(!!saved&&!validCached);if(saved){const refreshSession=async()=>{try{let liveUser:AppUser;if(validCached){liveUser=cached!;}else{const d=await apiGet('login',{email:saved!});if(!d.user)throw new Error('This email is not approved for dashboard access.');liveUser=mapUser(d.user);if(liveUser.status!=='approved'&&liveUser.role!=='admin')throw new Error('This account is not approved.');}if(!active)return;setUser(liveUser);localStorage.setItem(SESSION_KEY,liveUser.email);localStorage.setItem(USER_CACHE_KEY,JSON.stringify(liveUser));setPage('dashboard');setLoading(false);void loadDashboard(liveUser.email).catch((e:any)=>{if(active)setApiError('Dashboard data could not be refreshed. Your saved sign-in remains active. '+(e?.message||''));});}catch(e:any){if(!active)return;if(!validCached){setApiError('Could not verify the saved session with the server. Your saved sign-in was kept; please refresh and retry. '+(e.message||''));}else{setApiError('Dashboard data could not be refreshed. Your saved sign-in remains active. '+(e.message||''));}}finally{if(active)setLoading(false);}};refreshSession();}else{setLoading(false);}return()=>{active=false}},[]);
  

@@ -5,7 +5,6 @@ const CONFIG = {
   TEACHER_SURVEYS_SHEET: 'APP_Teacher_Surveys',
   RECORDS_SHEET: 'APP_Records',
   INDICATORS_SHEET: 'APP_Indicators',
-  REFERENCE_SHEET: 'APP_Reference',
   CONFIG_SHEET: 'APP_Config',
   RESOURCES_SHEET: 'APP_Resources',
   RESOURCES_FOLDER_ID: '11C7JI6RQ5PGOT1nE1wy7snefEvdhuRGD'
@@ -25,8 +24,8 @@ function doGet(e) {
     let result;
 
     switch (action) {
-      case 'reference':
-        result = getReferenceData();
+      case 'directory':
+        result = getRecDirectoryData();
         break;
 
       case 'login':
@@ -60,7 +59,7 @@ function doGet(e) {
           service: 'KG II Assessment API',
           status: 'running',
           availableActions: [
-            'reference',
+            'directory',
             'login',
             'dashboard',
             'users',
@@ -564,110 +563,37 @@ function handleApiLogin(e) {
 ========================================================= */
 
 
-function getReferenceData() {
+function getRecDirectoryData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  // Existing reference data
-  const sheet = ss.getSheetByName(CONFIG.REFERENCE_SHEET);
-
-  if (!sheet) {
-    throw new Error('APP_Reference sheet not found.');
-  }
+  const sheet = ss.getSheetByName('RECs_list_Phase_Wise');
+  if (!sheet) throw new Error('RECs_list_Phase_Wise sheet not found.');
 
   const values = sheet.getDataRange().getValues();
+  if (values.length < 2) throw new Error('RECs_list_Phase_Wise has no REC rows.');
 
-  let data = [];
-
-  if (values.length >= 2) {
-    const headers = values[0].map(h => String(h).trim());
-
-    const regionCol = headers.indexOf('Region');
-    const lbCol = headers.indexOf('LocalBoard');
-    const recCol = headers.indexOf('REC');
-
-    if (regionCol === -1 || lbCol === -1 || recCol === -1) {
-      throw new Error('APP_Reference headers are incorrect.');
-    }
-
-    function displayRegion(value) {
-      return String(value == null ? '' : value)
-        .trim()
-        .replace(/_\d+$/, '');
-    }
-
-    data = values.slice(1)
-      .filter(row =>
-        String(row[regionCol] || '').trim() !== '' &&
-        String(row[lbCol] || '').trim() !== '' &&
-        String(row[recCol] || '').trim() !== ''
-      )
-      .map(row => ({
-        region: displayRegion(row[regionCol]),
-        localBoard: String(row[lbCol]).trim(),
-        rec: String(row[recCol]).trim()
-      }));
-  }
-
-  // Target REC list for cycle and phase coverage
-  const targetSheet = ss.getSheetByName('RECs_list_Phase_Wise');
-
-  if (!targetSheet) {
-    throw new Error('RECs_list_Phase_Wise sheet not found.');
-  }
-
-  const targetValues = targetSheet.getDataRange().getValues();
-
-  if (targetValues.length < 2) {
-    throw new Error('RECs_list_Phase_Wise has no target REC rows.');
-  }
-
-  const targetHeaders = targetValues[0].map(h =>
-    String(h).trim()
-  );
-
-  const requiredHeaders = [
-    'Region',
-    'LocalBoard',
-    'REC',
-    'Cycle 1 Phase',
-    'Cycle 2 Phase',
-    'Status'
-  ];
-
-  const columnIndexes = {};
-
+  const headers = values[0].map(h => String(h).trim());
+  const requiredHeaders = ['Region', 'LocalBoard', 'REC', 'Cycle 1 Phase', 'Cycle 2 Phase', 'Status'];
+  const indexes = {};
   requiredHeaders.forEach(header => {
-    columnIndexes[header] = targetHeaders.indexOf(header);
-
-    if (columnIndexes[header] === -1) {
-      throw new Error(
-        'Missing header in RECs_list_Phase_Wise: ' + header
-      );
-    }
+    indexes[header] = headers.indexOf(header);
+    if (indexes[header] < 0) throw new Error('Missing header in RECs_list_Phase_Wise: ' + header);
   });
 
-  const targetRecs = targetValues.slice(1)
-    .filter(row =>
-      String(row[columnIndexes.Region] || '').trim() !== '' &&
-      String(row[columnIndexes.LocalBoard] || '').trim() !== '' &&
-      String(row[columnIndexes.REC] || '').trim() !== ''
-    )
+  const targetRecs = values.slice(1)
+    .filter(row => clean(row[indexes.Region]) && clean(row[indexes.LocalBoard]) && clean(row[indexes.REC]))
     .map(row => ({
-      Region: String(row[columnIndexes.Region]).trim()
-        .replace(/_\d+$/, ''),
-      LocalBoard: String(row[columnIndexes.LocalBoard]).trim(),
-      REC: String(row[columnIndexes.REC]).trim(),
-      Cycle1Phase: String(row[columnIndexes['Cycle 1 Phase']] || '').trim(),
-      Cycle2Phase: String(row[columnIndexes['Cycle 2 Phase']] || '').trim(),
-      Status: String(row[columnIndexes.Status] || '').trim()
+      Region: clean(row[indexes.Region]).replace(/_\\d+$/, ''),
+      LocalBoard: clean(row[indexes.LocalBoard]),
+      REC: clean(row[indexes.REC]),
+      Cycle1Phase: clean(row[indexes['Cycle 1 Phase']]),
+      Cycle2Phase: clean(row[indexes['Cycle 2 Phase']]),
+      Status: clean(row[indexes.Status])
     }));
 
-  return {
-    success: true,
-    data: data,
-    refs: data,
-    targetRecs: targetRecs
-  };
+  const refs = targetRecs.map(row => ({
+    Region: row.Region, LocalBoard: row.LocalBoard, REC: row.REC
+  }));
+  return { success: true, refs: refs, targetRecs: targetRecs };
 }
 
 /* =========================================================
@@ -750,8 +676,8 @@ function getDashboardData(email) {
       records.push(values[i]);
     }
   } else {
-    // Match the same display geography used by APP_Reference.
-    // Reference dropdowns remove numeric Region suffixes (e.g. Southern_01
+    // Match canonical geography from RECs_list_Phase_Wise.
+    // REC directory dropdowns remove numeric Region suffixes (e.g. Southern_01
     // becomes Southern), while Kobo sync can retain the coded value in
     // APP_Records. Compare canonical values but keep LB and REC restrictions.
     const normalizeRegionKey = value => clean(value)
@@ -5575,28 +5501,27 @@ function syncKoboToAPPRecords() {
     sheetsByName[norm(sh.getName())] = sh;
   });
 
-  const reference = ss.getSheetByName('APP_Reference');
-  const referenceRows = reference && reference.getLastRow() > 1
-    ? reference.getDataRange().getValues()
-    : [];
+  // Resolve Kobo Region values against the master REC phase list.
+  const directorySheet = ss.getSheetByName('RECs_list_Phase_Wise');
+  if (!directorySheet) throw new Error('RECs_list_Phase_Wise sheet not found.');
+  const directoryValues = directorySheet.getDataRange().getValues();
+  if (directoryValues.length < 2) throw new Error('RECs_list_Phase_Wise has no REC rows.');
+  const directoryHeaders = directoryValues[0].map(clean);
+  const directoryRegionCol = directoryHeaders.indexOf('Region');
+  if (directoryRegionCol < 0) throw new Error('RECs_list_Phase_Wise is missing the Region column.');
+  const directoryRegions = [...new Set(directoryValues.slice(1)
+    .map(row => clean(row[directoryRegionCol]))
+    .filter(Boolean))];
 
-  const refHeaders = referenceRows.length
-    ? referenceRows[0].map(clean)
-    : [];
-  const refCols = colMap(refHeaders);
-
-  function resolveLocation(value, field) {
+  function resolveLocation(value) {
     const v = clean(value);
-    if (!v || !referenceRows.length || refCols[field] === undefined) {
-      return v.replace(/_\d+$/, '');
-    }
-
-    const match = referenceRows.slice(1).find(r =>
-      norm(r[refCols[field]]) === norm(v) ||
-      norm(String(r[refCols[field]]).replace(/_\d+$/, '')) === norm(v)
+    if (!v) return '';
+    const displayValue = v.replace(/_\\d+$/, '');
+    const match = directoryRegions.find(region =>
+      norm(region) === norm(v) ||
+      norm(region.replace(/_\\d+$/, '')) === norm(displayValue)
     );
-
-    return match ? clean(match[refCols[field]]) : v.replace(/_\d+$/, '');
+    return (match || displayValue).replace(/_\\d+$/, '');
   }
 
   function valueByHeader(row, headers, candidates) {
@@ -5681,7 +5606,7 @@ function syncKoboToAPPRecords() {
         '1. Select your region', 'Select your region', 'Select your region '
       ]);
 
-      const region = resolveLocation(regionRaw, 'Region');
+      const region = resolveLocation(regionRaw);
 
       
       // Use ONLY the standardized geography columns.

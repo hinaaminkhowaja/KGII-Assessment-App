@@ -582,7 +582,7 @@ function getRecDirectoryData() {
   const targetRecs = values.slice(1)
     .filter(row => clean(row[indexes.Region]) && clean(row[indexes.LocalBoard]) && clean(row[indexes.REC]))
     .map(row => ({
-      Region: clean(row[indexes.Region]).replace(/_\\d+$/, ''),
+      Region: clean(row[indexes.Region]).replace(/_\d+$/, ''),
       LocalBoard: clean(row[indexes.LocalBoard]),
       REC: clean(row[indexes.REC]),
       Cycle1Phase: clean(row[indexes['Cycle 1 Phase']]),
@@ -5516,12 +5516,12 @@ function syncKoboToAPPRecords() {
   function resolveLocation(value) {
     const v = clean(value);
     if (!v) return '';
-    const displayValue = v.replace(/_\\d+$/, '');
+    const displayValue = v.replace(/_\d+$/, '');
     const match = directoryRegions.find(region =>
       norm(region) === norm(v) ||
-      norm(region.replace(/_\\d+$/, '')) === norm(displayValue)
+      norm(region.replace(/_\d+$/, '')) === norm(displayValue)
     );
-    return (match || displayValue).replace(/_\\d+$/, '');
+    return (match || displayValue).replace(/_\d+$/, '');
   }
 
   function valueByHeader(row, headers, candidates) {

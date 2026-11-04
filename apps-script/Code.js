@@ -750,19 +750,33 @@ function getDashboardData(email) {
       records.push(values[i]);
     }
   } else {
-    // Normalize access scopes once for better efficiency.
+    // Match the same display geography used by APP_Reference.
+    // Reference dropdowns remove numeric Region suffixes (e.g. Southern_01
+    // becomes Southern), while Kobo sync can retain the coded value in
+    // APP_Records. Compare canonical values but keep LB and REC restrictions.
+    const normalizeRegionKey = value => clean(value)
+      .replace(/\u00a0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/_\d+$/, '')
+      .toLowerCase();
+
+    const normalizeGeoKey = value => clean(value)
+      .replace(/\u00a0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+
     const scopes = access.map(scope => ({
-      region: clean(scope.region),
-      localBoard: clean(scope.localBoard),
-      rec: clean(scope.rec)
+      region: normalizeRegionKey(scope.region),
+      localBoard: normalizeGeoKey(scope.localBoard),
+      rec: normalizeGeoKey(scope.rec)
     }));
 
     for (let i = 1; i < values.length; i++) {
       const row = values[i];
 
-      const rowRegion = clean(row[regionCol]);
-      const rowLB = clean(row[lbCol]);
-      const rowREC = clean(row[recCol]);
+      const rowRegion = normalizeRegionKey(row[regionCol]);
+      const rowLB = normalizeGeoKey(row[lbCol]);
+      const rowREC = normalizeGeoKey(row[recCol]);
 
       const allowed = scopes.some(scope =>
         (!scope.region || rowRegion === scope.region) &&

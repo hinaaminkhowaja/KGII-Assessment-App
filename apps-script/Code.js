@@ -5840,6 +5840,81 @@ function syncKoboToAPPRecords() {
   return result;
 }
 
+/**
+ * Read-only diagnostic for Kobo sync checkpoints.
+ * Does not change watermarks or APP_Records.
+ */
+function inspectKoboSyncWatermarks() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('APP_Indicators');
+  if (!sh) throw new Error('APP_Indicators sheet not found.');
+
+  const values = sh.getDataRange().getValues();
+  const headers = values[0].map(h => String(h == null ? '' : h).trim());
+  const ix = {};
+  headers.forEach((h, i) => ix[h] = i);
+
+  ['SourceSheet', 'SourceColumn', 'ParticipantType', 'Assessment', 'IndicatorID']
+    .forEach(h => {
+      if (ix[h] === undefined) throw new Error('APP_Indicators missing ' + h);
+    });
+
+  const normName = v => String(v == null ? '' : v)
+    .replace(/\\u00a0/g, ' ').trim().toLowerCase();
+
+  const sources = {};
+  values.slice(1).forEach(row => {
+    const source = String(row[ix.SourceSheet] || '').trim();
+    const col = Number(row[ix.SourceColumn]);
+    const participant = String(row[ix.ParticipantType] || '').trim();
+    const assessment = String(row[ix.Assessment] || '').trim();
+    if (!source || !col || col < 1 || !participant || !assessment) return;
+    const key = normName(source);
+    if (!sources[key]) {
+      sources[key] = {
+        sourceSheet: source,
+        mappings: 0,
+        participantTypes: {},
+        assessments: {}
+      };
+    }
+    sources[key].mappings++;
+    sources[key].participantTypes[participant] =
+      (sources[key].participantTypes[participant] || 0) + 1;
+    sources[key].assessments[assessment] =
+      (sources[key].assessments[assessment] || 0) + 1;
+  });
+
+  const props = PropertiesService.getScriptProperties();
+  const actualSheets = {};
+  ss.getSheets().forEach(sheet => actualSheets[normName(sheet.getName())] = sheet);
+
+  const report = {};
+  Object.keys(sources).sort().forEach(key => {
+    const item = sources[key];
+    const sheet = actualSheets[key];
+    const propertyKey = 'KOBO_SYNC_LAST_ROW_' + key;
+    const saved = props.getProperty(propertyKey);
+    const lastRow = sheet ? sheet.getLastRow() : null;
+    report[item.sourceSheet] = {
+      sheetFound: !!sheet,
+      lastRow: lastRow,
+      savedWatermark: saved,
+      nextRowToRead: saved === null ? 2 : Number(saved) + 1,
+      rowsAvailableAfterWatermark: sheet && lastRow
+        ? Math.max(0, lastRow - Math.max(1, Number(saved || 1)))
+        : null,
+      mappings: item.mappings,
+      participantTypes: item.participantTypes,
+      assessments: item.assessments
+    };
+  });
+
+  Logger.log(JSON.stringify(report, null, 2));
+  return report;
+}
+
+
 function installAutomaticKoboSync() {
   const handler = 'syncKoboToAPPRecords';
 

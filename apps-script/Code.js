@@ -2020,10 +2020,26 @@ function handleTeacherSurveyCycle2_(body) {
   skills.forEach(skill => {
     for (let i = 0; i < 4; i++) {
       const indicatorNumber = i + 1;
-      const indicatorID =
-        'C2:' + skill.themeID + ':I' + indicatorNumber;
-      const dimensionID =
-        skill.themeID + 'I' + indicatorNumber;
+      const sourceHeader =
+        (skill.key === 'instructional' ? 'Instructional_Indicator' :
+         skill.key === 'questioning' ? 'Questioning_Indicator' :
+         'Feedback_Indicator') + indicatorNumber;
+      const sourceColumn = headers.indexOf(sourceHeader) + 1;
+
+      const meta = referenceRows.find(item =>
+        clean(item.CycleID) === 'C2' &&
+        clean(item.ParticipantType).toLowerCase() === 'teacher' &&
+        surveyAssessment_(item.Assessment) === assessment &&
+        clean(item.AppSourceSheet) === sheet.getName() &&
+        Number(item.AppSourceColumn) === sourceColumn
+      );
+
+      if (!meta || sourceColumn < 1) {
+        throw new Error(
+          'Missing C2 teacher App indicator mapping for ' +
+          sourceHeader + ' (column ' + sourceColumn + ').'
+        );
+      }
 
       const record = {
         RecordID: recordId,
@@ -2036,11 +2052,11 @@ function handleTeacherSurveyCycle2_(body) {
         REC: clean(body.rec),
         ParticipantCount: 1,
         Phase: phase,
-        ThemeID: skill.themeID,
-        DimensionID: dimensionID,
-        IndicatorID: indicatorID,
+        ThemeID: meta.ThemeID,
+        DimensionID: meta.DimensionID,
+        IndicatorID: meta.IndicatorID,
         Score: Number(ratings[skill.key][i]),
-        MaxScore: 4,
+        MaxScore: Number(meta.MaxScore) || 4,
         SourceSheet: sheet.getName(),
         SourceRow: sourceRow,
         SourceRecordID: submissionId,

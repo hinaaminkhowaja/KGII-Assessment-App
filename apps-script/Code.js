@@ -5418,7 +5418,7 @@ function syncKoboToAPPRecords() {
     }))
     .filter(m =>
       ['Student', 'Teacher'].includes(m.participant) &&
-      ['Pre', 'Post'].includes(m.assessment) &&
+      ['Pre', 'Post', 'Post 3', 'Post3', 'Skill Pre', 'Skill Post'].includes(m.assessment) &&
       m.theme && m.indicator &&
       m.sourceSheet && m.sourceColumn > 0
     );

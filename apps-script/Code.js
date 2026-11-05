@@ -1435,7 +1435,11 @@ function indicatorReferenceRows_() {
     'ThemeName',
     'DimensionID',
     'IndicatorID',
-    'MaxScore'
+    'MaxScore',
+    'SourceSheet',
+    'SourceColumn',
+    'AppSourceSheet',
+    'AppSourceColumn'
   ];
 
   required.forEach(name => {
@@ -1534,7 +1538,8 @@ function appendNormalizedRecords_(
   });
 
   const cycleId = surveyCycleId_(body.cycleID);
-  const year = Number(surveyConfigValue_('AssessmentYear', 2026));
+  const configuredYear = surveyConfigValue_('AssessmentYear', 2026);
+  const year = Number(body.year || configuredYear || 2026);
   const phase = assessment === 'Post 2'
     ? 'Post 2'
     : assessment === 'Pre'

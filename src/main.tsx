@@ -556,7 +556,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,hideTeacherBreakdown=f
   const hiddenByRating=f.studentRating&&!f.teacherRating
     ? ['No. of Teachers (Unique)','Teachers Overall',...(cycle2?['Pre Overall','Post Overall']:[])]
     : f.teacherRating&&!f.studentRating
-      ? ['No. of Students','Students Overall',...(cycle2?['Phase 3 Overall']:[])]
+      ? ['No. of Students','Students Overall',...(cycle2?['Post 2 Overall']:[])]
       : [];
   const visibleCards=teacherOnly
     ? cards.filter(([label])=>!['No. of Students','No. of Teachers (Unique)','Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label))
@@ -1493,7 +1493,6 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
         userEmail: user?.email || '',
         participantType: 'Teacher',
         cycleID: 'Cycle 2',
-        phase: 'Phase 3',
         assessmentTool: 'Teacher Assessment Rubrics',
         assessment: value.assessmentStage,
         region: value.region,

@@ -126,7 +126,7 @@ function ratingFilterMatch(r:Rec,f:any){
  if(!studentRating&&!teacherRating)return true;
  return (type==='student'&&!!studentRating&&score===Number(studentRating))||(type==='teacher'&&!!teacherRating&&score===Number(teacherRating));
 }
-function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.cycle||f.cycle==='All'||cycleLabel(r.CycleID)===cycleLabel(f.cycle))&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||r.Assessment===f.assessment)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year))&&ratingFilterMatch(r,f))}
+function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.cycle||f.cycle==='All'||cycleLabel(r.CycleID)===cycleLabel(f.cycle))&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||r.Assessment===f.assessment)&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[
@@ -265,7 +265,7 @@ const recs = useMemo(
   )].sort(),
   [records, f.region, f.board]
 );
- const allowedRecords=records;const cycles=[...new Set([...unique(records,'CycleID').filter(Boolean).map(cycleLabel),'Cycle 1','Cycle 2'])].sort((a,b)=>a.localeCompare(b));useEffect(()=>{if(!f.cycle&&cycles.length){const first=cycles.find(x=>cycleLabel(x)==='Cycle 1')||cycles[0];setF((x:any)=>x.cycle?x:{...x,cycle:first,phase:''})}},[cycles,f.cycle]);const phaseField=cycleLabel(f.cycle||'Cycle 1')==='Cycle 2'?'Cycle2Phase':'Cycle1Phase';const phases=uniqueGeoValues(targetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())).map((r:any)=>r[phaseField]).filter(Boolean));useEffect(()=>{if(f.phase&&!phases.some(p=>geoNorm(p)===geoNorm(f.phase)))setF((x:any)=>({...x,phase:''}))},[f.phase,phases.join('|')]);const phaseRecKeys=useMemo(()=>new Set(targetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&!!norm(r[phaseField])&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.phase||geoNorm(r[phaseField])===geoNorm(f.phase))).map((r:any)=>[geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'))),[targetRecs,f.region,f.board,f.rec,f.phase,phaseField]);const phaseScopedRecords=useMemo(()=>allowedRecords.filter(r=>phaseRecKeys.has([geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'))),[allowedRecords,phaseRecKeys]);const pageRecords=useMemo(()=>page==='teacher'?phaseScopedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'):phaseScopedRecords,[phaseScopedRecords,page==='teacher']);const filtered=useMemo(()=>filterRows(pageRecords,f),[pageRecords,f]);const metricRows=useMemo(()=>filterRows(pageRecords,{...f,studentRating:'',teacherRating:''}),[pageRecords,f]);const phase3Rows=useMemo(()=>filterRows(pageRecords,{...f,assessment:'',studentRating:'',teacherRating:''}).filter(r=>cycleLabel(r.CycleID)==='Cycle 2'&&norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost3(r.Assessment)),[pageRecords,f]);const regionPerformanceRows=useMemo(()=>filterRows(phaseScopedRecords,f),[phaseScopedRecords,f]);const highlightRows=useMemo(()=>filterRows(phaseScopedRecords,{...f,assessment:''}),[phaseScopedRecords,f]);const crossRows=useMemo(()=>filterRows(phaseScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''}),[phaseScopedRecords,f]);
+ const allowedRecords=records;const cycles=[...new Set([...unique(records,'CycleID').filter(Boolean).map(cycleLabel),'Cycle 1','Cycle 2'])].sort((a,b)=>a.localeCompare(b));useEffect(()=>{if(!f.cycle&&cycles.length){const first=cycles.find(x=>cycleLabel(x)==='Cycle 1')||cycles[0];setF((x:any)=>x.cycle?x:{...x,cycle:first,phase:''})}},[cycles,f.cycle]);const phaseField=cycleLabel(f.cycle||'Cycle 1')==='Cycle 2'?'Cycle2Phase':'Cycle1Phase';const phases=uniqueGeoValues(targetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())).map((r:any)=>r[phaseField]).filter(Boolean));useEffect(()=>{if(f.phase&&!phases.some(p=>geoNorm(p)===geoNorm(f.phase)))setF((x:any)=>({...x,phase:''}))},[f.phase,phases.join('|')]);const phaseRecKeys=useMemo(()=>new Set(targetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&!!norm(r[phaseField])&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.phase||geoNorm(r[phaseField])===geoNorm(f.phase))).map((r:any)=>[geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'))),[targetRecs,f.region,f.board,f.rec,f.phase,phaseField]);const phaseScopedRecords=useMemo(()=>allowedRecords.filter(r=>phaseRecKeys.has([geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'))),[allowedRecords,phaseRecKeys]);const pageRecords=useMemo(()=>page==='teacher'?phaseScopedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'):phaseScopedRecords,[phaseScopedRecords,page==='teacher']);const filtered=useMemo(()=>filterRows(pageRecords,f),[pageRecords,f]);const metricRows=useMemo(()=>filterRows(pageRecords,{...f,studentRating:'',teacherRating:''}),[pageRecords,f]);const phase3Rows=useMemo(()=>filterRows(pageRecords,{...f,assessment:'',studentRating:'',teacherRating:''}).filter(r=>cycleLabel(r.CycleID)==='Cycle 2'&&norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment)),[pageRecords,f]);const regionPerformanceRows=useMemo(()=>filterRows(phaseScopedRecords,f),[phaseScopedRecords,f]);const highlightRows=useMemo(()=>filterRows(phaseScopedRecords,{...f,assessment:''}),[phaseScopedRecords,f]);const crossRows=useMemo(()=>filterRows(phaseScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''}),[phaseScopedRecords,f]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
  // Region options are sourced from the current dashboard records (APP_Records).
@@ -277,7 +277,7 @@ const recs = useMemo(
     .filter(Boolean)
     .filter(region => !/^Lower[_ ]Chitral[_ ]?\d+$/i.test(region) && !/^Lower_Chitral_01$/i.test(region))
  )].sort((a,b)=>displayGeo(a).localeCompare(displayGeo(b)));
-const pts=unique(allowedRecords,'ParticipantType'),assessments=unique(allowedRecords,'Assessment'),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=unique(allowedRecords,'Year');const teacherNames=unique(allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)),'TeacherName');
+const pts=unique(allowedRecords,'ParticipantType'),assessments=[...new Set([...unique(allowedRecords,'Assessment'),'Post 2'])].sort(),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=[...new Set([...unique(allowedRecords,'Year'),'2025','2026','2027'])].sort();const teacherNames=unique(allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)),'TeacherName');
  const refresh=async(u= user)=>{if(!u)return;setApiError('');try{if(page==='admin'&&u.role==='admin')await loadAdmin(u.email);else await loadDashboard(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
  // Refresh dashboard data every 15 minutes so Kobo imports become visible without a new login.
  // The Apps Script Kobo-to-APP_Records sync continues independently every five minutes.
@@ -415,7 +415,7 @@ function ResourceLibrary({user}:{user:AppUser|null}){
 
 function title(p:string){return ({dashboard:'KG II Assessment Dashboard',region:'Region-wise Analysis',board:'Local Board-wise Analysis',rec:'REC-wise Analysis',teacher:'Teacher-wise Analysis',theme:'Theme-wise Analysis',dimension:'Dimension-wise Analysis',prepost:'Pre / Post Analysis',crossanalysis:'Student–Teacher Cross-Analysis',admin:'Users & Access',resources:'Mentoring & Assessment Strategies','student-survey':'Student Survey Entry','teacher-survey':'Teacher Survey Entry'} as any)[p]}
 function subtitle(p:string){if(p==='student-survey')return 'Enter student survey responses using the master Region → Local Board → REC hierarchy.';if(p==='teacher-survey')return 'Enter teacher survey responses using the master Region → Local Board → REC hierarchy.';if(p==='resources')return 'View and download mentoring and assessment resources.';return p==='dashboard'?'Assessment Performance Overview':p==='teacher'?'Review individual teacher performance across themes, dimensions and pre/post assessments.':p==='crossanalysis'?'Explore teacher development alongside student understanding, articulation and application across REC, Local Board, Region and National levels.':'Drill down into performance using the selected filters.'}
-function Filters({f,setF,cycles,phases,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const teacherPage=page==='teacher';const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}>{k==='cycle'?<option value="All">All</option>:<option value="">All</option>}{vals.map(v=><option key={v} value={v}>{k==='cycle'?cycleLabel(v):k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):k==='studentRating'?studentRatingLabel(v):k==='teacherRating'?teacherRatingLabel(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/>}{page==='crossanalysis'?null:page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/>}{page!=='crossanalysis'&&<S k="assessment" lab="Assessment" vals={assessments}/>}{!teacherPage&&page!=='crossanalysis'&&<S k="studentRating" lab="Student Rating" vals={['3','2','1']}/>}{page!=='crossanalysis'&&<S k="teacherRating" lab="Teacher Rating" vals={['4','3','2','1']}/>}<S k="theme" lab="Theme" vals={themes}/>{!teacherPage&&page!=='crossanalysis'&&<S k="dim" lab="Dimension" vals={dims}/>}<S k="year" lab="Year" vals={years.map(String)}/><S k="cycle" lab="Cycle" vals={cycles}/><S k="phase" lab="Phase" vals={phases}/></section>}
+function Filters({f,setF,cycles,phases,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const teacherPage=page==='teacher';const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='pt'?{focus:''}:k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}>{k==='cycle'?<option value="All">All</option>:<option value="">All</option>}{vals.map(v=><option key={v} value={v}>{k==='cycle'?cycleLabel(v):k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):k==='studentRating'?studentRatingLabel(v):k==='teacherRating'?teacherRatingLabel(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/>}{page==='crossanalysis'?null:page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/>}{page!=='crossanalysis'&&<S k="assessment" lab="Assessment Type" vals={assessments}/>}{(teacherPage||f.pt==='Teacher')&&page!=='crossanalysis'&&<S k="focus" lab="Assessment Focus" vals={['Content','Skills']}/ >}{!teacherPage&&page!=='crossanalysis'&&<S k="studentRating" lab="Student Rating" vals={['3','2','1']}/>}{page!=='crossanalysis'&&<S k="teacherRating" lab="Teacher Rating" vals={['4','3','2','1']}/>}<S k="theme" lab="Theme" vals={themes}/>{!teacherPage&&page!=='crossanalysis'&&<S k="dim" lab="Dimension" vals={dims}/>}<S k="year" lab="Year" vals={years.map(String)}/><S k="cycle" lab="Cycle" vals={cycles}/><S k="phase" lab="Phase" vals={phases}/></section>}
 function studentRatingLabel(score:string){return ({'3':'Very well (3)','2':'To some extent (2)','1':'Face difficulty (1)'} as Record<string,string>)[score]||score}
 function teacherRatingLabel(score:string){return ({'4':'Exemplary (4)','3':'Proficient (3)','2':'Developing (2)','1':'Emerging (1)'} as Record<string,string>)[score]||score}
 
@@ -547,7 +547,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,hideTeacherBreakdown=f
     ['Teachers Overall',fmt(teacherPct)],
     ['Theme Overall',fmt(overallPerformance)],
     ['Dimension Overall',fmt(overallPerformance)],
-    ['Student Post 3 Overall',cycle2&&phase3Max?phase3Score.toFixed(1)+' / '+phase3Max.toFixed(1):'—'],
+    ['Student Post 2 Overall',cycle2&&phase3Max?phase3Score.toFixed(1)+' / '+phase3Max.toFixed(1):'—'],
     ['Teacher Skill Pre Overall',cycle2?(preMax?preScore.toFixed(1)+' / '+preMax.toFixed(1):'—'):'—'],
     ['Teacher Skill Post Overall',cycle2?(postMax?postScore.toFixed(1)+' / '+postMax.toFixed(1):'—'):'—'],
     ['Pre Overall',cycle2?'—':ratingSelected?(preMax?preScore.toFixed(1)+' / '+preMax.toFixed(1):'—'):teacherOnly?(preScore.toFixed(1)+' / 16'):fmt(prePct)],
@@ -560,7 +560,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,hideTeacherBreakdown=f
       : [];
   const visibleCards=teacherOnly
     ? cards.filter(([label])=>!['No. of Students','No. of Teachers (Unique)','Students Overall','Teachers Overall','Theme Overall','Dimension Overall'].includes(label))
-    : cards.filter(([label])=>String(label)==='Phase 3 Overall'?!cycle2:!hiddenByRating.includes(String(label)));
+    : cards.filter(([label])=>String(label)==='Post 2 Overall'?!cycle2:!hiddenByRating.includes(String(label)));
    const phaseFieldForExpected=cycleLabel(f.cycle||'Cycle 1')==='Cycle 2'?'Cycle2Phase':'Cycle1Phase';
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&!!norm(r[phaseFieldForExpected])&&(!f.phase||geoNorm(r[phaseFieldForExpected])===geoNorm(f.phase))&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
   const themeCoverage = ['T1','T2','T3','T4'].map(theme => {
@@ -933,7 +933,7 @@ function assessmentIs(value:string,stage:'Pre'|'Post'){
  const target=stage.toLowerCase();
  return a===target||a.startsWith(target);
 }
-function assessmentIsPost3(value:string){return /^post\s*[-_]?\s*3$/i.test(norm(value));}
+function assessmentIsPost2(value:string){return /^post\s*[-_]?\s*2$/i.test(norm(value));}
 function stageAggregate(rows:Rec[],stage:'Pre'|'Post'){return aggregate(rows.filter(r=>assessmentIs(r.Assessment,stage)))}
 function RubricDetailTable({rows,title}:{rows:Rec[];title:string}){
  const ids=unique(rows,'IndicatorID');
@@ -992,7 +992,7 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
 
   const [v, setV] = useSurveyState('kgii_student_survey_draft', initial);
   const cycle = v.cycle || 'Cycle 1';
-  const phase = cycle === 'Cycle 2' ? 'Phase 3' : '';
+  const phase = cycle === 'Cycle 2' ? 'Post 2' : '';
   const [entryStarted, setEntryStarted] = useState(false);
   const [msg, setMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1043,7 +1043,7 @@ const lookupChild = async () => {
 
   
 const save = async (finishAssessment: boolean) => {
-  const assessment = cycle === 'Cycle 2' ? 'Pre' : (v.assessment || 'Pre');
+  const assessment = cycle === 'Cycle 2' ? 'Post 2' : (v.assessment || 'Pre');
   const themeState = v.themes[v.theme] || {
     activities: [],
     otherActivity: '',
@@ -1344,7 +1344,7 @@ const save = async (finishAssessment: boolean) => {
               <option value="Cycle 2">Cycle 2</option>
             </select>
           </Field>
-          {cycle === 'Cycle 2' && <Field label="Phase"><input value={phase} readOnly /></Field>}
+          {cycle === 'Cycle 2' && <Field label="Assessment Round"><input value={phase} readOnly /></Field>}
 
           <Field label="Select Theme" required>
             <select

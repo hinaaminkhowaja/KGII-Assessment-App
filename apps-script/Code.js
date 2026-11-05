@@ -1319,12 +1319,20 @@ function surveyConfigValue_(settingName, fallback) {
 
 
 function surveyAssessment_(value) {
-  const v = clean(value).toLowerCase();
+  const v = clean(value).toLowerCase().replace(/[\\s_-]+/g, '');
 
-  if (v === 'pre' || v === 'pre-assessment') return 'Pre';
-  if (v === 'post' || v === 'post-assessment') return 'Post';
+  if (v === 'pre' || v === 'preassessment') return 'Pre';
+  if (v === 'post' || v === 'postassessment') return 'Post';
+  if (v === 'post2' || v === 'post2assessment') return 'Post 2';
 
-  throw new Error('Assessment must be Pre or Post.');
+  throw new Error('Assessment must be Pre, Post, or Post 2.');
+}
+
+function surveyCycleId_(value) {
+  const v = clean(value).toLowerCase().replace(/[\\s_-]+/g, '');
+  if (v === 'cycle2' || v === 'c2' || v === '2') return 'C2';
+  if (v === 'cycle1' || v === 'c1' || v === '1') return 'C1';
+  return clean(surveyConfigValue_('CycleID', 'C1'));
 }
 
 
@@ -1525,11 +1533,13 @@ function appendNormalizedRecords_(
     }
   });
 
-  const cycleId = clean(surveyConfigValue_('CycleID', 'C1'));
+  const cycleId = surveyCycleId_(body.cycleID);
   const year = Number(surveyConfigValue_('AssessmentYear', 2026));
-  const phase = assessment === 'Pre'
-    ? 'Pre-assessment'
-    : 'Post-assessment';
+  const phase = assessment === 'Post 2'
+    ? 'Post 2'
+    : assessment === 'Pre'
+      ? 'Pre-assessment'
+      : 'Post-assessment';
 
   const participantCode = participantType === 'Student' ? 'S' : 'T';
 const recordId =
@@ -1638,7 +1648,7 @@ function handleStudentSurvey(body) {
     throw new Error('Enter at least one student indicator rating.');
   }
 
-  const cycleId = clean(surveyConfigValue_('CycleID', 'C1'));
+  const cycleId = surveyCycleId_(body.cycleID);
   const referenceRows = indicatorReferenceRows_();
 
   // Validate all ratings before writing the survey or records.
@@ -5418,7 +5428,7 @@ function syncKoboToAPPRecords() {
     }))
     .filter(m =>
       ['Student', 'Teacher'].includes(m.participant) &&
-      ['Pre', 'Post', 'Post 3', 'Post3', 'Skill Pre', 'Skill Post'].includes(m.assessment) &&
+      ['Pre', 'Post', 'Post 2', 'Post2', 'Skill Pre', 'Skill Post'].includes(m.assessment) &&
       m.theme && m.indicator &&
       m.sourceSheet && m.sourceColumn > 0
     );

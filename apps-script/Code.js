@@ -1939,6 +1939,7 @@ function handleTeacherSurveyCycle2_(body) {
   }
 
   const headers = surveyHeaders_(sheet);
+  const referenceRows = indicatorReferenceRows_();
   const submissionId = newSubmissionId('TCHC2');
   const sourceRow = sheet.getLastRow() + 1;
   const year = Number(surveyConfigValue_('AssessmentYear', 2026));

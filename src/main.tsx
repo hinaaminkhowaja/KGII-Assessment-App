@@ -602,7 +602,6 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
     const phase=cycleLabel(f.cycle||'Cycle 1')==='Cycle 2'?norm(r.Cycle2Phase):norm(r.Cycle1Phase);
     return !!phase&&(!f.phase||geoNorm(phase)===geoNorm(f.phase));
   });
-  const scopedRefs=scopedTargets.map((r:any)=>({Region:norm(r.Region),LocalBoard:norm(r.LocalBoard),REC:norm(r.REC)}));
   const themes=['T1','T2','T3','T4'];
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';

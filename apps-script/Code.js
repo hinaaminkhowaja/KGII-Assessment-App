@@ -256,44 +256,43 @@ function getUserByEmail(email) {
   }
 
   const headers = data[0];
-
   const emailCol = headers.indexOf('Email');
   const nameCol = headers.indexOf('Name');
   const roleCol = headers.indexOf('Role');
   const statusCol = headers.indexOf('Status');
 
-  if (
-    emailCol === -1 ||
-    nameCol === -1 ||
-    roleCol === -1 ||
-    statusCol === -1
-  ) {
+  if ([emailCol, nameCol, roleCol, statusCol].some(i => i < 0)) {
     throw new Error('APP_Users headers are incorrect.');
   }
 
   const searchEmail = normalizeEmail(email);
+  const matches = data.slice(1)
+    .filter(row => normalizeEmail(row[emailCol]) === searchEmail);
 
-  for (let i = 1; i < data.length; i++) {
-
-    const rowEmail = normalizeEmail(data[i][emailCol]);
-
-    if (rowEmail === searchEmail) {
-
-      return {
-        success: true,
-        user: {
-          name: data[i][nameCol],
-          email: data[i][emailCol],
-          role: data[i][roleCol],
-          status: data[i][statusCol]
-        }
-      };
-    }
+  if (!matches.length) {
+    return { success: false, message: 'User not found.' };
   }
 
+  // An email can appear more than once if old test/user rows were retained.
+  // Prefer an approved Admin row so an administrator is never silently
+  // downgraded to a restricted user scope by an earlier duplicate row.
+  const approvedAdmin = matches.find(row =>
+    clean(row[roleCol]).toLowerCase() === 'admin' &&
+    clean(row[statusCol]).toLowerCase() === 'approved'
+  );
+  const approvedMatch = matches.find(row =>
+    clean(row[statusCol]).toLowerCase() === 'approved'
+  );
+  const row = approvedAdmin || approvedMatch || matches[0];
+
   return {
-    success: false,
-    message: 'User not found.'
+    success: true,
+    user: {
+      name: row[nameCol],
+      email: row[emailCol],
+      role: row[roleCol],
+      status: row[statusCol]
+    }
   };
 }
 

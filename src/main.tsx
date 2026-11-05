@@ -126,7 +126,7 @@ function ratingFilterMatch(r:Rec,f:any){
  if(!studentRating&&!teacherRating)return true;
  return (type==='student'&&!!studentRating&&score===Number(studentRating))||(type==='teacher'&&!!teacherRating&&score===Number(teacherRating));
 }
-function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\\s_-]+/g,'');}
+function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\s_-]+/g,'');}
 function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.cycle||f.cycle==='All'||cycleLabel(r.CycleID)===cycleLabel(f.cycle))&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
@@ -278,7 +278,7 @@ const recs = useMemo(
     .filter(Boolean)
     .filter(region => !/^Lower[_ ]Chitral[_ ]?\d+$/i.test(region) && !/^Lower_Chitral_01$/i.test(region))
  )].sort((a,b)=>displayGeo(a).localeCompare(displayGeo(b)));
-const pts=unique(allowedRecords,'ParticipantType'),assessments=[...new Set([...unique(allowedRecords,'Assessment').map(a=>/^post\\s*2$/i.test(a)?'Post 2':a),'Post 2'])].sort(),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=[...new Set([...unique(allowedRecords,'Year'),'2025','2026','2027'])].sort();const teacherNames=unique(allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)),'TeacherName');
+const pts=unique(allowedRecords,'ParticipantType'),assessments=[...new Set([...unique(allowedRecords,'Assessment').map(a=>/^post\s*2$/i.test(a)?'Post 2':a),'Post 2'])].sort(),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=[...new Set([...unique(allowedRecords,'Year'),'2025','2026','2027'])].sort();const teacherNames=unique(allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)),'TeacherName');
  const refresh=async(u= user)=>{if(!u)return;setApiError('');try{if(page==='admin'&&u.role==='admin')await loadAdmin(u.email);else await loadDashboard(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
  // Refresh dashboard data every 15 minutes so Kobo imports become visible without a new login.
  // The Apps Script Kobo-to-APP_Records sync continues independently every five minutes.

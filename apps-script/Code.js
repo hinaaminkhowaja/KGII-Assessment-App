@@ -2094,14 +2094,18 @@ function findTeacherThemeIndicator_(
   }
 
   // Teacher reference uses one score indicator per theme and stage.
+  const expectedSheet = 'APP_Teacher_Surveys';
+  const expectedColumn = assessment === 'Pre' ? 15 : 16;
   const scoreIndicator = matches.find(item =>
-    clean(item.IndicatorID).endsWith(':Score')
+    clean(item.IndicatorID).endsWith(':Score') &&
+    clean(item.AppSourceSheet) === expectedSheet &&
+    Number(item.AppSourceColumn) === expectedColumn
   );
 
   if (!scoreIndicator) {
     throw new Error(
-      'Teacher score indicator was not found for ' +
-      themeName + ' (' + assessment + ').'
+      'Teacher App mapping was not found for ' +
+      themeName + ' (' + assessment + '). Check AppSourceSheet and AppSourceColumn.'
     );
   }
 

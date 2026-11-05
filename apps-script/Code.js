@@ -1319,7 +1319,7 @@ function surveyConfigValue_(settingName, fallback) {
 
 
 function surveyAssessment_(value) {
-  const v = clean(value).toLowerCase().replace(/[\\s_-]+/g, '');
+  const v = clean(value).toLowerCase().replace(/[\s_-]+/g, '');
 
   if (v === 'pre' || v === 'preassessment') return 'Pre';
   if (v === 'post' || v === 'postassessment') return 'Post';
@@ -1329,7 +1329,7 @@ function surveyAssessment_(value) {
 }
 
 function surveyCycleId_(value) {
-  const v = clean(value).toLowerCase().replace(/[\\s_-]+/g, '');
+  const v = clean(value).toLowerCase().replace(/[\s_-]+/g, '');
   if (v === 'cycle2' || v === 'c2' || v === '2') return 'C2';
   if (v === 'cycle1' || v === 'c1' || v === '1') return 'C1';
   return clean(surveyConfigValue_('CycleID', 'C1'));

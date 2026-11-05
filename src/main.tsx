@@ -593,20 +593,23 @@ function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a
 function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{records:Rec[];refs:Ref[];targetRecs:any[];f:any;level?:'region'|'board'|'rec'}) {
   const geoMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec));
   const scopedRecords=records.filter(r=>geoMatches(r)&&(!f.cycle||f.cycle==='All'||cycleLabel(r.CycleID)===cycleLabel(f.cycle))&&(!f.year||String(r.Year)===String(f.year)));
-  const scopedRefs=refs.filter(geoMatches);
   const activeTarget=(r:any)=>['active','yes','true','1'].includes(norm(r.Status??r.status).toLowerCase());
   const targetMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&activeTarget(r);
+  // Scope the geographic directory to the selected cycle before building
+  // Region, Local Board and REC groups. A REC without an assigned phase in
+  // the selected cycle must not appear in that cycle's coverage/status.
   const scopedTargets=targetRecs.filter(targetMatches).filter((r:any)=>{
     const phase=cycleLabel(f.cycle||'Cycle 1')==='Cycle 2'?norm(r.Cycle2Phase):norm(r.Cycle1Phase);
-    return !phase||!f.phase||phase===norm(f.phase);
+    return !!phase&&(!f.phase||geoNorm(phase)===geoNorm(f.phase));
   });
+  const scopedRefs=scopedTargets.map((r:any)=>({Region:norm(r.Region),LocalBoard:norm(r.LocalBoard),REC:norm(r.REC)}));
   const themes=['T1','T2','T3','T4'];
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';
   const title=level==='region'?'Region-wise Theme Assessment':level==='board'?'Local Board-wise Theme Assessment':'REC-wise Theme Assessment';
   const groupKey=(value:any)=>geoNorm(displayGeo(norm(value)));
   const groupMap=new Map<string,string>();
-  const sourceGroups=level==='region'?[...scopedRefs,...scopedRecords]:scopedTargets;
+  const sourceGroups=scopedTargets;
   sourceGroups.forEach((r:any)=>{const raw=norm(groupValue(r));if(!raw)return;const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
   const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
 

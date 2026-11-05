@@ -1651,27 +1651,42 @@ function handleStudentSurvey(body) {
   const cycleId = surveyCycleId_(body.cycleID);
   const referenceRows = indicatorReferenceRows_();
 
-  // Validate all ratings before writing the survey or records.
+  // Map the app's UA/A field keys to APP_Indicators using the
+  // configured AppSourceSheet + AppSourceColumn. The indicator ID is
+  // a normalized reporting ID; it is not necessarily a survey header.
   const indicatorEntries = ratingEntries.map(entry => {
-    if (headers.indexOf(entry.indicatorId) < 0) {
+    const sourceIndex = headers.indexOf(entry.indicatorId);
+
+    if (sourceIndex < 0) {
       throw new Error(
-        'Student survey sheet has no indicator column: ' +
+        'Student survey sheet has no rating column: ' +
         entry.indicatorId
       );
     }
 
-    const meta = findSurveyIndicator_(
-      referenceRows,
-      cycleId,
-      'Student',
-      assessment,
-      themeName,
-      entry.indicatorId
+    const sourceColumn = sourceIndex + 1;
+    const meta = referenceRows.find(item =>
+      clean(item.CycleID) === clean(cycleId) &&
+      clean(item.ParticipantType).toLowerCase() === 'student' &&
+      surveyAssessment_(item.Assessment) === assessment &&
+      clean(item.ThemeName).toLowerCase() === themeName.toLowerCase() &&
+      clean(item.AppSourceSheet) === sheet.getName() &&
+      Number(item.AppSourceColumn) === sourceColumn
     );
+
+    if (!meta) {
+      throw new Error(
+        'No APP_Indicators App mapping for ' + cycleId + ', Student, ' +
+        assessment + ', ' + themeName + ', source column ' + sourceColumn +
+        ' (' + entry.indicatorId + ').'
+      );
+    }
 
     return {
       meta: meta,
-      score: entry.score
+      score: entry.score,
+      appSourceColumn: sourceColumn,
+      appSourceHeader: headers[sourceIndex]
     };
   });
 
@@ -1694,9 +1709,9 @@ function handleStudentSurvey(body) {
     Remarks: clean(body.remarks)
   };
 
-  // Store numeric ratings in the wide survey row.
-  ratingEntries.forEach(entry => {
-    values[entry.indicatorId] = entry.score;
+  // Store ratings in the actual UA/A columns from the survey header.
+  indicatorEntries.forEach(entry => {
+    values[entry.appSourceHeader] = entry.score;
   });
 
   const sourceRow = sheet.getLastRow() + 1;

@@ -46,7 +46,7 @@ function previewSixSourceDashboardData() {
   const mi = {};
   mapHeaders.forEach((h, i) => mi[h] = i);
   [
-    'CycleID', 'Year', 'ParticipantType', 'Assessment', 'ThemeID',
+    'CycleID', 'ParticipantType', 'Assessment', 'ThemeID',
     'DimensionID', 'IndicatorID', 'MaxScore', 'SourceSheet', 'SourceColumn',
     'AppSourceSheet', 'AppSourceColumn'
   ].forEach(h => {
@@ -128,6 +128,7 @@ function previewSixSourceDashboardData() {
       const sourceRow = index + 2;
       const participant = sourceMappings.length ? sourceMappings[0].participant : '';
       const isStudent = norm(participant) === 'student';
+      const year = clean(valueAt(row, headers, ['Year', 'Assessment Year']));
       const region = clean(valueAt(row, headers, source.kind === 'kobo'
         ? ['1. Select your region', 'Select your region', 'Region']
         : ['Region']));
@@ -180,6 +181,7 @@ function previewSixSourceDashboardData() {
             sourceRow: sourceRow,
             sourceRecordID: sourceId,
             cycleID: m.cycle,
+            year: m.year || year,
             participantType: m.participant,
             assessment: m.assessment,
             region: region,
@@ -207,6 +209,7 @@ function previewSixSourceDashboardData() {
       normalizedIndicatorRecords: normalized,
       blankOrInvalidScoresOrMissingGeography: skippedScores,
       assessmentCounts: assessmentCounts,
+      yearHeaderPresent: findCol(headers, ['Year', 'Assessment Year']) >= 0,
       uniqueSourceIDsObserved: new Set(sourceRecords).size,
       identityHeader: source.kind === 'kobo'
         ? (findCol(headers, ['_uuid', '_id', 'meta/rootUuid']) >= 0 ? headers[findCol(headers, ['_uuid', '_id', 'meta/rootUuid'])] : 'Deterministic fallback')

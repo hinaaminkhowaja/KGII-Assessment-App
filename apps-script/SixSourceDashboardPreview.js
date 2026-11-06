@@ -120,6 +120,8 @@ function previewSixSourceDashboardData() {
     let normalized = 0;
     let skippedScores = 0;
     const assessmentCounts = {};
+    const yearCounts = {};
+    let missingYearRows = 0;
     const sourceRecords = [];
 
     values.slice(1).forEach((row, index) => {
@@ -128,7 +130,21 @@ function previewSixSourceDashboardData() {
       const sourceRow = index + 2;
       const participant = sourceMappings.length ? sourceMappings[0].participant : '';
       const isStudent = norm(participant) === 'student';
-      const year = clean(valueAt(row, headers, ['Year', 'Assessment Year']));
+      // Assessment year is derived from the submission timestamps when no
+      // explicit Year field exists. Kobo exports provide start/end columns.
+      const explicitYear = clean(valueAt(row, headers, ['Year', 'Assessment Year']));
+      const startValue = valueAt(row, headers, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt']);
+      const endValue = valueAt(row, headers, ['end', 'End']);
+      const yearFromDate = value => {
+        if (value instanceof Date && !isNaN(value.getTime())) return String(value.getFullYear());
+        const raw = clean(value);
+        if (!raw) return '';
+        const match = raw.match(/(?:^|\D)((?:19|20)\d{2})(?:\D|$)/);
+        if (match) return match[1];
+        const parsed = new Date(raw);
+        return !isNaN(parsed.getTime()) ? String(parsed.getFullYear()) : '';
+      };
+      const year = explicitYear || yearFromDate(startValue) || yearFromDate(endValue);
       const region = clean(valueAt(row, headers, source.kind === 'kobo'
         ? ['1. Select your region', 'Select your region', 'Region']
         : ['Region']));
@@ -151,6 +167,7 @@ function previewSixSourceDashboardData() {
         sourceId = 'APP-' + source.name + '-ROW-' + sourceRow;
       }
 
+      if (year) yearCounts[year] = (yearCounts[year] || 0) + 1; else missingYearRows++;
       if (!region || !board || !rec) {
         skippedScores += sourceMappings.length;
         return;
@@ -209,6 +226,10 @@ function previewSixSourceDashboardData() {
       normalizedIndicatorRecords: normalized,
       blankOrInvalidScoresOrMissingGeography: skippedScores,
       assessmentCounts: assessmentCounts,
+      yearCounts: yearCounts,
+      missingYearRows: missingYearRows,
+      yearSource: findCol(headers, ['Year', 'Assessment Year']) >= 0 ? 'Year column' :
+        (findCol(headers, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt']) >= 0 ? 'start timestamp, then end fallback' : 'end timestamp fallback'),
       yearHeaderPresent: findCol(headers, ['Year', 'Assessment Year']) >= 0,
       uniqueSourceIDsObserved: new Set(sourceRecords).size,
       identityHeader: source.kind === 'kobo'

@@ -78,20 +78,8 @@ function previewSixSourceDashboardData() {
     samples: []
   };
 
-  const recordsSheet = ss.getSheetByName('APP_Records');
-  const recordHeaders = recordsSheet && recordsSheet.getLastColumn()
-    ? recordsSheet.getRange(1, 1, 1, recordsSheet.getLastColumn()).getValues()[0].map(clean)
-    : [];
-  const requiredOutput = [
-    'RecordID', 'CycleID', 'Year', 'ParticipantType', 'Assessment', 'Region',
-    'LocalBoard', 'REC', 'ParticipantCount', 'Phase', 'ThemeID', 'DimensionID',
-    'IndicatorID', 'Score', 'MaxScore', 'SourceSheet', 'SourceRow',
-    'SourceRecordID', 'ChildName', 'TeacherName'
-  ];
-  const missingOutputHeaders = requiredOutput.filter(h => recordHeaders.indexOf(h) < 0);
-  if (missingOutputHeaders.length) {
-    throw new Error('APP_Records is missing expected headers: ' + missingOutputHeaders.join(', '));
-  }
+  // Direct-source preview: APP_Records is intentionally not required or read.
+
 
   const sourceNames = new Set();
   expectedSources.forEach(source => {
@@ -238,8 +226,8 @@ function previewSixSourceDashboardData() {
     });
   });
 
-  report.appRecordsRowsForComparison = recordsSheet ? Math.max(0, recordsSheet.getLastRow() - 1) : null;
-  report.note = 'Preview only. This function does not append, update, delete, or change watermarks.';
+  report.appRecordsRowsForComparison = 'NOT USED — six source sheets are read directly';
+  report.note = 'Preview only. Reads the six source sheets directly and does not read or write APP_Records, source sheets, or Script Properties.';
   Logger.log(JSON.stringify(report, null, 2));
   return report;
 }

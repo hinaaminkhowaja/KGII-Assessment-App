@@ -74,7 +74,7 @@ function previewSixSourceDashboardData() {
     sourceSummaries: [],
     totalNormalizedRecords: 0,
     totalSourceRowsRead: 0,
-    totalBlankOrInvalidScores: 0,
+    totalSkippedIndicatorCellsOrMissingGeography: 0,
     samples: []
   };
 
@@ -106,7 +106,7 @@ function previewSixSourceDashboardData() {
     );
     let rowCount = 0;
     let normalized = 0;
-    let skippedScores = 0;
+    let skippedScores = 0; // Informational only: blank theme-wise cells are expected.
     const assessmentCounts = {};
     const yearCounts = {};
     let missingYearRows = 0;
@@ -203,7 +203,7 @@ function previewSixSourceDashboardData() {
 
     report.totalSourceRowsRead += rowCount;
     report.totalNormalizedRecords += normalized;
-    report.totalBlankOrInvalidScores += skippedScores;
+    report.totalSkippedIndicatorCellsOrMissingGeography += skippedScores;
     report.sourceSummaries.push({
       sourceSheet: source.name,
       kind: source.kind,
@@ -212,7 +212,7 @@ function previewSixSourceDashboardData() {
       sourceRowsWithData: rowCount,
       mappings: sourceMappings.length,
       normalizedIndicatorRecords: normalized,
-      blankOrInvalidScoresOrMissingGeography: skippedScores,
+      skippedIndicatorCellsOrMissingGeography: skippedScores,
       assessmentCounts: assessmentCounts,
       yearCounts: yearCounts,
       missingYearRows: missingYearRows,
@@ -227,7 +227,7 @@ function previewSixSourceDashboardData() {
   });
 
   report.appRecordsRowsForComparison = 'NOT USED — six source sheets are read directly';
-  report.note = 'Preview only. Reads the six source sheets directly and does not read or write APP_Records, source sheets, or Script Properties.';
+  report.note = 'Preview only. Reads the six source sheets directly and does not read or write APP_Records, source sheets, or Script Properties. Blank theme-wise indicator cells are expected by design and are informational, not errors.';
   Logger.log(JSON.stringify(report, null, 2));
   return report;
 }

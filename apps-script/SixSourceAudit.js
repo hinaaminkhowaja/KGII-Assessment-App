@@ -196,6 +196,28 @@ function previewSixSourceAudit() {
     });
   });
 
-  Logger.log(JSON.stringify(report, null, 2));
+  const compact = {
+    status: report.status,
+    spreadsheetName: report.spreadsheetName,
+    auditedAt: report.auditedAt,
+    indicatorMappingRows: report.indicatorMappingRows,
+    sources: report.sources.map(source => ({
+      sheet: source.sheet,
+      kind: source.kind,
+      exists: source.exists,
+      lastRow: source.lastRow,
+      lastColumn: source.lastColumn,
+      nonEmptyDataRows: source.nonEmptyDataRows,
+      identityHeaderPresent: source.identityHeaderPresent,
+      identityHeaderExpected: source.identityHeaderExpected,
+      geographyHeadersPresent: source.geographyHeadersPresent,
+      missingGeographyHeaders: source.missingGeographyHeaders,
+      matchingIndicatorMappings: source.matchingIndicatorMappings,
+      mappingGroups: source.mappingGroups,
+      mappingIssues: source.mappingIssues,
+      error: source.error
+    }))
+  };
+  Logger.log(JSON.stringify(compact, null, 2));
   return report;
 }

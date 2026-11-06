@@ -600,130 +600,188 @@ function getRecDirectoryData() {
 ========================================================= */
 
 
+/**
+ * Dashboard data is normalized directly from the six live source sheets.
+ * APP_Records is deliberately not read; APP_Indicators remains the
+ * single source of truth for indicator order, cycle, assessment and scores.
+ */
 function getDashboardData(email) {
   const userResult = getUserByEmail(email);
-
-  if (!userResult.success) {
-    return userResult;
-  }
+  if (!userResult.success) return userResult;
 
   const user = userResult.user;
-
   if (clean(user.status).toLowerCase() !== 'approved') {
-    return {
-      success: false,
-      message: 'Your account has not been approved.'
-    };
+    return { success: false, message: 'Your account has not been approved.' };
   }
 
-  const isAdmin =
-    clean(user.role).toLowerCase() === 'admin';
-
-  let access = [];
-
-  if (!isAdmin) {
-    access = getUserAccess(user.email);
-
-    if (access.length === 0) {
-      return {
-        success: false,
-        message: 'No active access has been assigned to this account.'
-      };
-    }
+  const isAdmin = clean(user.role).toLowerCase() === 'admin';
+  const access = isAdmin ? [] : getUserAccess(user.email);
+  if (!isAdmin && !access.length) {
+    return { success: false, message: 'No active access has been assigned to this account.' };
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.RECORDS_SHEET);
+  const cleanValue = v => String(v == null ? '' : v).replace(/\u00a0/g, ' ').trim();
+  const norm = v => cleanValue(v).replace(/\s+/g, ' ').toLowerCase();
+  const findIndex = (headers, candidates) => {
+    for (const candidate of candidates) {
+      const i = headers.findIndex(h => norm(h) === norm(candidate));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+  const getValue = (row, headers, candidates) => {
+    const i = findIndex(headers, candidates);
+    return i < 0 ? '' : row[i];
+  };
+  const yearFrom = value => {
+    if (value instanceof Date && !isNaN(value.getTime())) return String(value.getFullYear());
+    const raw = cleanValue(value);
+    if (!raw) return '';
+    const match = raw.match(/(?:^|\D)((?:19|20)\d{2})(?:\D|$)/);
+    if (match) return match[1];
+    const parsed = new Date(raw);
+    return !isNaN(parsed.getTime()) ? String(parsed.getFullYear()) : '';
+  };
+  const makeFallbackId = (sourceName, sourceRow, row, headers) => {
+    const identity = [
+      sourceName, sourceRow,
+      getValue(row, headers, ['start', 'Start']),
+      getValue(row, headers, ['end', 'End']),
+      getValue(row, headers, ['Name of a child:', 'Name of a child', 'ChildName', 'Name of participant', 'Your Name']),
+      getValue(row, headers, ['1. Select your region', 'Select your region', 'Region']),
+      getValue(row, headers, ['LocalBoard', 'Local Board (Standardized)']),
+      getValue(row, headers, ['REC', 'REC (Standardized)'])
+    ].map(cleanValue).join('|');
+    const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, identity, Utilities.Charset.UTF_8);
+    return 'SRC-' + bytes.map(b => ('0' + ((b + 256) % 256).toString(16)).slice(-2)).join('').substring(0, 24);
+  };
 
-  if (!sheet) {
-    throw new Error('APP_Records sheet not found.');
+  const indicatorSheet = ss.getSheetByName(CONFIG.INDICATORS_SHEET);
+  if (!indicatorSheet) throw new Error('APP_Indicators sheet not found.');
+  const mapValues = indicatorSheet.getDataRange().getValues();
+  if (mapValues.length < 2) {
+    return { success: true, user: user, access: isAdmin ? 'ALL' : access, headers: [], records: [] };
+  }
+  const mapHeaders = mapValues[0].map(cleanValue);
+  const mi = {};
+  mapHeaders.forEach((h, i) => { mi[h] = i; });
+  const requiredMapHeaders = [
+    'CycleID', 'ParticipantType', 'Assessment', 'ThemeID', 'DimensionID',
+    'IndicatorID', 'MaxScore', 'SourceSheet', 'SourceColumn',
+    'AppSourceSheet', 'AppSourceColumn'
+  ];
+  const missingMapHeaders = requiredMapHeaders.filter(h => mi[h] === undefined);
+  if (missingMapHeaders.length) {
+    throw new Error('APP_Indicators missing column(s): ' + missingMapHeaders.join(', '));
   }
 
-  const values = sheet.getDataRange().getValues();
+  const mappings = mapValues.slice(1).filter(r => cleanValue(r[mi.IndicatorID])).map(r => ({
+    cycle: cleanValue(r[mi.CycleID]),
+    participant: cleanValue(r[mi.ParticipantType]),
+    assessment: cleanValue(r[mi.Assessment]),
+    theme: cleanValue(r[mi.ThemeID]),
+    dimension: cleanValue(r[mi.DimensionID]),
+    indicator: cleanValue(r[mi.IndicatorID]),
+    maxScore: Number(r[mi.MaxScore]),
+    koboSheet: cleanValue(r[mi.SourceSheet]),
+    koboColumn: Number(r[mi.SourceColumn]),
+    appSheet: cleanValue(r[mi.AppSourceSheet]),
+    appColumn: Number(r[mi.AppSourceColumn])
+  }));
 
-  if (values.length < 2) {
-    return {
-      success: true,
-      user: user,
-      access: isAdmin ? 'ALL' : access,
-      headers: values.length ? values[0] : [],
-      records: []
-    };
-  }
-
-  const headers = values[0];
-
-  const regionCol = headers.indexOf('Region');
-  const lbCol = headers.indexOf('LocalBoard');
-  const recCol = headers.indexOf('REC');
-
-  if (
-    regionCol === -1 ||
-    lbCol === -1 ||
-    recCol === -1
-  ) {
-    throw new Error(
-      'APP_Records geography headers are incorrect.'
-    );
-  }
-
+  const sourceDefinitions = [
+    { name: 'Students Pre Assessment', kind: 'kobo' },
+    { name: 'Students Post Assessment', kind: 'kobo' },
+    { name: 'Teachers Assessment', kind: 'kobo' },
+    { name: 'APP_Student_Surveys', kind: 'app' },
+    { name: 'APP_Teacher_Surveys', kind: 'app' },
+    { name: 'APP_Teacher_Surveys_Cycle2', kind: 'app' }
+  ];
+  const outputHeaders = [
+    'RecordID', 'CycleID', 'Year', 'ParticipantType', 'Assessment', 'Region',
+    'LocalBoard', 'REC', 'ParticipantCount', 'Phase', 'ThemeID', 'DimensionID',
+    'IndicatorID', 'Score', 'MaxScore', 'SourceSheet', 'SourceRow',
+    'SourceRecordID', 'ChildName', 'TeacherName'
+  ];
   const records = [];
 
-  if (isAdmin) {
-    // Admins receive all records, as before.
-    for (let i = 1; i < values.length; i++) {
-      records.push(values[i]);
-    }
-  } else {
-    // Match canonical geography from RECs_list_Phase_Wise.
-    // REC directory dropdowns remove numeric Region suffixes (e.g. Southern_01
-    // becomes Southern), while Kobo sync can retain the coded value in
-    // APP_Records. Compare canonical values but keep LB and REC restrictions.
-    const normalizeRegionKey = value => clean(value)
-      .replace(/\u00a0/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(/_\d+$/, '')
-      .toLowerCase();
+  sourceDefinitions.forEach(source => {
+    const sheet = ss.getSheetByName(source.name);
+    if (!sheet || sheet.getLastRow() < 2 || sheet.getLastColumn() < 1) return;
 
-    const normalizeGeoKey = value => clean(value)
-      .replace(/\u00a0/g, ' ')
-      .replace(/\s+/g, ' ')
-      .toLowerCase();
+    const values = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
+    const headers = values[0].map(cleanValue);
+    const sourceMappings = mappings.filter(m =>
+      norm(source.kind === 'kobo' ? m.koboSheet : m.appSheet) === norm(source.name)
+    );
+    if (!sourceMappings.length) return;
 
-    const scopes = access.map(scope => ({
-      region: normalizeRegionKey(scope.region),
-      localBoard: normalizeGeoKey(scope.localBoard),
-      rec: normalizeGeoKey(scope.rec)
-    }));
+    values.slice(1).forEach((row, offset) => {
+      if (!row.some(v => v !== '' && v !== null && v !== undefined)) return;
+      const sourceRow = offset + 2;
+      const region = cleanValue(getValue(row, headers, source.kind === 'kobo'
+        ? ['1. Select your region', 'Select your region', 'Region']
+        : ['Region']));
+      const localBoard = cleanValue(getValue(row, headers, ['LocalBoard', 'Local Board (Standardized)']));
+      const rec = cleanValue(getValue(row, headers, ['REC', 'REC (Standardized)']));
+      if (!region || !localBoard || !rec) return;
 
-    for (let i = 1; i < values.length; i++) {
-      const row = values[i];
+      const explicitYear = cleanValue(getValue(row, headers, ['Year', 'Assessment Year']));
+      const year = explicitYear ||
+        yearFrom(getValue(row, headers, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt'])) ||
+        yearFrom(getValue(row, headers, ['end', 'End']));
+      const phase = cleanValue(getValue(row, headers, ['Specify the phase', 'Phase']));
+      const childName = cleanValue(getValue(row, headers, ['Name of a child:', 'Name of a child', 'ChildName']));
+      const teacherName = cleanValue(getValue(row, headers, ['Name of participant', 'Your Name', 'TeacherName']));
+      const sourceRecordID = cleanValue(getValue(row, headers, source.kind === 'kobo'
+        ? ['_uuid', '_id', 'meta/rootUuid']
+        : ['SubmissionID'])) || makeFallbackId(source.name, sourceRow, row, headers);
 
-      const rowRegion = normalizeRegionKey(row[regionCol]);
-      const rowLB = normalizeGeoKey(row[lbCol]);
-      const rowREC = normalizeGeoKey(row[recCol]);
+      sourceMappings.forEach(m => {
+        const configuredColumn = source.kind === 'kobo' ? m.koboColumn : m.appColumn;
+        if (!Number.isInteger(configuredColumn) || configuredColumn < 1 || configuredColumn > row.length) return;
+        const rawScore = row[configuredColumn - 1];
+        if (rawScore === '' || rawScore === null || rawScore === undefined || typeof rawScore === 'boolean') return;
+        const score = Number(rawScore);
+        if (!Number.isFinite(score) || !Number.isFinite(m.maxScore) || score < 0 || score > m.maxScore) return;
 
-      const allowed = scopes.some(scope =>
-        (!scope.region || rowRegion === scope.region) &&
-        (!scope.localBoard || rowLB === scope.localBoard) &&
-        (!scope.rec || rowREC === scope.rec)
-      );
+        // Keep each indicator/cycle/assessment as a separate normalized row.
+        const recordID = [
+          source.name, sourceRecordID, m.cycle, m.assessment, m.indicator
+        ].join('|');
+        records.push([
+          recordID, m.cycle, year, m.participant, m.assessment, region,
+          localBoard, rec, 1, phase, m.theme, m.dimension, m.indicator,
+          score, m.maxScore, source.name, sourceRow, sourceRecordID,
+          childName, teacherName
+        ]);
+      });
+    });
+  });
 
-      if (allowed) {
-        records.push(row);
-      }
-    }
-  }
+  // Enforce the same geography permissions as the former APP_Records dashboard.
+  const normalizeRegionKey = value => norm(value).replace(/_\d+$/, '');
+  const normalizeGeoKey = value => norm(value);
+  const allowedRecords = isAdmin ? records : records.filter(row => {
+    const rowRegion = normalizeRegionKey(row[5]);
+    const rowLB = normalizeGeoKey(row[6]);
+    const rowREC = normalizeGeoKey(row[7]);
+    return access.some(scope =>
+      (!normalizeRegionKey(scope.region) || rowRegion === normalizeRegionKey(scope.region)) &&
+      (!normalizeGeoKey(scope.localBoard) || rowLB === normalizeGeoKey(scope.localBoard)) &&
+      (!normalizeGeoKey(scope.rec) || rowREC === normalizeGeoKey(scope.rec))
+    );
+  });
 
   return {
     success: true,
     user: user,
     access: isAdmin ? 'ALL' : access,
-    headers: headers,
-    records: records
+    headers: outputHeaders,
+    records: allowedRecords
   };
 }
-
 
 
 function handleApiDashboard(e) {

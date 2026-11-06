@@ -168,9 +168,23 @@ function previewSixSourceAudit() {
       ? ['_uuid']
       : ['SubmissionID'];
     const identityHeaderPresent = identityHeaders.some(hasHeader);
-    const geographyHeaders = ['Region', 'LocalBoard', 'REC'];
-    const geographyPresent = geographyHeaders.filter(hasHeader);
-    const missingGeographyHeaders = geographyHeaders.filter(name => !hasHeader(name));
+    const identityCandidates = headers.filter(header =>
+      /uuid|submission.?id|instance.?id|record.?id|_id$/i.test(header)
+    );
+    // Kobo keeps its original question label; app survey tabs use Region.
+    const regionHeader = source.kind === 'kobo'
+      ? (hasHeader('Region') ? 'Region' : (hasHeader('1. Select your region') ? '1. Select your region' : ''))
+      : (hasHeader('Region') ? 'Region' : '');
+    const geographyPresent = [
+      regionHeader,
+      hasHeader('LocalBoard') ? 'LocalBoard' : '',
+      hasHeader('REC') ? 'REC' : ''
+    ].filter(Boolean);
+    const missingGeographyHeaders = [
+      regionHeader ? '' : (source.kind === 'kobo' ? 'Region (or 1. Select your region)' : 'Region'),
+      hasHeader('LocalBoard') ? '' : 'LocalBoard',
+      hasHeader('REC') ? '' : 'REC'
+    ].filter(Boolean);
 
     const nonEmptyDataRows = values.slice(1).filter(row =>
       row.some(value => value !== '' && value !== null)
@@ -188,6 +202,8 @@ function previewSixSourceAudit() {
       headers: headers,
       identityHeaderPresent: identityHeaderPresent,
       identityHeaderExpected: identityHeaders,
+      identityCandidates: identityCandidates,
+      regionHeaderUsed: regionHeader,
       geographyHeadersPresent: geographyPresent,
       missingGeographyHeaders: missingGeographyHeaders,
       matchingIndicatorMappings: mappings.length,
@@ -210,6 +226,8 @@ function previewSixSourceAudit() {
       nonEmptyDataRows: source.nonEmptyDataRows,
       identityHeaderPresent: source.identityHeaderPresent,
       identityHeaderExpected: source.identityHeaderExpected,
+      identityCandidates: source.identityCandidates,
+      regionHeaderUsed: source.regionHeaderUsed,
       geographyHeadersPresent: source.geographyHeadersPresent,
       missingGeographyHeaders: source.missingGeographyHeaders,
       matchingIndicatorMappings: source.matchingIndicatorMappings,

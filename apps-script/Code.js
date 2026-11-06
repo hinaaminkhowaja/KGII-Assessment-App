@@ -5661,12 +5661,14 @@ function syncKoboToAPPRecords() {
       
       // Use ONLY the standardized geography columns.
       // Do not fall back to raw survey responses or alter their values.
-      const boardCol = headers.findIndex(
-        h => norm(h) === norm('Local Board (Standardized)')
+      const boardCol = headers.findIndex(h =>
+        ['LocalBoard', 'Local Board (Standardized)']
+          .some(candidate => norm(h) === norm(candidate))
       );
 
-      const recCol = headers.findIndex(
-        h => norm(h) === norm('REC (Standardized)')
+      const recCol = headers.findIndex(h =>
+        ['REC', 'REC (Standardized)']
+          .some(candidate => norm(h) === norm(candidate))
       );
 
       const board = boardCol >= 0 ? clean(row[boardCol]) : '';

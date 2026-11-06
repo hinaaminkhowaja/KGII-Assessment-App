@@ -172,9 +172,10 @@ function previewSixSourceAudit() {
       /uuid|submission.?id|instance.?id|record.?id|_id$/i.test(header)
     );
     // Kobo keeps its original question label; app survey tabs use Region.
-    const regionHeader = source.kind === 'kobo'
-      ? (hasHeader('Region') ? 'Region' : (hasHeader('1. Select your region') ? '1. Select your region' : ''))
-      : (hasHeader('Region') ? 'Region' : '');
+    const regionCandidates = source.kind === 'kobo'
+      ? ['1. Select your region', 'Select your region', 'Region']
+      : ['Region'];
+    const regionHeader = regionCandidates.find(hasHeader) || '';
     const geographyPresent = [
       regionHeader,
       hasHeader('LocalBoard') ? 'LocalBoard' : '',

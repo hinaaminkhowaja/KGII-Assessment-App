@@ -1075,8 +1075,8 @@ function handleSaveAccess(body) {
     const rec = clean(scope.rec);
     const active = scope.active !== false;
 
-    if (!region) {
-      return { success: false, message: 'Region is required.' };
+    if (!region && (board || rec)) {
+      return { success: false, message: 'When Region is All, Local Board and REC must also be All.' };
     }
 
     let found = false;

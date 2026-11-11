@@ -1223,17 +1223,21 @@ const save = async (finishAssessment: boolean) => {
 
         <div className="survey-print-complete">
           <h2>Complete Student Survey — All Themes and Indicators</h2>
+          <p><strong>Rating options:</strong> {rating3.join(' · ')}</p>
           {(['T1','T2','T3','T4'] as const).map((theme) => (
             <section className="survey-print-theme" key={theme}>
               <h3>Theme {theme.slice(1)} — {surveyThemeName(theme)}</h3>
               <ol>
                 {(studentIndicators as any)[theme].map((question: string, index: number) => (
-                  <li key={index}>{question}<div className="survey-print-response">Rating: ____________________</div></li>
+                  <li key={index}>
+                    {question}
+                    <div className="survey-print-response"><strong>Rating options:</strong> {rating3.map((rating:string, ratingIndex:number) => <span key={rating}>{ratingIndex+1}. {rating}{ratingIndex<rating3.length-1?' · ':''}</span>)}</div>
+                  </li>
                 ))}
               </ol>
-              <p><strong>Activities used:</strong> ______________________________________________</p>
-              <p><strong>Other activity:</strong> __________________________________________________</p>
-              <p><strong>Remarks:</strong> _______________________________________________________</p>
+              <p><strong>Activities used — options:</strong> {(studentActivities as any)[theme].join(' · ')}</p>
+              <p><strong>Other activity (please specify):</strong> __________________________________________________</p>
+              <p><strong>Remarks on Theme {theme.slice(1)}:</strong> _______________________________________________________</p>
             </section>
           ))}
         </div>
@@ -1744,25 +1748,39 @@ const save = async (finishAssessment: boolean) => {
           Complete the teacher survey. Rubric descriptions are shown with
           each rating level.
         </p>
-{(v.cycle || 'Cycle 1') === 'Cycle 1' && <div className="survey-print-complete">
-          <h2>Complete Teacher Survey — All Themes and Pre/Post Rubrics</h2>
-          {(['T1','T2','T3','T4'] as const).map((theme) => (
-            <section className="survey-print-theme" key={theme}>
-              <h3>Theme {theme.slice(1)} — {surveyThemeName(theme)}</h3>
-              {(['pre','post'] as const).map((stage) => (
-                <div className="survey-print-rubric" key={stage}>
-                  <h4>{stage === 'pre' ? 'Pre-assessment rubric' : 'Post-assessment rubric'}</h4>
-                  <ol>
-                    {teacherRubrics[theme][stage].map((rubric: string[]) => (
-                      <li key={rubric[0]}><strong>{rubric[0]}</strong><p>{rubric[1]}</p></li>
-                    ))}
-                  </ol>
-                  <p><strong>Selected rating:</strong> ____________________</p>
-                </div>
-              ))}
-            </section>
-          ))}
-        </div>}
+<div className="survey-print-complete">
+          {(v.cycle || 'Cycle 1') === 'Cycle 1' ? <>
+            <h2>Complete Teacher Survey — All Themes and Pre/Post Rubrics</h2>
+            {(['T1','T2','T3','T4'] as const).map((theme) => (
+              <section className="survey-print-theme" key={theme}>
+                <h3>Theme {theme.slice(1)} — {surveyThemeName(theme)}</h3>
+                {(['pre','post'] as const).map((stage) => (
+                  <div className="survey-print-rubric" key={stage}>
+                    <h4>{stage === 'pre' ? 'Pre-assessment rubric' : 'Post-assessment rubric'}</h4>
+                    <ol>
+                      {teacherRubrics[theme][stage].map((rubric: string[]) => (
+                        <li key={rubric[0]}><strong>{rubric[0]}</strong><p>{rubric[1]}</p></li>
+                      ))}
+                    </ol>
+                    <p><strong>Selected rating:</strong> ____________________</p>
+                  </div>
+                ))}
+              </section>
+            ))}
+          </> : <>
+            <h2>Complete Teacher Survey — Cycle 2 Skills Assessment</h2>
+            <p><strong>Rating scale:</strong> 1 · Seeding — begin to use the skills · 2 · Growing — sometimes use the skills · 3 · Maturing — often use the skills · 4 · Flourishing — always use the skills</p>
+            {teacherAssessmentSkills.map(skill => (
+              <section className="survey-print-theme" key={skill.key}>
+                <h3>{skill.title}</h3>
+                <table><thead><tr><th>Indicator</th><th>1 · Seeding</th><th>2 · Growing</th><th>3 · Maturing</th><th>4 · Flourishing</th><th>Score</th></tr></thead>
+                  <tbody>{skill.indicators.map(indicator => <tr key={indicator.label}><td><strong>{indicator.label}</strong></td>{indicator.levels.map((description,index)=><td key={index}>{description}</td>)}<td>1 / 2 / 3 / 4</td></tr>)}</tbody>
+                </table>
+                <p><strong>Mentor’s notes and next steps:</strong> _______________________________________________________</p>
+              </section>
+            ))}
+          </>}
+        </div>
 
         <GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} afterRec={<div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>} />
 

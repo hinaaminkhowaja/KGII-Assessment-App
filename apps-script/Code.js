@@ -1756,9 +1756,6 @@ const rows = indicatorEntries.map((entry, index) => {
 ========================================================= */
 
 function handleStudentSurvey(body) {
-  // Public survey submission: no email/login is collected.
-  const email = '';
-
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.STUDENT_SURVEYS_SHEET);
 
@@ -1857,7 +1854,6 @@ function handleStudentSurvey(body) {
   const values = {
     SubmissionID: submissionId,
     SubmittedAt: new Date(),
-    UserEmail: '',
     CycleID: cycleId,
     Region: clean(body.region),
     LocalBoard: clean(body.localBoard),

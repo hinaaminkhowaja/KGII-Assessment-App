@@ -787,8 +787,8 @@ function getDashboardData(email) {
   });
 
   // Enforce the same geography permissions as the former APP_Records dashboard.
-  const normalizeRegionKey = value => norm(value).replace(/_\d+$/, '');
-  const normalizeGeoKey = value => norm(value);
+  const normalizeGeoKey = value => norm(value).replace(/[_-]+/g, ' ').replace(/\s+\d+$/, '').replace(/\s+/g, ' ').trim();
+  const normalizeRegionKey = normalizeGeoKey;
   const allowedRecords = isAdmin ? records : records.filter(row => {
     const rowRegion = normalizeRegionKey(row[5]);
     const rowLB = normalizeGeoKey(row[6]);
@@ -838,7 +838,8 @@ function handlePublicSurveySummary_(e) {
     {name:'APP_Teacher_Surveys',kind:'app'},
     {name:'APP_Teacher_Surveys_Cycle2',kind:'app'}
   ];
-  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
+  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const regionKey = value => key(value).replace(/\s+\d+$/,'');
   const same = (a,b) => key(a) === key(b);
   const totals = {};
   sources.forEach(source => {
@@ -860,7 +861,7 @@ function handlePublicSurveySummary_(e) {
       const regionValue = row[col(source.kind === 'kobo' ? ['1. Select your region','Select your region','Region'] : ['Region'])];
       const boardValue = row[col(['LocalBoard','Local Board (Standardized)','Local Board'])];
       const recValue = row[col(['REC','REC (Standardized)'])];
-      if (!same(regionValue,region) || !same(boardValue,board) || !same(recValue,rec)) return;
+      if (regionKey(regionValue) !== regionKey(region) || !same(boardValue,board) || !same(recValue,rec)) return;
       mappingsForSource.forEach(m => {
         const sourceColumn = Number(m[ix(source.kind === 'kobo' ? 'SourceColumn' : 'AppSourceColumn')]);
         if (!Number.isInteger(sourceColumn) || sourceColumn < 1 || sourceColumn > row.length) return;

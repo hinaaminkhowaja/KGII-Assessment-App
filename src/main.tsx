@@ -996,6 +996,7 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
     cycle: 'Cycle 1',
     childName: '',
     gender: '',
+    assessorName: '',
     designation: '',
     otherDesignation: '',
     theme: '',
@@ -1083,7 +1084,9 @@ const save = async (finishAssessment: boolean) => {
       v.rec &&
       v.childName?.trim() &&
       v.gender &&
-      v.designation?.trim() &&
+      v.assessorName?.trim() &&
+      v.designation &&
+      (v.designation !== 'Other' || v.otherDesignation?.trim()) &&
       assessment
     ) ||
     missing
@@ -1138,7 +1141,7 @@ const save = async (finishAssessment: boolean) => {
     });
 
     const result = await apiPost('studentsurvey', {
-      userEmail: user?.email || '',
+      userEmail: '',
       region: v.region,
       localBoard: v.board,
       rec: v.rec,
@@ -1146,8 +1149,9 @@ const save = async (finishAssessment: boolean) => {
       phase,
       childName: v.childName.trim(),
       childGender: v.gender,
-      assessorDesignation: v.designation.trim(),
-      otherDesignation: v.otherDesignation || '',
+      assessorName: v.assessorName.trim(),
+      assessorDesignation: v.designation,
+      otherDesignation: v.designation === 'Other' ? v.otherDesignation.trim() : '',
       themeID: v.theme,
       themeName,
       assessment,
@@ -1345,21 +1349,18 @@ const save = async (finishAssessment: boolean) => {
   <p className="form-message">{lookupMsg}</p>
 )}
 
-          <Field label="Designation of person assessing the child" required>
-            <input
-              value={v.designation}
-              onChange={e => update({ ...v, designation: e.target.value })}
-            />
+          <Field label="Name of person filling this survey" required>
+            <input value={v.assessorName || ''} onChange={e => update({ ...v, assessorName: e.target.value })} />
           </Field>
-
-          <Field label="If other, please specify designation">
-            <input
-              value={v.otherDesignation}
-              onChange={e =>
-                update({ ...v, otherDesignation: e.target.value })
-              }
-            />
+          <Field label="Designation of person filling this survey" required>
+            <select value={v.designation || ''} onChange={e => update({ ...v, designation: e.target.value, otherDesignation: e.target.value === 'Other' ? v.otherDesignation : '' })}>
+              <option value="">Select designation</option>
+              {['Coordinator', 'Educator', 'Teacher', 'Leader', 'Other'].map(option => <option key={option} value={option}>{option}</option>)}
+            </select>
           </Field>
+          {v.designation === 'Other' && <Field label="Please specify designation" required>
+            <input value={v.otherDesignation || ''} onChange={e => update({ ...v, otherDesignation: e.target.value })} />
+          </Field>}
 
           <Field label="Cycle" required>
             <select value={v.cycle || 'Cycle 1'} onChange={e => update({ ...v, cycle: e.target.value })}>
@@ -1499,7 +1500,7 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
 
   const submit = async () => {
     const assessmentDate = value.assessmentDate || new Date().toISOString().slice(0, 10);
-    if (!value.teacherName?.trim() || !value.positions?.length || !value.years || !value.training || (value.training === 'other' && !value.otherTraining?.trim()) || !value.filler?.trim() || !value.assessmentStage) {
+    if (!value.teacherName?.trim() || !value.positions?.length || !value.years || !value.training || (value.training === 'other' && !value.otherTraining?.trim()) || !value.filler?.trim() || !value.fillerDesignation || (value.fillerDesignation === 'Other' && !value.otherFillerDesignation?.trim()) || !value.assessmentStage) {
       setMsg('Please complete the required teacher and training details and select Pre or Post.');
       return;
     }
@@ -1513,7 +1514,7 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
       const skillTotals = Object.fromEntries(summaries.map(skill => [skill.key, skill.score]));
       const skillLevels = Object.fromEntries(summaries.map(skill => [skill.key, skill.level]));
       const result = await apiPost('teachersurvey', {
-        userEmail: user?.email || '',
+        userEmail: '',
         participantType: 'Teacher',
         cycleID: 'Cycle 2',
         assessmentTool: 'Teacher Assessment Rubrics',
@@ -1528,7 +1529,7 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
         trainingAttended: value.training,
         otherTraining: value.otherTraining || '',
         fillerName: value.filler.trim(),
-        fillerDesignation: '',
+        fillerDesignation: value.fillerDesignation === 'Other' ? value.otherFillerDesignation.trim() : value.fillerDesignation,
         skillRatings: ratings,
         skillTotals,
         skillLevels,
@@ -1583,7 +1584,8 @@ function TeacherSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
     otherTraining: '',
     theme: '',
     ratings: { pre: '', post: '' },
-    filler: ''
+    filler: '',
+    fillerDesignation: ''
   };
 
   const [v, setV] = useSurveyState('kgii_teacher_survey_draft', initial);
@@ -1668,7 +1670,7 @@ const save = async (finishAssessment: boolean) => {
     // and will be checked by the server when they sync.
     if (navigator.onLine) {
       const lookup = await apiPost('lookupsurvey', {
-        userEmail: user?.email || '',
+        userEmail: '',
         participantType: 'Teacher',
         region: v.region,
         localBoard: v.board,
@@ -1689,7 +1691,7 @@ const save = async (finishAssessment: boolean) => {
     }
 
     const result = await apiPost('teachersurvey', {
-      userEmail: user?.email || '',
+      userEmail: '',
       region: v.region,
       localBoard: v.board,
       rec: v.rec,
@@ -1705,7 +1707,7 @@ const save = async (finishAssessment: boolean) => {
       preRating: teacherScore(v.ratings.pre),
       postRating: teacherScore(v.ratings.post),
       fillerName: v.filler.trim(),
-      fillerDesignation: ''
+      fillerDesignation: v.fillerDesignation === 'Other' ? v.otherFillerDesignation.trim() : v.fillerDesignation
     });
 
     if(result?.queuedOffline){setMsg('Saved on this device while offline. Keep this app installed/opened on this device; it will try to sync when internet returns.');return;}
@@ -1800,7 +1802,9 @@ const save = async (finishAssessment: boolean) => {
         {showRecSummary&&<RecSurveySummary records={records} participantType="Teacher" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}
         {entryStarted && <div className="survey-grid">
-          <Field label="Name of the person filling this form with designation" required><input value={v.filler || ''} onChange={e => setV({ ...v, filler: e.target.value })} /></Field>
+          <Field label="Name of person filling this survey" required><input value={v.filler || ''} onChange={e => setV({ ...v, filler: e.target.value })} /></Field>
+          <Field label="Designation of person filling this survey" required><select value={v.fillerDesignation || ''} onChange={e => setV({ ...v, fillerDesignation: e.target.value })}><option value="">Select designation</option>{['Coordinator', 'Educator', 'Teacher', 'Leader', 'Other'].map(option => <option key={option} value={option}>{option}</option>)}</select></Field>
+          {v.fillerDesignation === 'Other' && <Field label="Please specify designation" required><input value={v.otherFillerDesignation || ''} onChange={e => setV({ ...v, otherFillerDesignation: e.target.value })} /></Field>}
           <Field label="Name of teacher" required><input value={v.teacherName || ''} onChange={e => { setV({ ...v, teacherName: e.target.value }); setLookupMatches([]); setLookupMsg(''); }} /></Field>
           <Field label="Position of teacher" required><div className="check-grid">
             {['ECED Coordinator', 'ECED Educator', 'ECED Teacher', 'Other'].map(a => <label className="check" key={a}><input type="checkbox" checked={v.positions.includes(a)} onChange={() => setV({ ...v, positions: v.positions.includes(a) ? v.positions.filter((x: string) => x !== a) : [...v.positions, a] })} /><span>{a}</span></label>)}

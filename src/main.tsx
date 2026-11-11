@@ -8,7 +8,7 @@ type Indicator={CycleID:string;ParticipantType:string;Assessment:string;ThemeID:
 const pct=(n:number,d:number)=>d?100*n/d:0;
 const fmt=(x:number)=>Number.isFinite(x)?x.toFixed(1)+'%':'—';
 const norm=(v:any)=>String(v??'').trim();
-const geoNorm=(v:any)=>norm(v).replace(/\s+/g,' ').toLocaleLowerCase();
+const geoNorm=(v:any)=>norm(v).replace(/[_-]+/g,' ').replace(/\s+\d+$/,'').replace(/\s+/g,' ').trim().toLocaleLowerCase();
 function uniqueGeoValues(values:any[]){const map=new Map<string,string>();for(const value of values){const raw=norm(value);const key=geoNorm(raw);if(key&&!map.has(key))map.set(key,raw.replace(/\s+/g,' '));}return [...map.values()].sort((a,b)=>a.localeCompare(b));}
 function aggregate(rows:Rec[]){let s=0,m=0;for(const r of rows){s+=Number(r.Score)||0;m+=Number(r.MaxScore)||0}return {score:s,max:m,p:pct(s,m)};}
 function avgRating(rows:Rec[],participantType:string){const x=rows.filter(r=>r.ParticipantType===participantType);if(!x.length)return 0;return x.reduce((a,r)=>a+(Number(r.Score)||0),0)/x.length;}
@@ -272,12 +272,7 @@ const recs = useMemo(
  // Region options are sourced from the current dashboard records (APP_Records).
  // Exclude the obsolete coded Lower Chitral value; keep only a plain "Lower Chitral"
  // option if that exact value is present in the current records.
- const regions = [...new Set(
-  records
-    .map(r => norm(r.Region))
-    .filter(Boolean)
-    .filter(region => !/^Lower[_ ]Chitral[_ ]?\d+$/i.test(region) && !/^Lower_Chitral_01$/i.test(region))
- )].sort((a,b)=>displayGeo(a).localeCompare(displayGeo(b)));
+ const regions = uniqueGeoValues(records.map(r=>r.Region)).map(displayGeo).sort((a,b)=>a.localeCompare(b));
 const pts=unique(allowedRecords,'ParticipantType'),assessments=[...new Set([...unique(allowedRecords,'Assessment').map(a=>/^post\s*2$/i.test(a)?'Post 2':a),'Post 2'])].sort(),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=[...new Set([...unique(allowedRecords,'Year'),'2025','2026','2027'])].sort();const teacherNames=unique(allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)),'TeacherName');
  const refresh=async(u= user)=>{if(!u)return;setApiError('');try{if(page==='admin'&&u.role==='admin')await loadAdmin(u.email);else await loadDashboard(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
  // Refresh dashboard data every 15 minutes so Kobo imports become visible without a new login.

@@ -754,11 +754,11 @@ function getDashboardData(email) {
       const rowAssessment = source.kind === 'app' && rowAssessmentIndex >= 0
         ? cleanValue(row[rowAssessmentIndex]) : '';
       const cycleKey = value => {
-        const raw = norm(value).replace(/[\\s_-]+/g, '');
+        const raw = norm(value).replace(/[\s_-]+/g, '');
         const match = raw.match(/^(?:cycle|c)?([12])$/i);
         return match ? 'c' + match[1] : raw.toLowerCase();
       };
-      const assessmentKey = value => norm(value).replace(/[\\s_-]+/g, '').toLowerCase();
+      const assessmentKey = value => norm(value).replace(/[\s_-]+/g, '').toLowerCase();
       const rowMappings = source.kind === 'app' && rowCycle && rowAssessment
         ? sourceMappings.filter(m => cycleKey(m.cycle) === cycleKey(rowCycle) &&
             assessmentKey(m.assessment) === assessmentKey(rowAssessment))

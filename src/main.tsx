@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import './styles.css';
 
 type Rec={RecordID:string;SourceRecordID?:string;ChildName?:string;TeacherName?:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
-type Ref={Region:string;LocalBoard:string;REC:string};
+type Ref={Region:string;LocalBoard:string;REC:string;Cycle1Phase?:string;Cycle2Phase?:string;Status?:string};
 type Indicator={CycleID:string;ParticipantType:string;Assessment:string;ThemeID:string;ThemeName:string;DimensionID:string|null;IndicatorID:string;MaxScore:number;SourceSheet:string;SourceColumn:number};
 const pct=(n:number,d:number)=>d?100*n/d:0;
 const fmt=(x:number)=>Number.isFinite(x)?x.toFixed(1)+'%':'—';
@@ -170,7 +170,7 @@ function mapAccess(x:any):AccessRule{const email=norm(x.email).toLowerCase();ret
 function accessMatches(r:Rec,a:AccessRule){return a.active&&(!a.region||r.Region===a.region)&&(!a.board||r.LocalBoard===a.board)&&(!a.rec||r.REC===a.rec)}
 function userHasAccess(u:AppUser|null,access:AccessRule[]){return !!u&&(u.role==='admin'||access.some(a=>a.userId===u.id&&a.active))}
 function arrayFrom(d:any,...keys:string[]):any[]{for(const k of keys)if(Array.isArray(d?.[k]))return d[k];if(Array.isArray(d))return d;return []}
-function normalizeRefs(rows:any[]):Ref[]{return rows.map((x:any)=>({Region:norm(x?.Region??x?.region??x?.REGION??x?.RegionName),LocalBoard:norm(x?.LocalBoard??x?.localBoard??x?.localboard??x?.['Local Board']??x?.LOCALBOARD),REC:norm(x?.REC??x?.rec??x?.Rec??x?.RECName)})).filter((x:Ref)=>x.Region&&x.LocalBoard&&x.REC)}
+function normalizeRefs(rows:any[]):Ref[]{return rows.map((x:any)=>({Region:norm(x?.Region??x?.region??x?.REGION??x?.RegionName),LocalBoard:norm(x?.LocalBoard??x?.localBoard??x?.localboard??x?.['Local Board']??x?.LOCALBOARD),REC:norm(x?.REC??x?.rec??x?.Rec??x?.RECName),Cycle1Phase:norm(x?.Cycle1Phase??x?.['Cycle 1 Phase']),Cycle2Phase:norm(x?.Cycle2Phase??x?.['Cycle 2 Phase']),Status:norm(x?.Status??x?.status)})).filter((x:Ref)=>x.Region&&x.LocalBoard&&x.REC)}
 function App(){
  const [records,setRecords]=useState<Rec[]>(()=>{try{const cachedUser=JSON.parse(localStorage.getItem(USER_CACHE_KEY)||'null');if(String(cachedUser?.role||'').toLowerCase()==='admin')return [];const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_records')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [refs,setRefs]=useState<Ref[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return normalizeRefs(Array.isArray(cached)?cached:[])}catch{return []}});const [targetRecs,setTargetRecs]=useState<any[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [indicators,setIndicators]=useState<Indicator[]>([]);const [directoryLoaded,setDirectoryLoaded]=useState(false);
  const [page,setPage]=useState('home');const [mobileNavOpen,setMobileNavOpen]=useState(false);const [printOpen,setPrintOpen]=useState(false);const [apiError,setApiError]=useState('');const [loading,setLoading]=useState(false);
@@ -983,7 +983,20 @@ function RecSurveySummary({records,participantType,region,board,rec,onRefresh}:{
   const pctRows=(items:Rec[])=>{const score=items.reduce((n,r)=>n+(Number(r.Score)||0),0);const max=items.reduce((n,r)=>n+(Number(r.MaxScore)||0),0);return max?(score/max*100).toFixed(1)+'%':'—'};
   return <section className="card"><div className="section-head"><div><h3>Existing REC Summary — {rec}</h3><p><strong>Consolidated assessment scores</strong> · Scores combine the saved records for this REC.</p></div>{onRefresh&&<button type="button" className="secondary" onClick={onRefresh}>↻ Refresh existing data</button>}</div>{rows.length===0?<p>{records.length===0?'No assessment records are currently loaded. Refresh existing data to retry loading, then check that the selected Region, Local Board and REC match the saved records.':'No matching '+participantType.toLowerCase()+' assessment records were found for this REC in the loaded data. Check the selected details and refresh if needed.'}</p>:<><div className="table-wrap"><table><thead><tr><th>Theme</th><th>Pre</th><th>Post</th><th>Data status</th></tr></thead><tbody>{['T1','T2','T3','T4'].map(theme=>{const pre=stageRows(theme,'Pre');const post=stageRows(theme,'Post');return <tr key={theme}><td>{labelTheme(theme)}</td><td>{pctRows(pre)}</td><td>{pctRows(post)}</td><td>{pre.length||post.length?'Data available':'No data in loaded records'}</td></tr>})}</tbody></table></div><p className="form-message">“Data available” reflects saved score records only; it is not a completion marker.</p></>}</section>;
 }
-function GeoFields({refs,value,onChange,afterRec}:{refs:Ref[];value:any;onChange:(x:any)=>void;afterRec?:React.ReactNode}){const regions=uniqueGeoValues(refs.map(r=>r.Region));const boards=uniqueGeoValues(refs.filter(r=>geoNorm(r.Region)===geoNorm(value.region)).map(r=>r.LocalBoard));const recs=uniqueGeoValues(refs.filter(r=>geoNorm(r.Region)===geoNorm(value.region)&&geoNorm(r.LocalBoard)===geoNorm(value.board)).map(r=>r.REC));return <div className="survey-grid"><Field label="Region" required><select value={value.region} onChange={e=>onChange({...value,region:e.target.value,board:'',rec:''})}><option value="">Select region</option>{regions.map(x=><option key={x} value={x}>{displayGeo(x)}</option>)}</select></Field><Field label="Local Board" required><select value={value.board} disabled={!value.region} onChange={e=>onChange({...value,board:e.target.value,rec:''})}><option value="">Select Local Board</option>{boards.map(x=><option key={x}>{x}</option>)}</select></Field><Field label="REC" required><select value={value.rec} disabled={!value.board} onChange={e=>onChange({...value,rec:e.target.value})}><option value="">Select REC</option>{recs.map(x=><option key={x}>{x}</option>)}</select>{afterRec}</Field></div>}
+function GeoFields({refs,value,onChange,afterRec,cycle='Cycle 1'}:{refs:Ref[];value:any;onChange:(x:any)=>void;afterRec?:React.ReactNode;cycle?:string}){
+ const phaseKey=cycle==='Cycle 2'?'Cycle2Phase':'Cycle1Phase';
+ const eligible=refs.filter(r=>(!r.Status||/^(active|yes|1|true)$/i.test(r.Status))&&(!r[phaseKey]||!!r[phaseKey]));
+ const regions=uniqueGeoValues(eligible.map(r=>r.Region));
+ const boards=uniqueGeoValues(eligible.filter(r=>geoNorm(r.Region)===geoNorm(value.region)).map(r=>r.LocalBoard));
+ const matching=eligible.filter(r=>geoNorm(r.Region)===geoNorm(value.region)&&geoNorm(r.LocalBoard)===geoNorm(value.board));
+ const phaseGroups=new Map<string,string[]>();
+ matching.forEach(r=>{const phase=norm(r[phaseKey])||'Phase not specified';if(!phaseGroups.has(phase))phaseGroups.set(phase,[]);if(!phaseGroups.get(phase)!.some(x=>geoNorm(x)===geoNorm(r.REC)))phaseGroups.get(phase)!.push(r.REC);});
+ return <div className="survey-grid">
+  <Field label="Region" required><select value={value.region} onChange={e=>onChange({...value,region:e.target.value,board:'',rec:''})}><option value="">Select region</option>{regions.map(x=><option key={x} value={x}>{displayGeo(x)}</option>)}</select></Field>
+  <Field label="Local Board" required><select value={value.board} disabled={!value.region} onChange={e=>onChange({...value,board:e.target.value,rec:''})}><option value="">Select Local Board</option>{boards.map(x=><option key={x}>{x}</option>)}</select></Field>
+  <Field label="REC (grouped by phase)" required><select value={value.rec} disabled={!value.board} onChange={e=>onChange({...value,rec:e.target.value})}><option value="">Select REC</option>{[...phaseGroups.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([phase,recs])=><optgroup key={phase} label={phase}>{recs.sort((a,b)=>a.localeCompare(b)).map(x=><option key={x}>{x}</option>)}</optgroup>)}</select>{afterRec}</Field>
+ </div>;
+}
 function Field({label,required,children,wide}:{label:string;required?:boolean;children:React.ReactNode;wide?:boolean}){return <label className={wide?'field wide':'field'}><span>{label}{required&&<em> *</em>}</span>{children}</label>}
 function useSurveyState(key:string,initial:any){const [v,setV]=useState<any>(()=>{try{return JSON.parse(localStorage.getItem(key)||'null')||initial}catch{return initial}});useEffect(()=>{localStorage.setItem(key,JSON.stringify(v))},[key,v]);return [v,setV] as const}
 
@@ -1272,7 +1285,7 @@ const save = async (finishAssessment: boolean) => {
           ))}
         </div>
 
-        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={update} /></div>
+        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={update} cycle={cycle} /></div>
         <div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>{showRecSummary&&<RecSurveySummary records={records} participantType="Student" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}
         {entryStarted && <>
@@ -1819,7 +1832,7 @@ const save = async (finishAssessment: boolean) => {
           </>}
         </div>
 
-        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} afterRec={<div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>} /></div>
+        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} cycle={v.cycle || 'Cycle 1'} afterRec={<div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>} /></div>
 
         {showRecSummary&&<RecSurveySummary records={records} participantType="Teacher" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}

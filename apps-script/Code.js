@@ -1456,6 +1456,17 @@ function surveyHeaders_(sheet) {
 }
 
 
+function ensureSurveyColumns_(sheet, requiredColumns) {
+  let headers = surveyHeaders_(sheet);
+  const missing = requiredColumns.filter(name => headers.indexOf(name) < 0);
+  if (missing.length) {
+    sheet.getRange(1, headers.length + 1, 1, missing.length).setValues([missing]);
+    headers = headers.concat(missing);
+  }
+  return headers;
+}
+
+
 function surveyRowFromObject_(headers, values) {
   const row = new Array(headers.length).fill('');
 
@@ -1653,23 +1664,8 @@ const rows = indicatorEntries.map((entry, index) => {
 ========================================================= */
 
 function handleStudentSurvey(body) {
-  const email = normalizeEmail(body.userEmail);
-
-  if (!email) {
-    return {
-      success: false,
-      message: 'User email is required.'
-    };
-  }
-
-  const locationCheck = userCanAccessLocation(
-    email,
-    body.region,
-    body.localBoard,
-    body.rec
-  );
-
-  if (!locationCheck.success) return locationCheck;
+  // Public survey submission: no email/login is collected.
+  const email = '';
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.STUDENT_SURVEYS_SHEET);
@@ -1678,7 +1674,7 @@ function handleStudentSurvey(body) {
     throw new Error('APP_Student_Surveys sheet not found.');
   }
 
-  const headers = surveyHeaders_(sheet);
+  const headers = ensureSurveyColumns_(sheet, ['AssessorName']);
   const assessment = surveyAssessment_(body.assessment);
   const themeName = clean(body.themeName);
 
@@ -1757,12 +1753,13 @@ function handleStudentSurvey(body) {
   const values = {
     SubmissionID: submissionId,
     SubmittedAt: new Date(),
-    UserEmail: email,
+    UserEmail: '',
     Region: clean(body.region),
     LocalBoard: clean(body.localBoard),
     REC: clean(body.rec),
     ChildName: clean(body.childName),
     ChildGender: clean(body.childGender),
+    AssessorName: clean(body.assessorName),
     AssessorDesignation: clean(body.assessorDesignation),
     OtherDesignation: clean(body.otherDesignation),
     ThemeName: themeName,
@@ -1806,23 +1803,8 @@ function handleStudentSurvey(body) {
 ========================================================= */
 
 function handleTeacherSurvey(body) {
-  const email = normalizeEmail(body.userEmail);
-
-  if (!email) {
-    return {
-      success: false,
-      message: 'User email is required.'
-    };
-  }
-
-  const locationCheck = userCanAccessLocation(
-    email,
-    body.region,
-    body.localBoard,
-    body.rec
-  );
-
-  if (!locationCheck.success) return locationCheck;
+  // Public survey submission: no email/login is collected.
+  const email = '';
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.TEACHER_SURVEYS_SHEET);
@@ -1890,7 +1872,7 @@ function handleTeacherSurvey(body) {
   const values = {
     SubmissionID: submissionId,
     SubmittedAt: new Date(),
-    UserEmail: email,
+    UserEmail: '',
     Region: clean(body.region),
     LocalBoard: clean(body.localBoard),
     REC: clean(body.rec),
@@ -1939,20 +1921,8 @@ function handleTeacherSurvey(body) {
 
 
 function handleTeacherSurveyCycle2_(body) {
-  const email = normalizeEmail(body.userEmail);
-
-  if (!email) {
-    throw new Error('User email is required.');
-  }
-
-  const locationCheck = userCanAccessLocation(
-    email,
-    body.region,
-    body.localBoard,
-    body.rec
-  );
-
-  if (!locationCheck.success) return locationCheck;
+  // Public survey submission: no email/login is collected.
+  const email = '';
 
   const assessment = surveyAssessment_(body.assessment);
 

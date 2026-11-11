@@ -830,3 +830,25 @@ body{overflow-x:hidden;}
   }
   main > header { display: none !important; }
 }
+/* Keep the survey location and participant summary at the beginning of PDFs. */
+.survey-print-meta { display: none; }
+@media print {
+  .survey-page .survey-print-meta {
+    display: block !important;
+    visibility: visible !important;
+    margin: 10px 0 16px !important;
+    padding: 10px 12px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 5px !important;
+    break-after: avoid-page !important;
+    page-break-after: avoid !important;
+    font-size: 10pt !important;
+  }
+  .survey-page .survey-print-meta h3 {
+    display: block !important;
+    margin: 0 0 6px !important;
+    font-size: 11pt !important;
+  }
+  .survey-page .survey-print-meta p { margin: 3px 0 !important; }
+  .survey-page .survey-live-location { display: none !important; }
+}

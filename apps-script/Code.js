@@ -1813,7 +1813,7 @@ function handleTeacherSurvey(body) {
     throw new Error('APP_Teacher_Surveys sheet not found.');
   }
 
-  const headers = surveyHeaders_(sheet);
+  const headers = ensureSurveyColumns_(sheet, ['FillerName', 'FillerDesignation']);
   const themeName = clean(body.themeName);
 
   if (!themeName) {
@@ -1971,7 +1971,7 @@ function handleTeacherSurveyCycle2_(body) {
     throw new Error('APP_Teacher_Surveys_Cycle2 sheet not found.');
   }
 
-  const headers = surveyHeaders_(sheet);
+  const headers = ensureSurveyColumns_(sheet, ['FillerName', 'FillerDesignation']);
   const referenceRows = indicatorReferenceRows_();
   const submissionId = newSubmissionId('TCHC2');
   const sourceRow = sheet.getLastRow() + 1;

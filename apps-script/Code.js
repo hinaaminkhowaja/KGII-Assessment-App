@@ -1411,7 +1411,7 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
   const map = indicatorSheet.getDataRange().getValues();
   const mh = map[0].map(h => clean(h));
   const col = name => mh.indexOf(name);
-  const required = ['CycleID','ParticipantType','Assessment','ThemeID','SourceSheet','AppSourceSheet'];
+  const required = ['CycleID','ParticipantType','Assessment','ThemeID','IndicatorID','SourceSheet','SourceColumn','AppSourceSheet','AppSourceColumn'];
   const missing = required.filter(name => col(name) < 0);
   if (missing.length) throw new Error('APP_Indicators missing classification columns: ' + missing.join(', '));
   const mappings = map.slice(1).filter(row =>
@@ -1454,6 +1454,10 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
       sourceMappings.forEach(m => {
         const cycle = key(m[col('CycleID')]).replace(/\s/g,'');
         if (cycle && !['c1','cycle1','1'].includes(cycle)) return;
+        const sourceColumn = Number(m[col(source.kind === 'kobo' ? 'SourceColumn' : 'AppSourceColumn')]);
+        if (!Number.isInteger(sourceColumn) || sourceColumn < 1 || sourceColumn > row.length) return;
+        const score = row[sourceColumn - 1];
+        if (score === '' || score === null || score === undefined || typeof score === 'boolean' || !Number.isFinite(Number(score))) return;
         const stage = key(m[col('Assessment')]);
         if (stage === 'pre' || stage === 'pre assessment') hasPre = true;
         if (stage === 'post' || stage === 'post assessment') hasPost = true;

@@ -927,7 +927,19 @@ function ChildPerformanceHighlights({rows,level}:{rows:Rec[];level:'Local Board'
  const ranked=[...map.values()].map(rs=>({rows:rs,name:level==='Local Board'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),overall:stageAggregate(rs,'Post').p})).filter(x=>stageAggregate(x.rows,'Post').max>0).sort((a,b)=>b.overall-a.overall);
  return <HighlightTable title={level+' Performance Highlights'} items={[{label:'Top-performing '+level.toLowerCase(),item:ranked[0]},{label:level+' needing most support',item:ranked[ranked.length-1]}]}/>
 }
-function count(rows:Rec[],item:string,pt:string,key:'Region'|'LocalBoard'|'REC'|'ThemeID'|'DimensionID'){return new Set(rows.filter(r=>r.ParticipantType===pt&&norm(r[key])===item).map(r=>r.RecordID)).size}
+function count(rows:Rec[],item:string,pt:string,key:'Region'|'LocalBoard'|'REC'|'ThemeID'|'DimensionID'){
+  const scoped=rows.filter(r=>r.ParticipantType===pt&&norm(r[key])===item);
+  const identity=(r:Rec)=>{
+    if(pt==='Student'){
+      const name=norm(r.ChildName).toLocaleLowerCase();
+      const fallback=norm((r as any).StudentID||r.SourceRecordID||r.RecordID).toLocaleLowerCase();
+      return [geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC),name||fallback].join('||');
+    }
+    const name=norm(r.TeacherName).toLocaleLowerCase();
+    return name||norm(r.SourceRecordID||r.RecordID).toLocaleLowerCase();
+  };
+  return new Set(scoped.map(identity)).size;
+}
 function RecAnalysis({rows,all,f,metricRows,phase3Rows,refs,targetRecs}:{rows:Rec[];all:Rec[];f:any;metricRows:Rec[];phase3Rows:Rec[];refs:Ref[];targetRecs:any[]}){return <><Kpis rows={rows} metricRows={metricRows} phase3Rows={phase3Rows} f={f} refs={refs}/><div className="grid2"><CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(rows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/><CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(rows,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/></div><Chart title="Assessment Performance — Pre vs Post" data={group(rows,'Assessment').map(x=>({label:x.key,value:x.p}))}/><WayForward rows={rows} scope="rec" f={f}/></>}
 function assessmentIs(value:string,stage:'Pre'|'Post'){
  const a=norm(value).toLowerCase().replace(/[^a-z]/g,'').replace(/^skill/,'');
@@ -938,7 +950,7 @@ function assessmentIsPost2(value:string){return /^post\s*[-_]?\s*2$/i.test(norm(
 function stageAggregate(rows:Rec[],stage:'Pre'|'Post'){return aggregate(rows.filter(r=>assessmentIs(r.Assessment,stage)))}
 function RubricDetailTable({rows,title}:{rows:Rec[];title:string}){
  const ids=unique(rows,'IndicatorID');
- return <section className="card rubric-detail"><h3>{title}</h3><div className="table-wrap"><table><thead><tr><th>Rubric / Indicator</th><th>Participant Type</th><th>Overall</th><th>Pre</th><th>Post</th><th>Records</th></tr></thead><tbody>{ids.flatMap(id=>['Student','Teacher'].map(pt=>{const subset=rows.filter(r=>norm(r.IndicatorID)===id&&r.ParticipantType===pt);if(!subset.length)return null;const pre=stageAggregate(subset,'Pre'),post=stageAggregate(subset,'Post');return <tr key={id+'-'+pt}><td><strong>{id}</strong> — {rubricDescription(id)}</td><td>{pt}</td><td>{fmt(aggregate(subset).p)}</td><td>{pre.max?fmt(pre.p):'—'}</td><td>{post.max?fmt(post.p):'—'}</td><td>{subset.length}</td></tr>})).filter(Boolean)}</tbody></table></div></section>
+ return <section className="card rubric-detail"><h3>{title}</h3><div className="table-wrap"><table><thead><tr><th>Rubric / Indicator</th><th>Participant Type</th><th>Overall</th><th>Pre</th><th>Post</th><th>Records</th></tr></thead><tbody>{ids.flatMap(id=>['Student','Teacher'].map(pt=>{const subset=rows.filter(r=>norm(r.IndicatorID)===id&&r.ParticipantType===pt);if(!subset.length)return null;const pre=stageAggregate(subset,'Pre'),post=stageAggregate(subset,'Post');return <tr key={id+'-'+pt}><td><strong>{id}</strong> — {rubricDescription(id)}</td><td>{pt}</td><td>{fmt(aggregate(subset).p)}</td><td>{pre.max?fmt(pre.p):'—'}</td><td>{post.max?fmt(post.p):'—'}</td><td>{pt==='Student'?new Set(subset.map(r=>{const name=norm(r.ChildName).toLocaleLowerCase();const fallback=norm((r as any).StudentID||r.SourceRecordID||r.RecordID).toLocaleLowerCase();return [geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC),name||fallback].join('||')})).size:new Set(subset.map(r=>norm(r.TeacherName).toLocaleLowerCase()||norm(r.SourceRecordID||r.RecordID).toLocaleLowerCase())).size}</td></tr>})).filter(Boolean)}</tbody></table></div></section>
 }
 function ThemeAnalysis({rows}:{rows:Rec[]}){
  const themes=['T1','T2','T3','T4'];const studentRows=rows.filter(r=>r.ParticipantType==='Student');const teacherRows=rows.filter(r=>r.ParticipantType==='Teacher');

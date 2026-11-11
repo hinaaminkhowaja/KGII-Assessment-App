@@ -5820,14 +5820,40 @@ function syncKoboToAPPRecords() {
       ]);
 
       sourceMappings.forEach(m => {
-        if (m.sourceColumn > row.length) {
+        // Kobo rows still mapped as Cycle 1 are automatically routed to
+        // Cycle 2 / Post 2 once this REC has completed Pre + Post for
+        // this participant type and theme. APP_Records includes Kobo and app data.
+        if (m.cycle === 'C2' && m.assessment === 'Post 2') return;
+        let activeMapping = m;
+        if (m.cycle === 'C1' && ['Pre', 'Post'].includes(m.assessment) &&
+            recThemeHasPreAndPost_(m.participant, region, board, rec, m.theme)) {
+          const post2Mapping = mappings.find(candidate =>
+            candidate.cycle === 'C2' &&
+            candidate.participant === m.participant &&
+            candidate.assessment === 'Post 2' &&
+            candidate.theme === m.theme &&
+            candidate.indicator === m.indicator
+          );
+          if (!post2Mapping) {
+            throw new Error(
+              'Automatic Post 2 mapping is missing in APP_Indicators for ' +
+              m.participant + ', ' + m.theme + ', ' + m.indicator +
+              '. Add the Cycle 2 / Post 2 mapping before syncing this REC.'
+            );
+          }
+          activeMapping = Object.assign({}, post2Mapping, {
+            sourceSheet: m.sourceSheet,
+            sourceColumn: m.sourceColumn
+          });
+        }
+        if (activeMapping.sourceColumn > row.length) {
           throw new Error(
-            'Source column ' + m.sourceColumn +
+            'Source column ' + activeMapping.sourceColumn +
             ' exceeds the columns in ' + sourceSheet.getName()
           );
         }
 
-        const scoreValue = row[m.sourceColumn - 1];
+        const scoreValue = row[activeMapping.sourceColumn - 1];
 
         if (scoreValue === '' || scoreValue === null ||
             scoreValue === undefined || !Number.isFinite(Number(scoreValue))) {
@@ -5836,21 +5862,21 @@ function syncKoboToAPPRecords() {
         }
 
         const score = Number(scoreValue);
-        if (score < 0 || score > m.maxScore) {
+        if (score < 0 || score > activeMapping.maxScore) {
           throw new Error(
             'Invalid score in ' + sourceSheet.getName() +
-            ', row ' + sourceRow + ', indicator ' + m.indicator +
+            ', row ' + sourceRow + ', indicator ' + activeMapping.indicator +
             ': ' + score
           );
         }
 
         const submissionKey = [
-          norm(sourceId), norm(m.assessment), norm(m.indicator)
+          norm(sourceId), norm(activeMapping.assessment), norm(activeMapping.indicator)
         ].join('|');
 
         const rowKey = [
           norm(sourceSheet.getName()), String(sourceRow),
-          norm(m.assessment), norm(m.indicator)
+          norm(activeMapping.assessment), norm(activeMapping.indicator)
         ].join('|');
 
         if (existingSubmissionKeys.has(submissionKey) ||
@@ -5860,31 +5886,31 @@ function syncKoboToAPPRecords() {
         }
 
         const recordId = [
-          m.cycle || cycleDefault,
+          activeMapping.cycle || cycleDefault,
           isStudent ? 'S' : 'T',
-          m.assessment.toUpperCase(),
+          activeMapping.assessment.toUpperCase(),
           sourceId,
           m.indicator
         ].join('-').replace(/[^a-zA-Z0-9_-]/g, '_');
 
         const record = {
           RecordID: recordId,
-          CycleID: m.cycle || cycleDefault,
+          CycleID: activeMapping.cycle || cycleDefault,
           Year: year,
           ParticipantType: m.participant,
-          Assessment: m.assessment,
+          Assessment: activeMapping.assessment,
           Region: region,
           LocalBoard: board,
           REC: rec,
           ParticipantCount: 1,
           Phase: phaseValue || (
-            m.assessment === 'Pre' ? 'Pre-assessment' : 'Post-assessment'
+            activeMapping.assessment === 'Post 2' ? 'Post 2' : activeMapping.assessment === 'Pre' ? 'Pre-assessment' : 'Post-assessment'
           ),
-          ThemeID: m.theme,
-          DimensionID: m.dimension,
-          IndicatorID: m.indicator,
+          ThemeID: activeMapping.theme,
+          DimensionID: activeMapping.dimension,
+          IndicatorID: activeMapping.indicator,
           Score: score,
-          MaxScore: m.maxScore,
+          MaxScore: activeMapping.maxScore,
           SourceSheet: sourceSheet.getName(),
           SourceRow: sourceRow,
           SourceRecordID: sourceId

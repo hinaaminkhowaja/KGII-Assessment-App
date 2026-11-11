@@ -1411,7 +1411,7 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
   if (Object.keys(ix).some(name => ix[name] < 0)) {
     throw new Error('APP_Records is missing columns needed for automatic Post 2 classification.');
   }
-  const canonical = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ');
+  const canonical = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
   let hasPre = false;
   let hasPost = false;
   for (let i = 1; i < data.length; i++) {
@@ -1421,7 +1421,7 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
         canonical(row[ix.REC]) !== canonical(rec) ||
         canonical(row[ix.ParticipantType]) !== canonical(participantType) ||
         canonical(row[ix.ThemeID]) !== canonical(themeID)) continue;
-    const cycle = canonical(row[ix.CycleID]).replace(/\\s/g,'');
+    const cycle = canonical(row[ix.CycleID]).replace(/\s/g,'');
     if (cycle && cycle !== 'c1' && cycle !== 'cycle1' && cycle !== '1') continue;
     const stage = canonical(row[ix.Assessment]);
     if (stage === 'pre' || stage === 'pre assessment') hasPre = true;

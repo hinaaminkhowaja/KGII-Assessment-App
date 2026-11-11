@@ -1675,6 +1675,12 @@ function handleStudentSurvey(body) {
   }
 
   const headers = ensureSurveyColumns_(sheet, ['AssessorName']);
+  if (!clean(body.region) || !clean(body.localBoard) || !clean(body.rec) ||
+      !clean(body.childName) || !clean(body.assessorName) ||
+      !clean(body.assessorDesignation) ||
+      (clean(body.assessorDesignation) === 'Other' && !clean(body.otherDesignation))) {
+    throw new Error('Enter the location, child name, survey filler name and designation.');
+  }
   const assessment = surveyAssessment_(body.assessment);
   const themeName = clean(body.themeName);
 
@@ -1814,6 +1820,11 @@ function handleTeacherSurvey(body) {
   }
 
   const headers = ensureSurveyColumns_(sheet, ['FillerName', 'FillerDesignation']);
+  if (!clean(body.region) || !clean(body.localBoard) || !clean(body.rec) ||
+      !clean(body.teacherName) || !clean(body.fillerName) ||
+      !clean(body.fillerDesignation)) {
+    throw new Error('Enter the location, teacher name, survey filler name and designation.');
+  }
   const themeName = clean(body.themeName);
 
   if (!themeName) {
@@ -1972,6 +1983,11 @@ function handleTeacherSurveyCycle2_(body) {
   }
 
   const headers = ensureSurveyColumns_(sheet, ['FillerName', 'FillerDesignation']);
+  if (!clean(body.region) || !clean(body.localBoard) || !clean(body.rec) ||
+      !clean(body.teacherName) || !clean(body.fillerName) ||
+      !clean(body.fillerDesignation)) {
+    throw new Error('Enter the location, teacher name, survey filler name and designation.');
+  }
   const referenceRows = indicatorReferenceRows_();
   const submissionId = newSubmissionId('TCHC2');
   const sourceRow = sheet.getLastRow() + 1;

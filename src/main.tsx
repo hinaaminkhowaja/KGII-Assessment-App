@@ -1174,7 +1174,6 @@ const save = async (finishAssessment: boolean) => {
     });
 
     const result = await apiPost('studentsurvey', {
-      userEmail: '',
       region: v.region,
       localBoard: v.board,
       rec: v.rec,

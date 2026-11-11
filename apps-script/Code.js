@@ -1401,34 +1401,66 @@ function handleSurveyClassification_(e) {
 
 
 function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeID) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.RECORDS_SHEET);
-  if (!sheet || sheet.getLastRow() < 2) return false;
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => clean(h));
-  const ix = {};
-  ['CycleID','ParticipantType','Assessment','Region','LocalBoard','REC','ThemeID']
-    .forEach(name => { ix[name] = headers.indexOf(name); });
-  if (Object.keys(ix).some(name => ix[name] < 0)) {
-    throw new Error('APP_Records is missing columns needed for automatic Post 2 classification.');
+  // Read the six original assessment/survey source sheets directly.
+  // APP_Records is deliberately not used as a source for this decision.
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const indicatorSheet = ss.getSheetByName(CONFIG.INDICATORS_SHEET);
+  if (!indicatorSheet || indicatorSheet.getLastRow() < 2) {
+    throw new Error('APP_Indicators mappings are required for Post 2 classification.');
   }
-  const canonical = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
+  const map = indicatorSheet.getDataRange().getValues();
+  const mh = map[0].map(h => clean(h));
+  const col = name => mh.indexOf(name);
+  const required = ['CycleID','ParticipantType','Assessment','ThemeID','SourceSheet','AppSourceSheet'];
+  const missing = required.filter(name => col(name) < 0);
+  if (missing.length) throw new Error('APP_Indicators missing classification columns: ' + missing.join(', '));
+  const mappings = map.slice(1).filter(row =>
+    clean(row[col('IndicatorID')]) &&
+    clean(row[col('ParticipantType')]).toLowerCase() === clean(participantType).toLowerCase() &&
+    clean(row[col('ThemeID')]) === clean(themeID)
+  );
+  const sources = [
+    {name:'Students Pre Assessment', kind:'kobo'},
+    {name:'Students Post Assessment', kind:'kobo'},
+    {name:'Teachers Assessment', kind:'kobo'},
+    {name:'APP_Student_Surveys', kind:'app'},
+    {name:'APP_Teacher_Surveys', kind:'app'},
+    {name:'APP_Teacher_Surveys_Cycle2', kind:'app'}
+  ];
+  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
   let hasPre = false;
   let hasPost = false;
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    if (canonical(row[ix.Region]) !== canonical(region) ||
-        canonical(row[ix.LocalBoard]) !== canonical(localBoard) ||
-        canonical(row[ix.REC]) !== canonical(rec) ||
-        canonical(row[ix.ParticipantType]) !== canonical(participantType) ||
-        canonical(row[ix.ThemeID]) !== canonical(themeID)) continue;
-    const cycle = canonical(row[ix.CycleID]).replace(/\s/g,'');
-    if (cycle && cycle !== 'c1' && cycle !== 'cycle1' && cycle !== '1') continue;
-    const stage = canonical(row[ix.Assessment]);
-    if (stage === 'pre' || stage === 'pre assessment') hasPre = true;
-    if (stage === 'post' || stage === 'post assessment') hasPost = true;
-    if (hasPre && hasPost) return true;
-  }
-  return false;
+  sources.forEach(source => {
+    const sheet = ss.getSheetByName(source.name);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0].map(h => clean(h));
+    const sourceMappings = mappings.filter(m =>
+      key(m[source.kind === 'kobo' ? col('SourceSheet') : col('AppSourceSheet')]) === key(source.name)
+    );
+    if (!sourceMappings.length) return;
+    values.slice(1).forEach(row => {
+      const get = names => {
+        for (const name of names) {
+          const i = headers.findIndex(h => key(h) === key(name));
+          if (i >= 0) return row[i];
+        }
+        return '';
+      };
+      if (key(get(source.kind === 'kobo'
+        ? ['1. Select your region','Select your region','Region'] : ['Region'])) !== key(region) ||
+          key(get(['LocalBoard','Local Board (Standardized)','Local Board'])) !== key(localBoard) ||
+          key(get(['REC','REC (Standardized)'])) !== key(rec)) return;
+      sourceMappings.forEach(m => {
+        const cycle = key(m[col('CycleID')]).replace(/\s/g,'');
+        if (cycle && !['c1','cycle1','1'].includes(cycle)) return;
+        const stage = key(m[col('Assessment')]);
+        if (stage === 'pre' || stage === 'pre assessment') hasPre = true;
+        if (stage === 'post' || stage === 'post assessment') hasPost = true;
+      });
+    });
+  });
+  return hasPre && hasPost;
 }
 
 

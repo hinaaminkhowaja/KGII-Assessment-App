@@ -1057,7 +1057,8 @@ const lookupChild = async () => {
 
   
 const save = async (finishAssessment: boolean) => {
-  const assessment = cycle === 'Cycle 2' ? 'Post 2' : (v.assessment || 'Pre');
+  let assessment = cycle === 'Cycle 2' ? 'Post 2' : (v.assessment || 'Pre');
+  let effectiveCycle = cycle;
   const themeState = v.themes[v.theme] || {
     activities: [],
     otherActivity: '',
@@ -1106,10 +1107,29 @@ const save = async (finishAssessment: boolean) => {
 
   const themeName = surveyThemeName(v.theme);
 
+  try {
+    const classification = await apiGet('surveyclassification', {
+      participantType: 'Student',
+      region: v.region,
+      localBoard: v.board,
+      rec: v.rec,
+      themeID: v.theme,
+      assessment,
+      cycleID: cycle
+    });
+    if (classification?.isPost2) {
+      assessment = 'Post 2';
+      effectiveCycle = 'Cycle 2';
+    }
+  } catch (error: any) {
+    setMsg('Could not verify the REC assessment stage: ' + (error.message || 'Please try again.'));
+    return;
+  }
+
   const duplicate = lookupMatches.some(
     item => {
       const itemCycle = norm(item.cycleID || item.CycleID || item.cycle) || 'Cycle 1';
-      return itemCycle === cycle &&
+      return itemCycle === effectiveCycle &&
         String(item.themeName || '').trim().toLowerCase() ===
           themeName.trim().toLowerCase() &&
         String(item.assessment || '').trim().toLowerCase() ===
@@ -1145,8 +1165,8 @@ const save = async (finishAssessment: boolean) => {
       region: v.region,
       localBoard: v.board,
       rec: v.rec,
-      cycleID: cycle,
-      phase,
+      cycleID: effectiveCycle,
+      phase: assessment === 'Post 2' ? 'Post 2' : '',
       childName: v.childName.trim(),
       childGender: v.gender,
       assessorName: v.assessorName.trim(),

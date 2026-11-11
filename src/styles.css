@@ -745,3 +745,88 @@ body{overflow-x:hidden;}
   .theme-rec-coverage-board table,
   .theme-rec-coverage-rec table{min-width:1050px;}
 }
+
+/* Survey PDF: allow the long survey card to flow across pages.
+   The previous break-inside:avoid on the entire survey page/card could push
+   the complete form past the first page, leaving only the app heading visible. */
+@media print {
+  html, body, #root, .app, .app > main, main, .survey-page,
+  .survey-page > .card {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .survey-page,
+  .survey-page > .card {
+    display: block !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  .survey-page > .card {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .survey-page .survey-print-complete {
+    display: block !important;
+    position: static !important;
+    visibility: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+  .survey-page .survey-print-theme,
+  .survey-page .survey-print-rubric {
+    display: block !important;
+    visibility: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  .survey-page .survey-theme { display: none !important; }
+  .survey-page .survey-grid,
+  .survey-page .field,
+  .survey-page .section-head,
+  .survey-page .section-head > div {
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+  }
+  .survey-page input,
+  .survey-page select,
+  .survey-page textarea {
+    display: inline-block !important;
+    visibility: visible !important;
+    color: #172033 !important;
+    background: #fff !important;
+    border: 1px solid #9ca3af !important;
+    print-color-adjust: exact !important;
+  }
+  .survey-page button,
+  .survey-page .print-action,
+  .survey-page .form-actions,
+  .survey-page .summary-action-row {
+    display: none !important;
+  }
+  .survey-page .survey-print-complete h2,
+  .survey-page .survey-print-theme h3,
+  .survey-page .survey-print-rubric h4 {
+    break-after: avoid-page !important;
+    page-break-after: avoid !important;
+  }
+  .survey-page ol,
+  .survey-page li,
+  .survey-page p,
+  .survey-page table,
+  .survey-page tr {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  main > header { display: none !important; }
+}

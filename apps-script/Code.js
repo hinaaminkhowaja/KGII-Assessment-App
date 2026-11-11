@@ -1506,8 +1506,10 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
   // Kobo select values sometimes append a numeric region code (for example,
   // Lower_Chitral_01), while the public survey directory shows the plain name.
   const regionKey = value => key(value).replace(/\s+\d+$/,'');
-  let hasPre = false;
-  let hasPost = false;
+  const expectedPre = new Set();
+  const expectedPost = new Set();
+  const observedPre = new Set();
+  const observedPost = new Set();
   sources.forEach(source => {
     const sheet = ss.getSheetByName(source.name);
     if (!sheet || sheet.getLastRow() < 2) return;
@@ -1518,6 +1520,15 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
       key(m[source.kind === 'kobo' ? col('SourceSheet') : col('AppSourceSheet')]) === key(source.name)
     );
     if (!sourceMappings.length) return;
+    sourceMappings.forEach(m => {
+      const cycle = key(m[col('CycleID')]).replace(/\s/g,'');
+      if (cycle && !['c1','cycle1','1'].includes(cycle)) return;
+      const indicator = clean(m[col('IndicatorID')]);
+      const stage = key(m[col('Assessment')]).replace(/\s+/g,'');
+      if (!indicator) return;
+      if (stage === 'pre' || stage === 'preassessment') expectedPre.add(indicator);
+      if (stage === 'post' || stage === 'postassessment') expectedPost.add(indicator);
+    });
     values.slice(1).forEach(row => {
       const get = names => {
         for (const name of names) {
@@ -1541,13 +1552,16 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
         if (!Number.isInteger(sourceColumn) || sourceColumn < 1 || sourceColumn > row.length) return;
         const score = row[sourceColumn - 1];
         if (score === '' || score === null || score === undefined || typeof score === 'boolean' || !Number.isFinite(Number(score))) return;
+        const indicator = clean(m[col('IndicatorID')]);
         const stage = key(m[col('Assessment')]).replace(/\s+/g,'');
-        if (stage === 'pre' || stage === 'preassessment') hasPre = true;
-        if (stage === 'post' || stage === 'postassessment') hasPost = true;
+        if (stage === 'pre' || stage === 'preassessment') observedPre.add(indicator);
+        if (stage === 'post' || stage === 'postassessment') observedPost.add(indicator);
       });
     });
   });
-  return hasPre && hasPost;
+  const complete = (expected, observed) => expected.size > 0 &&
+    Array.from(expected).every(indicator => observed.has(indicator));
+  return complete(expectedPre, observedPre) && complete(expectedPost, observedPost);
 }
 
 

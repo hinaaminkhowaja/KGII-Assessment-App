@@ -1730,7 +1730,7 @@ function handleStudentSurvey(body) {
     throw new Error('APP_Student_Surveys sheet not found.');
   }
 
-  const headers = ensureSurveyColumns_(sheet, ['AssessorName']);
+  const headers = ensureSurveyColumns_(sheet, ['AssessorName', 'CycleID']);
   if (!clean(body.region) || !clean(body.localBoard) || !clean(body.rec) ||
       !clean(body.childName) || !clean(body.assessorName) ||
       !clean(body.assessorDesignation) ||
@@ -1822,6 +1822,7 @@ function handleStudentSurvey(body) {
     SubmissionID: submissionId,
     SubmittedAt: new Date(),
     UserEmail: '',
+    CycleID: cycleId,
     Region: clean(body.region),
     LocalBoard: clean(body.localBoard),
     REC: clean(body.rec),
@@ -1853,7 +1854,7 @@ function handleStudentSurvey(body) {
     submissionId,
     'Student',
     assessment,
-    body,
+    Object.assign({}, body, { cycleID: cycleId }),
     indicatorEntries
   );
 

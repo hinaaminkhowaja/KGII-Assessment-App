@@ -5823,7 +5823,13 @@ function syncKoboToAPPRecords() {
         // Kobo rows still mapped as Cycle 1 are automatically routed to
         // Cycle 2 / Post 2 once this REC has completed Pre + Post for
         // this participant type and theme. APP_Records includes Kobo and app data.
-        if (m.cycle === 'C2' && m.assessment === 'Post 2') return;
+        if (m.cycle === 'C2' && m.assessment === 'Post 2' &&
+            sourceMappings.some(candidate =>
+              candidate.cycle === 'C1' &&
+              candidate.participant === m.participant &&
+              candidate.theme === m.theme &&
+              candidate.indicator === m.indicator
+            )) return;
         let activeMapping = m;
         if (m.cycle === 'C1' && ['Pre', 'Post'].includes(m.assessment) &&
             recThemeHasPreAndPost_(m.participant, region, board, rec, m.theme)) {

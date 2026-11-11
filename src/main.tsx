@@ -1229,7 +1229,7 @@ const save = async (finishAssessment: boolean) => {
           <h3>Survey Details</h3>
           <p><strong>Region:</strong> {displayGeo(v.region)||'Not selected'}　<strong>Local Board:</strong> {v.board||'Not selected'}　<strong>REC:</strong> {v.rec||'Not selected'}</p>
           <p><strong>Child's Name:</strong> {v.childName||'Not entered'}　<strong>Gender:</strong> {v.gender||'Not selected'}</p>
-          <p><strong>Assessor:</strong> {v.designation||'Not entered'}　<strong>Cycle:</strong> {v.cycle||'Cycle 1'}{phase?<>　<strong>Assessment Round:</strong> {phase}</>:null}</p>
+          <p><strong>Survey completed by:</strong> {v.assessorName||'Not entered'}　<strong>Designation:</strong> {v.designation==='Other'?(v.otherDesignation||'Other'):v.designation||'Not entered'}　<strong>Cycle:</strong> {v.cycle||'Cycle 1'}{phase?<>　<strong>Assessment Round:</strong> {phase}</>:null}</p>
         </div>
         <div className="survey-print-complete">
           <h2>Complete Student Survey — All Themes and Indicators</h2>
@@ -1653,7 +1653,9 @@ const save = async (finishAssessment: boolean) => {
       v.theme &&
       v.ratings.pre &&
       v.ratings.post &&
-      v.filler?.trim()
+      v.filler?.trim() &&
+      v.fillerDesignation &&
+      (v.fillerDesignation !== 'Other' || v.otherFillerDesignation?.trim())
     )
   ) {
     setMsg('Please complete all required fields and both Pre and Post ratings.');
@@ -1759,7 +1761,7 @@ const save = async (finishAssessment: boolean) => {
 <div className="survey-print-meta">
           <h3>Survey Details</h3>
           <p><strong>Region:</strong> {displayGeo(v.region)||'Not selected'}　<strong>Local Board:</strong> {v.board||'Not selected'}　<strong>REC:</strong> {v.rec||'Not selected'}</p>
-          <p><strong>Teacher:</strong> {v.teacherName||'Not entered'}　<strong>Form completed by:</strong> {v.filler||'Not entered'}</p>
+          <p><strong>Teacher:</strong> {v.teacherName||'Not entered'}　<strong>Form completed by:</strong> {v.filler||'Not entered'}　<strong>Designation:</strong> {v.fillerDesignation==='Other'?(v.otherFillerDesignation||'Other'):v.fillerDesignation||'Not entered'}</p>
           <p><strong>Position:</strong> {(v.positions||[]).join(', ')||'Not selected'}　<strong>Teaching experience:</strong> {v.years||'Not selected'}</p>
           <p><strong>Training:</strong> {v.training||'Not selected'}　<strong>Cycle:</strong> {v.cycle||'Cycle 1'}{v.assessmentStage?<>　<strong>Assessment stage:</strong> {v.assessmentStage}</>:null}</p>
         </div>
@@ -1804,6 +1806,7 @@ const save = async (finishAssessment: boolean) => {
         {entryStarted && <div className="survey-grid">
           <Field label="Name of person filling this survey" required><input value={v.filler || ''} onChange={e => setV({ ...v, filler: e.target.value })} /></Field>
           <Field label="Designation of person filling this survey" required><select value={v.fillerDesignation || ''} onChange={e => setV({ ...v, fillerDesignation: e.target.value })}><option value="">Select designation</option>{['Coordinator', 'Educator', 'Teacher', 'Leader', 'Other'].map(option => <option key={option} value={option}>{option}</option>)}</select></Field>
+          {v.fillerDesignation === 'Other' && <Field label="Please specify designation" required><input value={v.otherFillerDesignation || ''} onChange={e => setV({ ...v, otherFillerDesignation: e.target.value })} /></Field>}
           {v.fillerDesignation === 'Other' && <Field label="Please specify designation" required><input value={v.otherFillerDesignation || ''} onChange={e => setV({ ...v, otherFillerDesignation: e.target.value })} /></Field>}
           <Field label="Name of teacher" required><input value={v.teacherName || ''} onChange={e => { setV({ ...v, teacherName: e.target.value }); setLookupMatches([]); setLookupMsg(''); }} /></Field>
           <Field label="Position of teacher" required><div className="check-grid">

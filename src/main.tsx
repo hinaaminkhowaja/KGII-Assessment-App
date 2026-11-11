@@ -973,15 +973,34 @@ function GeoPerformanceInsights({rows,mode}:{rows:Rec[];mode:'dimension'|'stage'
  return <section className="card"><h2>{mode==='dimension'?'UA and A — Top and Weak Geography':mode==='stage'?'Pre and Post — Top and Weak Geography':'Theme-wise — Top and Weak Geography'}</h2><p>Rankings reflect the currently selected dashboard filters. Suggested actions target the weakest available theme or dimension.</p>{levels.map(level=><div key={level.key} className="table-wrap" style={{marginTop:16}}><h3>{level.label}</h3><table><thead><tr><th>Measure</th><th>Top performing</th><th>Score</th><th>Needs most support</th><th>Score</th><th>Way forward</th></tr></thead><tbody>{criteria.map(criterion=>{const ranked=rank(level.key,criterion.id);const top=ranked[0],weak=ranked[ranked.length-1];return <tr key={criterion.id}><td>{criterion.label}</td><td className={top?'performance-top':''}>{top?.name||'Not available'}</td><td className={top?'performance-top':''}>{top?fmt(top.p):'—'}</td><td className={weak?'performance-weak':''}>{weak?.name||'Not available'}</td><td className={weak?'performance-weak':''}>{weak?fmt(weak.p):'—'}</td><td>{weak?actionFor(weak.rows):'Insufficient matching data'}</td></tr>})}</tbody></table></div>)}</section>;
 }
 function RecSurveySummary({records,participantType,region,board,rec,onRefresh}:{records:Rec[];participantType:string;region:string;board:string;rec:string;onRefresh?:()=>void}) {
-  if (!region || !board || !rec) return <section className="card"><h3>REC Assessment Summary</h3><p>Select a Region, Local Board and REC to review existing assessment data before entering new data.</p></section>;
-  const canonical=(v:any)=>norm(v).trim().toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
-  const same=(a:any,b:any)=>canonical(a)===canonical(b);
-  const themeKey=(v:any)=>{const x=canonical(v).toUpperCase();const m=x.match(/(?:^|\b)(?:T|THEME\s*)([1-4])(?:\b|$)/);return m?'T'+m[1]:x;};
-  const stageKey=(v:any)=>{const x=canonical(v);if(/^(pre|pre assessment|baseline)$/.test(x))return 'Pre';if(/^(post|post assessment|endline)$/.test(x))return 'Post';return x;};
-  const rows=records.filter(r=>same(r.ParticipantType,participantType)&&same(r.Region,region)&&same(r.LocalBoard,board)&&same(r.REC,rec));
-  const stageRows=(theme:string,stage:string)=>rows.filter(r=>themeKey(r.ThemeID)===theme&&stageKey(r.Assessment)===stage);
-  const pctRows=(items:Rec[])=>{const score=items.reduce((n,r)=>n+(Number(r.Score)||0),0);const max=items.reduce((n,r)=>n+(Number(r.MaxScore)||0),0);return max?(score/max*100).toFixed(1)+'%':'—'};
-  return <section className="card"><div className="section-head"><div><h3>Existing REC Summary — {rec}</h3><p><strong>Consolidated assessment scores</strong> · Scores combine the saved records for this REC.</p></div>{onRefresh&&<button type="button" className="secondary" onClick={onRefresh}>↻ Refresh existing data</button>}</div>{rows.length===0?<p>{records.length===0?'No assessment records are currently loaded. Refresh existing data to retry loading, then check that the selected Region, Local Board and REC match the saved records.':'No matching '+participantType.toLowerCase()+' assessment records were found for this REC in the loaded data. Check the selected details and refresh if needed.'}</p>:<><div className="table-wrap"><table><thead><tr><th>Theme</th><th>Pre</th><th>Post</th><th>Data status</th></tr></thead><tbody>{['T1','T2','T3','T4'].map(theme=>{const pre=stageRows(theme,'Pre');const post=stageRows(theme,'Post');return <tr key={theme}><td>{labelTheme(theme)}</td><td>{pctRows(pre)}</td><td>{pctRows(post)}</td><td>{pre.length||post.length?'Data available':'No data in loaded records'}</td></tr>})}</tbody></table></div><p className="form-message">“Data available” reflects saved score records only; it is not a completion marker.</p></>}</section>;
+ const [groups,setGroups]=useState<any[]>([]);
+ const [loading,setLoading]=useState(false);
+ const [error,setError]=useState('');
+ const load=async()=>{
+  if(!region||!board||!rec)return;
+  setLoading(true);setError('');
+  try{
+   const result=await apiGet('surveysummary',{region,board,rec,participantType});
+   setGroups(Array.isArray(result.groups)?result.groups:[]);
+  }catch(e:any){setError(e.message||'Could not load the REC summary.');}
+  finally{setLoading(false);}
+ };
+ useEffect(()=>{void load();},[participantType,region,board,rec]);
+ const stages=['Pre','Post','Post 2'];
+ const themes=participantType==='Teacher'
+  ? ['T1','T2','T3','T4','S1','S2','S3']
+  : ['T1','T2','T3','T4'];
+ const label=(id:string)=>id.startsWith('S')?({S1:'Instructional Skills',S2:'Questioning Skills',S3:'Feedback Skills'} as Record<string,string>)[id]||id:labelTheme(id);
+ const find=(theme:string,stage:string)=>groups.filter(g=>norm(g.themeID)===theme&&(
+  stage==='Post 2'?assessmentIsPost2(g.assessment):assessmentIs(g.assessment,stage as 'Pre'|'Post')&&!assessmentIsPost2(g.assessment)
+ ));
+ const display=(items:any[])=>{const score=items.reduce((n,x)=>n+Number(x.score||0),0),max=items.reduce((n,x)=>n+Number(x.maxScore||0),0);return max?fmt(score/max*100):'—';};
+ if(!region||!board||!rec)return <section className="card"><h3>REC Assessment Summary</h3><p>Select a Region, Local Board and REC to review existing assessment data before entering new data.</p></section>;
+ return <section className="card"><div className="section-head"><div><h3>Existing REC Summary — {rec}</h3><p><strong>Consolidated assessment scores</strong> · Retrieved from the original assessment and survey sheets.</p></div><button type="button" className="secondary" disabled={loading} onClick={()=>{void load();onRefresh?.();}}>↻ Refresh existing data</button></div>
+ {loading?<p>Loading previous assessment records…</p>:error?<p className="form-message">{error}</p>:!groups.length?<p>No matching {participantType.toLowerCase()} assessment records were found for this REC.</p>:<>
+ <div className="table-wrap"><table><thead><tr><th>Theme / Skill</th>{stages.map(stage=><th key={stage}>{stage}</th>)}</tr></thead><tbody>{themes.map(theme=><tr key={theme}><td>{label(theme)}</td>{stages.map(stage=><td key={stage}>{display(find(theme,stage))}</td>)}</tr>)}</tbody></table></div>
+ <p className="form-message">Scores are consolidated from saved indicator responses. A dash means no matching response data was found.</p></>}
+ </section>;
 }
 function GeoFields({refs,value,onChange,afterRec,cycle='Cycle 1'}:{refs:Ref[];value:any;onChange:(x:any)=>void;afterRec?:React.ReactNode;cycle?:string}){
  const phaseKey=cycle==='Cycle 2'?'Cycle2Phase':'Cycle1Phase';

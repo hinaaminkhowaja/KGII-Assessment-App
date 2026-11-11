@@ -28,6 +28,10 @@ function doGet(e) {
         result = getRecDirectoryData();
         break;
 
+      case 'surveyclassification':
+        result = handleSurveyClassification_(e);
+        break;
+
       case 'login':
         result = handleApiLogin(e);
         break;
@@ -1376,6 +1380,58 @@ function surveyConfigValue_(settingName, fallback) {
 }
 
 
+function handleSurveyClassification_(e) {
+  const p = e && e.parameter ? e.parameter : {};
+  const assessment = surveyAssessment_(p.assessment || 'Pre');
+  const participantType = clean(p.participantType || 'Student');
+  const themeID = clean(p.themeID);
+  if (!clean(p.region) || !clean(p.localBoard) || !clean(p.rec) || !themeID) {
+    throw new Error('Region, Local Board, REC and Theme are required for classification.');
+  }
+  const post2 = assessment !== 'Post 2' &&
+    recThemeHasPreAndPost_(participantType, p.region, p.localBoard, p.rec, themeID);
+  return {
+    success: true,
+    assessment: post2 ? 'Post 2' : assessment,
+    cycleID: post2 ? 'C2' : surveyCycleId_(p.cycleID || 'Cycle 1'),
+    isPost2: post2,
+    classificationBasis: 'REC + participant type + theme'
+  };
+}
+
+
+function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeID) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.RECORDS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return false;
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => clean(h));
+  const ix = {};
+  ['CycleID','ParticipantType','Assessment','Region','LocalBoard','REC','ThemeID']
+    .forEach(name => { ix[name] = headers.indexOf(name); });
+  if (Object.keys(ix).some(name => ix[name] < 0)) {
+    throw new Error('APP_Records is missing columns needed for automatic Post 2 classification.');
+  }
+  const canonical = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ');
+  let hasPre = false;
+  let hasPost = false;
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (canonical(row[ix.Region]) !== canonical(region) ||
+        canonical(row[ix.LocalBoard]) !== canonical(localBoard) ||
+        canonical(row[ix.REC]) !== canonical(rec) ||
+        canonical(row[ix.ParticipantType]) !== canonical(participantType) ||
+        canonical(row[ix.ThemeID]) !== canonical(themeID)) continue;
+    const cycle = canonical(row[ix.CycleID]).replace(/\\s/g,'');
+    if (cycle && cycle !== 'c1' && cycle !== 'cycle1' && cycle !== '1') continue;
+    const stage = canonical(row[ix.Assessment]);
+    if (stage === 'pre' || stage === 'pre assessment') hasPre = true;
+    if (stage === 'post' || stage === 'post assessment') hasPost = true;
+    if (hasPre && hasPost) return true;
+  }
+  return false;
+}
+
+
 function surveyAssessment_(value) {
   const v = clean(value).toLowerCase().replace(/[\s_-]+/g, '');
 
@@ -1681,7 +1737,14 @@ function handleStudentSurvey(body) {
       (clean(body.assessorDesignation) === 'Other' && !clean(body.otherDesignation))) {
     throw new Error('Enter the location, child name, survey filler name and designation.');
   }
-  const assessment = surveyAssessment_(body.assessment);
+  let assessment = surveyAssessment_(body.assessment);
+  let cycleId = surveyCycleId_(body.cycleID);
+  const themeID = clean(body.themeID);
+  if (cycleId === 'C1' && assessment !== 'Post 2' &&
+      recThemeHasPreAndPost_('Student', body.region, body.localBoard, body.rec, themeID)) {
+    assessment = 'Post 2';
+    cycleId = 'C2';
+  }
   const themeName = clean(body.themeName);
 
   if (!themeName) {
@@ -1713,7 +1776,6 @@ function handleStudentSurvey(body) {
     throw new Error('Enter at least one student indicator rating.');
   }
 
-  const cycleId = surveyCycleId_(body.cycleID);
   const referenceRows = indicatorReferenceRows_();
 
   // Map the app's UA/A field keys to APP_Indicators using the

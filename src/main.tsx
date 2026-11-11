@@ -451,12 +451,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const phase3StudentRows=includeStudent?phase3Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'):[];
   const phase3Score=cycle2?aggregate(phase3StudentRows).p*87/100:0;
   const studentPost2Rows=allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment));
-  const studentPost2Score=studentPost2Rows.length?aggregate(studentPost2Rows).p*87/100:0;
+  const studentPost2Totals=aggregate(studentPost2Rows);
   const teacherSkillRows=allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID)));
   const teacherSkillPreRows=teacherSkillRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const teacherSkillPostRows=teacherSkillRows.filter(r=>assessmentIs(r.Assessment,'Post'));
-  const teacherSkillPreScore=teacherSkillPreRows.length?aggregate(teacherSkillPreRows).p*48/100:0;
-  const teacherSkillPostScore=teacherSkillPostRows.length?aggregate(teacherSkillPostRows).p*48/100:0;
+  const teacherSkillPreTotals=aggregate(teacherSkillPreRows);
+  const teacherSkillPostTotals=aggregate(teacherSkillPostRows);
   const teacherPreRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre'));
   const teacherPostRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post'));
   const selectedRatingMax=(f.studentRating?87:0)+(f.teacherRating?16:0);
@@ -555,9 +555,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Teachers Overall',fmt(teacherPct)],
     ['Theme Overall',fmt(overallPerformance)],
     ['Dimension Overall',fmt(overallPerformance)],
-    ['Student Post 2 Overall',studentPost2Rows.length?studentPost2Score.toFixed(1)+' / 87':'—'],
-    ['Teacher Skill Pre Overall',teacherSkillPreRows.length?teacherSkillPreScore.toFixed(1)+' / 48':'—'],
-    ['Teacher Skill Post Overall',teacherSkillPostRows.length?teacherSkillPostScore.toFixed(1)+' / 48':'—'],
+    ['Student Post 2 Overall',studentPost2Totals.max?studentPost2Totals.score.toFixed(1)+' / '+studentPost2Totals.max.toFixed(1):'—'],
+    ['Teacher Skill Pre Overall',teacherSkillPreTotals.max?teacherSkillPreTotals.score.toFixed(1)+' / '+teacherSkillPreTotals.max.toFixed(1):'—'],
+    ['Teacher Skill Post Overall',teacherSkillPostTotals.max?teacherSkillPostTotals.score.toFixed(1)+' / '+teacherSkillPostTotals.max.toFixed(1):'—'],
     ['Pre Overall',cycle2?'—':ratingSelected?(preMax?preScore.toFixed(1)+' / '+preMax.toFixed(1):'—'):teacherOnly?(preScore.toFixed(1)+' / 16'):fmt(prePct)],
     ['Post Overall',cycle2?'—':ratingSelected?(postMax?postScore.toFixed(1)+' / '+postMax.toFixed(1):'—'):teacherOnly?(postScore.toFixed(1)+' / 16'):fmt(postPct)]
   ];

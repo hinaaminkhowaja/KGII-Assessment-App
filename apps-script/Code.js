@@ -31,6 +31,9 @@ function doGet(e) {
       case 'surveyclassification':
         result = handleSurveyClassification_(e);
         break;
+      case 'surveysummary':
+        result = handlePublicSurveySummary_(e);
+        break;
 
       case 'login':
         result = handleApiLogin(e);
@@ -787,6 +790,78 @@ function getDashboardData(email) {
   };
 }
 
+
+function handlePublicSurveySummary_(e) {
+  const p = e && e.parameter ? e.parameter : {};
+  const region = clean(p.region), board = clean(p.board), rec = clean(p.rec);
+  const participant = clean(p.participantType);
+  if (!region || !board || !rec || !['Student','Teacher'].includes(participant)) {
+    throw new Error('Region, Local Board, REC and participant type are required.');
+  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mapSheet = ss.getSheetByName(CONFIG.INDICATORS_SHEET);
+  if (!mapSheet || mapSheet.getLastRow() < 2) throw new Error('APP_Indicators mappings are unavailable.');
+  const map = mapSheet.getDataRange().getValues();
+  const mh = map[0].map(clean);
+  const ix = name => mh.indexOf(name);
+  const required = ['CycleID','ParticipantType','Assessment','ThemeID','DimensionID','IndicatorID','MaxScore','SourceSheet','SourceColumn','AppSourceSheet','AppSourceColumn'];
+  const missing = required.filter(name => ix(name) < 0);
+  if (missing.length) throw new Error('APP_Indicators missing: ' + missing.join(', '));
+  const mappings = map.slice(1).filter(row =>
+    clean(row[ix('IndicatorID')]) &&
+    clean(row[ix('ParticipantType')]).toLowerCase() === participant.toLowerCase()
+  );
+  const sources = [
+    {name:'Students Pre Assessment',kind:'kobo'},
+    {name:'Students Post Assessment',kind:'kobo'},
+    {name:'Teachers Assessment',kind:'kobo'},
+    {name:'APP_Student_Surveys',kind:'app'},
+    {name:'APP_Teacher_Surveys',kind:'app'},
+    {name:'APP_Teacher_Surveys_Cycle2',kind:'app'}
+  ];
+  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
+  const same = (a,b) => key(a) === key(b);
+  const totals = {};
+  sources.forEach(source => {
+    const sh = ss.getSheetByName(source.name);
+    if (!sh || sh.getLastRow() < 2) return;
+    const values = sh.getDataRange().getValues();
+    const headers = values[0].map(clean);
+    const col = names => {
+      for (const name of names) {
+        const found = headers.findIndex(h => key(h) === key(name));
+        if (found >= 0) return found;
+      }
+      return -1;
+    };
+    const mappingsForSource = mappings.filter(m =>
+      same(m[ix(source.kind === 'kobo' ? 'SourceSheet' : 'AppSourceSheet')], source.name)
+    );
+    values.slice(1).forEach(row => {
+      const regionValue = row[col(source.kind === 'kobo' ? ['1. Select your region','Select your region','Region'] : ['Region'])];
+      const boardValue = row[col(['LocalBoard','Local Board (Standardized)','Local Board'])];
+      const recValue = row[col(['REC','REC (Standardized)'])];
+      if (!same(regionValue,region) || !same(boardValue,board) || !same(recValue,rec)) return;
+      mappingsForSource.forEach(m => {
+        const sourceColumn = Number(m[ix(source.kind === 'kobo' ? 'SourceColumn' : 'AppSourceColumn')]);
+        if (!Number.isInteger(sourceColumn) || sourceColumn < 1 || sourceColumn > row.length) return;
+        const raw = row[sourceColumn - 1];
+        if (raw === '' || raw === null || raw === undefined || typeof raw === 'boolean') return;
+        const score = Number(raw), max = Number(m[ix('MaxScore')]);
+        if (!Number.isFinite(score) || !Number.isFinite(max) || max <= 0 || score < 0 || score > max) return;
+        const assessment = clean(m[ix('Assessment')]);
+        const theme = clean(m[ix('ThemeID')]);
+        const dimension = clean(m[ix('DimensionID')]);
+        const groupKey = [assessment,theme,dimension].join('|');
+        if (!totals[groupKey]) totals[groupKey] = {assessment,themeID:theme,dimensionID:dimension,score:0,maxScore:0,indicatorResponses:0};
+        totals[groupKey].score += score;
+        totals[groupKey].maxScore += max;
+        totals[groupKey].indicatorResponses++;
+      });
+    });
+  });
+  return {success:true,region,board,rec,participantType:participant,groups:Object.values(totals).map(x=>Object.assign(x,{percent:x.maxScore?Math.round(x.score/x.maxScore*1000)/10:null}))};
+}
 
 function handleApiDashboard(e) {
 

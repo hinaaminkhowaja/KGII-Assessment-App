@@ -1502,7 +1502,10 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
     {name:'APP_Teacher_Surveys', kind:'app'},
     {name:'APP_Teacher_Surveys_Cycle2', kind:'app'}
   ];
-  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ');
+  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  // Kobo select values sometimes append a numeric region code (for example,
+  // Lower_Chitral_01), while the public survey directory shows the plain name.
+  const regionKey = value => key(value).replace(/\s+\d+$/,'');
   let hasPre = false;
   let hasPost = false;
   sources.forEach(source => {
@@ -1510,6 +1513,7 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
     if (!sheet || sheet.getLastRow() < 2) return;
     const values = sheet.getDataRange().getValues();
     const headers = values[0].map(h => clean(h));
+    const cycleColumn = headers.findIndex(h => key(h) === 'cycleid' || key(h) === 'cycle id');
     const sourceMappings = mappings.filter(m =>
       key(m[source.kind === 'kobo' ? col('SourceSheet') : col('AppSourceSheet')]) === key(source.name)
     );
@@ -1522,8 +1526,12 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
         }
         return '';
       };
-      if (key(get(source.kind === 'kobo'
-        ? ['1. Select your region','Select your region','Region'] : ['Region'])) !== key(region) ||
+      if (cycleColumn >= 0) {
+        const rowCycle = key(row[cycleColumn]).replace(/\s/g,'');
+        if (rowCycle && !['c1','cycle1','1'].includes(rowCycle)) return;
+      }
+      if (regionKey(get(source.kind === 'kobo'
+        ? ['1. Select your region','Select your region','Region'] : ['Region'])) !== regionKey(region) ||
           key(get(['LocalBoard','Local Board (Standardized)','Local Board'])) !== key(localBoard) ||
           key(get(['REC','REC (Standardized)'])) !== key(rec)) return;
       sourceMappings.forEach(m => {
@@ -1533,9 +1541,9 @@ function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeI
         if (!Number.isInteger(sourceColumn) || sourceColumn < 1 || sourceColumn > row.length) return;
         const score = row[sourceColumn - 1];
         if (score === '' || score === null || score === undefined || typeof score === 'boolean' || !Number.isFinite(Number(score))) return;
-        const stage = key(m[col('Assessment')]);
-        if (stage === 'pre' || stage === 'pre assessment') hasPre = true;
-        if (stage === 'post' || stage === 'post assessment') hasPost = true;
+        const stage = key(m[col('Assessment')]).replace(/\s+/g,'');
+        if (stage === 'pre' || stage === 'preassessment') hasPre = true;
+        if (stage === 'post' || stage === 'postassessment') hasPost = true;
       });
     });
   });

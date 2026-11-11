@@ -719,6 +719,8 @@ function getDashboardData(email) {
 
     const values = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
     const headers = values[0].map(cleanValue);
+    const rowCycleIndex = findIndex(headers, ['CycleID', 'Cycle ID']);
+    const rowAssessmentIndex = findIndex(headers, ['Assessment']);
     const sourceMappings = mappings.filter(m =>
       norm(source.kind === 'kobo' ? m.koboSheet : m.appSheet) === norm(source.name)
     );
@@ -744,8 +746,25 @@ function getDashboardData(email) {
       const sourceRecordID = cleanValue(getValue(row, headers, source.kind === 'kobo'
         ? ['_uuid', '_id', 'meta/rootUuid']
         : ['SubmissionID'])) || makeFallbackId(source.name, sourceRow, row, headers);
+      // Public app submissions carry their actual CycleID and Assessment in
+      // the source row. Honour these values instead of reclassifying every
+      // row using all static APP_Indicators mappings for the same columns.
+      const rowCycle = source.kind === 'app' && rowCycleIndex >= 0
+        ? cleanValue(row[rowCycleIndex]) : '';
+      const rowAssessment = source.kind === 'app' && rowAssessmentIndex >= 0
+        ? cleanValue(row[rowAssessmentIndex]) : '';
+      const cycleKey = value => {
+        const raw = norm(value).replace(/[\\s_-]+/g, '');
+        const match = raw.match(/^(?:cycle|c)?([12])$/i);
+        return match ? 'c' + match[1] : raw.toLowerCase();
+      };
+      const assessmentKey = value => norm(value).replace(/[\\s_-]+/g, '').toLowerCase();
+      const rowMappings = source.kind === 'app' && rowCycle && rowAssessment
+        ? sourceMappings.filter(m => cycleKey(m.cycle) === cycleKey(rowCycle) &&
+            assessmentKey(m.assessment) === assessmentKey(rowAssessment))
+        : sourceMappings;
 
-      sourceMappings.forEach(m => {
+      rowMappings.forEach(m => {
         const configuredColumn = source.kind === 'kobo' ? m.koboColumn : m.appColumn;
         if (!Number.isInteger(configuredColumn) || configuredColumn < 1 || configuredColumn > row.length) return;
         const rawScore = row[configuredColumn - 1];

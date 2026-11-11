@@ -1221,6 +1221,12 @@ const save = async (finishAssessment: boolean) => {
           <button type="button" className="secondary print-action" onClick={()=>window.print()}>Print / Save PDF</button>
         </div>
 
+        <div className="survey-print-meta">
+          <h3>Survey Details</h3>
+          <p><strong>Region:</strong> {displayGeo(v.region)||'Not selected'}　<strong>Local Board:</strong> {v.board||'Not selected'}　<strong>REC:</strong> {v.rec||'Not selected'}</p>
+          <p><strong>Child's Name:</strong> {v.childName||'Not entered'}　<strong>Gender:</strong> {v.gender||'Not selected'}</p>
+          <p><strong>Assessor:</strong> {v.designation||'Not entered'}　<strong>Cycle:</strong> {v.cycle||'Cycle 1'}{phase?<>　<strong>Assessment Round:</strong> {phase}</>:null}</p>
+        </div>
         <div className="survey-print-complete">
           <h2>Complete Student Survey — All Themes and Indicators</h2>
           <p><strong>Rating options:</strong> {rating3.join(' · ')}</p>
@@ -1242,7 +1248,7 @@ const save = async (finishAssessment: boolean) => {
           ))}
         </div>
 
-        <GeoFields refs={refs} value={v} onChange={update} />
+        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={update} /></div>
         <div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>{showRecSummary&&<RecSurveySummary records={records} participantType="Student" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}
         {entryStarted && <>
@@ -1748,7 +1754,14 @@ const save = async (finishAssessment: boolean) => {
           Complete the teacher survey. Rubric descriptions are shown with
           each rating level.
         </p>
-<div className="survey-print-complete">
+<div className="survey-print-meta">
+          <h3>Survey Details</h3>
+          <p><strong>Region:</strong> {displayGeo(v.region)||'Not selected'}　<strong>Local Board:</strong> {v.board||'Not selected'}　<strong>REC:</strong> {v.rec||'Not selected'}</p>
+          <p><strong>Teacher:</strong> {v.teacherName||'Not entered'}　<strong>Form completed by:</strong> {v.filler||'Not entered'}</p>
+          <p><strong>Position:</strong> {(v.positions||[]).join(', ')||'Not selected'}　<strong>Teaching experience:</strong> {v.years||'Not selected'}</p>
+          <p><strong>Training:</strong> {v.training||'Not selected'}　<strong>Cycle:</strong> {v.cycle||'Cycle 1'}{v.assessmentStage?<>　<strong>Assessment stage:</strong> {v.assessmentStage}</>:null}</p>
+        </div>
+        <div className="survey-print-complete">
           {(v.cycle || 'Cycle 1') === 'Cycle 1' ? <>
             <h2>Complete Teacher Survey — All Themes and Pre/Post Rubrics</h2>
             {(['T1','T2','T3','T4'] as const).map((theme) => (
@@ -1782,7 +1795,7 @@ const save = async (finishAssessment: boolean) => {
           </>}
         </div>
 
-        <GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} afterRec={<div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>} />
+        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} afterRec={<div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>} /></div>
 
         {showRecSummary&&<RecSurveySummary records={records} participantType="Teacher" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}

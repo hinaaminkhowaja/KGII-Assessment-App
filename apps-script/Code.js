@@ -712,6 +712,11 @@ function getDashboardData(email) {
     'SourceRecordID', 'ChildName', 'TeacherName'
   ];
   const records = [];
+  // Cache REC/theme completion checks for this dashboard request. Without this
+  // request-level cache, every imported Kobo Post row rereads all six source
+  // sheets for each theme, which can exceed Apps Script execution limits and
+  // leave the dashboard with no data response.
+  const post2ClassificationCache = Object.create(null);
 
   sourceDefinitions.forEach(source => {
     const sheet = ss.getSheetByName(source.name);
@@ -764,7 +769,6 @@ function getDashboardData(email) {
             assessmentKey(m.assessment) === assessmentKey(rowAssessment))
         : sourceMappings;
 
-      const post2ByTheme = {};
       const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Post Assessment'
         ? sourceMappings.map(m => {
             const isCycle1StudentPost = norm(m.participant).toLowerCase() === 'student' &&
@@ -772,10 +776,11 @@ function getDashboardData(email) {
               /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
             if (!isCycle1StudentPost) return m;
             const theme = cleanValue(m.theme);
-            if (!Object.prototype.hasOwnProperty.call(post2ByTheme, theme)) {
-              post2ByTheme[theme] = recThemeHasPreAndPost_('Student', region, localBoard, rec, theme);
+            const cacheKey = [region, localBoard, rec, theme].map(cleanValue).join('|').toLowerCase();
+            if (!Object.prototype.hasOwnProperty.call(post2ClassificationCache, cacheKey)) {
+              post2ClassificationCache[cacheKey] = recThemeHasPreAndPost_('Student', region, localBoard, rec, theme);
             }
-            return post2ByTheme[theme] ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2'}) : m;
+            return post2ClassificationCache[cacheKey] ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2'}) : m;
           })
         : sourceMappings;
 

@@ -752,8 +752,9 @@ function getDashboardData(email) {
     sourceData[source.name] = { values, headers: values[0].map(cleanValue) };
   });
 
+  // Keep numeric REC suffixes so Madaklast 2 and Madaklast 3 remain distinct.
   const geoKeyForPost2 = value => cleanValue(value).toLowerCase()
-    .replace(/[_-]+/g, ' ').replace(/\s+\d+$/, '').replace(/\s+/g, ' ').trim();
+    .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   const post2GeoThemeKey = (region, localBoard, rec, theme) =>
     [region, localBoard, rec, theme].map(geoKeyForPost2).join('|');
   const expectedPost2 = Object.create(null);
@@ -884,9 +885,19 @@ function getDashboardData(email) {
             const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
             // The new submission is a Cycle 2 Phase 2 PRE assessment,
             // not Post 2. RECs outside Cycle 1 Phase 1 remain Cycle 1 Phase 2.
-            return isCycle1Phase1
-              ? Object.assign({}, m, {cycle:'C2', assessment:'Pre', phase:'Phase 2'})
-              : Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
+            if (!isCycle1Phase1) {
+              return Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
+            }
+            // A repeat Pre for the same Cycle 1 Phase 1 REC + theme is Post 2
+            // only when that REC/theme already has a historical Cycle 1 Pre.
+            const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
+            const priorTheme = observedPost2[historyKey];
+            const hasPriorPre = !!(priorTheme && priorTheme.pre && priorTheme.pre.size);
+            return Object.assign({}, m, {
+              cycle:'C2',
+              assessment: hasPriorPre ? 'Post 2' : 'Pre',
+              phase:'Phase 2'
+            });
           })
         : sourceMappings;
 

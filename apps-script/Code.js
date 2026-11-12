@@ -716,6 +716,8 @@ function getDashboardData(email) {
   // REC allocation is authoritative for new student Pre submissions in the
   // 2026+ cycle. A REC in Cycle 1 Phase 1 moves new Pre submissions to
   // Cycle 2 Phase 2; every other allocated REC remains Cycle 1 Phase 2.
+  const phaseGeoKey = value => cleanValue(value).toLowerCase()
+    .replace(/[_-]+/g, ' ').replace(/\s+\d+$/, '').replace(/\s+/g, ' ').trim();
   const phaseWiseSheet = ss.getSheetByName('RECs_list_Phase_Wise');
   const phaseWiseAllocations = Object.create(null);
   if (phaseWiseSheet && phaseWiseSheet.getLastRow() > 1) {
@@ -731,7 +733,7 @@ function getDashboardData(email) {
       phaseValues.slice(1).forEach(row => {
         const status = statusCol >= 0 ? norm(row[statusCol]) : '';
         if (status && !['active','yes','true','1'].includes(status)) return;
-        const key = [row[regionCol], row[boardCol], row[recCol]].map(geoKeyForPost2).join('|');
+        const key = [row[regionCol], row[boardCol], row[recCol]].map(phaseGeoKey).join('|');
         if (key.replace(/\|/g, '')) phaseWiseAllocations[key] = cleanValue(row[c1PhaseCol]);
       });
     }
@@ -875,7 +877,7 @@ function getDashboardData(email) {
               /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
               /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
             if (!isStudentPre || !year || Number(year) < 2026) return m;
-            const allocationKey = [region, localBoard, rec].map(geoKeyForPost2).join('|');
+            const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
             const c1Phase = norm(phaseWiseAllocations[allocationKey]);
             const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
             return isCycle1Phase1

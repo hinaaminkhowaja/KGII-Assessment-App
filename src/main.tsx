@@ -23,9 +23,9 @@ function cycleLabel(value:string){
   return match?`Cycle ${match[1]}`:raw;
 }
 function phaseLabel(value:any){
-  const raw=norm(value).toLowerCase().replace(/[^a-z0-9]/g,'');
-  if(raw==='1'||raw==='phase1')return 'Phase 1';
-  if(raw==='2'||raw==='phase2')return 'Phase 2';
+  const raw=norm(value).toLowerCase();
+  if(raw==='1'||/\bphase\s*[-_ ]?1\b/.test(raw))return 'Phase 1';
+  if(raw==='2'||/\bphase\s*[-_ ]?2\b/.test(raw))return 'Phase 2';
   return '';
 }
 function displayGeo(value:string){
@@ -575,7 +575,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherPreTotals=aggregate(teacherPreRows);
   const teacherPostTotals=aggregate(teacherPostRows);
   const countSourceRows=filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
-  const allocationMap=new Map(targetRecs.map((t:any)=>[[geoNorm(t.Region),geoNorm(t.LocalBoard),geoNorm(t.REC)].join('|'),t]));
+  const allocationMap=new Map(targetRecs.filter((t:any)=>{const status=norm(t.Status).toLowerCase();return !status||['active','yes','true','1'].includes(status)}).map((t:any)=>[[geoNorm(t.Region),geoNorm(t.LocalBoard),geoNorm(t.REC)].join('|'),t]));
   const allocationFor=(r:Rec)=>{const target=allocationMap.get([geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'));if(!target)return '';return phaseLabel(cycleLabel(r.CycleID)==='Cycle 2'?target.Cycle2Phase:target.Cycle1Phase)};
   const phaseRows=(phase:string)=>countSourceRows.filter(r=>allocationFor(r)===phase);
   const uniqueRecCount=(items:Rec[])=>new Set(items.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;

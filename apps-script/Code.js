@@ -874,32 +874,42 @@ function getDashboardData(email) {
             assessmentKey(m.assessment) === assessmentKey(rowAssessment))
         : sourceMappings;
 
-      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Pre Assessment'
+      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Post Assessment'
         ? sourceMappings.map(m => {
-            const isStudentPre = norm(m.participant).toLowerCase() === 'student' &&
+            const isStudentPost = norm(m.participant).toLowerCase() === 'student' &&
               /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
-              /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
-            if (!isStudentPre || !year || Number(year) < 2026) return m;
+              /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
+            if (!isStudentPost || !year || Number(year) < 2026) return m;
             const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
             const c1Phase = norm(phaseWiseAllocations[allocationKey]);
-            const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
-            // The new submission is a Cycle 2 Phase 2 PRE assessment,
-            // not Post 2. RECs outside Cycle 1 Phase 1 remain Cycle 1 Phase 2.
-            if (!isCycle1Phase1) {
-              return Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
-            }
-            // A repeat Pre for the same Cycle 1 Phase 1 REC + theme is Post 2
-            // only when that REC/theme already has a historical Cycle 1 Pre.
+            if (!/^phase\s*1$|^1$/i.test(c1Phase)) return m;
             const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-            const priorTheme = observedPost2[historyKey];
-            const hasPriorPre = !!(priorTheme && priorTheme.pre && priorTheme.pre.size);
-            return Object.assign({}, m, {
-              cycle:'C2',
-              assessment: hasPriorPre ? 'Post 2' : 'Pre',
-              phase:'Phase 2'
-            });
+            if (!post2CompletedByTheme[historyKey]) return m;
+            // Kobo follow-up rows imported into Students Post Assessment become Cycle 2 Post 2.
+            return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:'Phase 1'});
           })
-        : sourceMappings;
+        : source.kind === 'kobo' && source.name === 'Students Pre Assessment'
+          ? sourceMappings.map(m => {
+              const isStudentPre = norm(m.participant).toLowerCase() === 'student' &&
+                /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
+                /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
+              if (!isStudentPre || !year || Number(year) < 2026) return m;
+              const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
+              const c1Phase = norm(phaseWiseAllocations[allocationKey]);
+              const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
+              if (!isCycle1Phase1) {
+                return Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
+              }
+              const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
+              const priorTheme = observedPost2[historyKey];
+              const hasPriorPre = !!(priorTheme && priorTheme.pre && priorTheme.pre.size);
+              return Object.assign({}, m, {
+                cycle:'C2',
+                assessment: hasPriorPre ? 'Post 2' : 'Pre',
+                phase: hasPriorPre ? 'Phase 1' : 'Phase 2'
+              });
+            })
+          : sourceMappings;
 
       effectiveMappings.forEach(m => {
         const configuredColumn = source.kind === 'kobo' ? m.koboColumn : m.appColumn;

@@ -471,20 +471,28 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ? aggregate(stageRows.filter(r=>r.ParticipantType==='Teacher')).p*48/100
     : scoreOutOf(stageRows,'Teacher',4);
   const preScore=cycle2
-    ? (includeTeacher?teacherStageScore(teacherPreRows):0)
+    ? phase2Cycle2
+      ? (includeStudent?aggregate(phase2StudentPreRows).p*87/100:0)+(includeTeacher?phase2TeacherPreTotals.p*16/100:0)
+      : (includeTeacher?teacherStageScore(teacherPreRows):0)
     : ratingSelected
       ? (f.studentRating?studentStageScore(preRows):0)+(f.teacherRating?teacherStageScore(preRows):0)
       : teacherOnly?scoreModel(preRows).total:prePct;
   const postScore=cycle2
-    ? (includeTeacher?teacherStageScore(teacherPostRows):0)
+    ? phase2Cycle2
+      ? (includeTeacher?phase2TeacherPostTotals.p*16/100:0)
+      : (includeTeacher?teacherStageScore(teacherPostRows):0)
     : ratingSelected
       ? (f.studentRating?studentStageScore(postRows):0)+(f.teacherRating?teacherStageScore(postRows):0)
       : teacherOnly?scoreModel(postRows).total:postPct;
   const preMax=cycle2
-    ? (includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Pre'))?48:0)
+    ? phase2Cycle2
+      ? (includeStudent?87:0)+(includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Pre'))?16:0)
+      : (includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Pre'))?48:0)
     : ratingSelected?(preSelected?selectedRatingMax:0):16;
   const postMax=cycle2
-    ? (includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Post'))?48:0)
+    ? phase2Cycle2
+      ? (includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Post'))?16:0)
+      : (includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Post'))?48:0)
     : ratingSelected?(postSelected?selectedRatingMax:0):16;
   const phase3Max=cycle2&&includeStudent&&phase3StudentRows.length?87:0;
   const cycle2Score=phase3Score+preScore+postScore;

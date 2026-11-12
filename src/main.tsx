@@ -565,7 +565,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const uniqueStudentCount=(rows:Rec[])=>{
     const byRec=new Map<string,Set<string>>();
     rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&r.Region&&r.LocalBoard&&r.REC).forEach(r=>{
-      const id=(norm(r.SourceRecordID)||norm(r.ChildName)).toLocaleLowerCase();
+      // Count a child once per REC, regardless of how many indicator rows
+      // or source-record IDs the survey generated.
+      const id=norm(r.ChildName).toLocaleLowerCase();
       if(!id)return;
       const key=recKey(r), set=byRec.get(key)||new Set<string>();
       set.add(id);byRec.set(key,set);

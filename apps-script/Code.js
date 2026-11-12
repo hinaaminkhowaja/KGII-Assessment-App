@@ -713,6 +713,30 @@ function getDashboardData(email) {
   ];
   const records = [];
 
+  // REC allocation is authoritative for new student Pre submissions in the
+  // 2026+ cycle. A REC in Cycle 1 Phase 1 moves new Pre submissions to
+  // Cycle 2 Phase 2; every other allocated REC remains Cycle 1 Phase 2.
+  const phaseWiseSheet = ss.getSheetByName('RECs_list_Phase_Wise');
+  const phaseWiseAllocations = Object.create(null);
+  if (phaseWiseSheet && phaseWiseSheet.getLastRow() > 1) {
+    const phaseValues = phaseWiseSheet.getDataRange().getValues();
+    const phaseHeaders = phaseValues[0].map(cleanValue);
+    const phaseCol = candidates => findIndex(phaseHeaders, candidates);
+    const regionCol = phaseCol(['Region']);
+    const boardCol = phaseCol(['LocalBoard', 'Local Board']);
+    const recCol = phaseCol(['REC']);
+    const c1PhaseCol = phaseCol(['Cycle 1 Phase', 'Cycle1Phase', 'Cycle 1 Phase (REC)']);
+    const statusCol = phaseCol(['Status']);
+    if ([regionCol, boardCol, recCol, c1PhaseCol].every(i => i >= 0)) {
+      phaseValues.slice(1).forEach(row => {
+        const status = statusCol >= 0 ? norm(row[statusCol]) : '';
+        if (status && !['active','yes','true','1'].includes(status)) return;
+        const key = [row[regionCol], row[boardCol], row[recCol]].map(geoKeyForPost2).join('|');
+        if (key.replace(/\|/g, '')) phaseWiseAllocations[key] = cleanValue(row[c1PhaseCol]);
+      });
+    }
+  }
+
   // Read each original source sheet exactly once for this dashboard request.
   // Post 2 completion is indexed in memory below; it must never trigger a
   // second full read of all six sheets for every REC/theme.
@@ -845,15 +869,18 @@ function getDashboardData(email) {
             assessmentKey(m.assessment) === assessmentKey(rowAssessment))
         : sourceMappings;
 
-      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Post Assessment'
+      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Pre Assessment'
         ? sourceMappings.map(m => {
-            const isCycle1StudentPost = norm(m.participant).toLowerCase() === 'student' &&
+            const isStudentPre = norm(m.participant).toLowerCase() === 'student' &&
               /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
-              /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
-            if (!isCycle1StudentPost) return m;
-            const theme = cleanValue(m.theme);
-            const cacheKey = post2GeoThemeKey(region, localBoard, rec, theme);
-            return post2CompletedByTheme[cacheKey] ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2'}) : m;
+              /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
+            if (!isStudentPre || !year || Number(year) < 2026) return m;
+            const allocationKey = [region, localBoard, rec].map(geoKeyForPost2).join('|');
+            const c1Phase = norm(phaseWiseAllocations[allocationKey]);
+            const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
+            return isCycle1Phase1
+              ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:'Phase 2'})
+              : Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
           })
         : sourceMappings;
 

@@ -576,6 +576,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const recPhase2PreRows=recPreRows.filter(r=>norm(r.Phase).toLowerCase()==='phase 2');
   const recPhase2PostRows=recPostRows.filter(r=>norm(r.Phase).toLowerCase()==='phase 2');
   const cards=[
+    ['Overall Score',`${score.toFixed(1)} / ${totalMax.toFixed(1)}`],
+    ['Performance',fmt(overallPerformance)],
+    ['Status',statusFor(overallPerformance)],
     ['No. of Students',`${preStudents} / ${postStudents} / ${uniqueStudentCount(studentPost2Rows)}`],
     ['No. of Teachers',`${uniqueTeacherCount(teacherPreRows)} / ${uniqueTeacherCount(teacherPostRows)} / ${uniqueTeacherCount(teacherSkillPreRows)} / ${uniqueTeacherCount(teacherSkillPostRows)}`],
     ['No. of RECs Phase 1',`${uniqueRecCount(recPhase1PreRows)} / ${uniqueRecCount(recPhase1PostRows)}`],

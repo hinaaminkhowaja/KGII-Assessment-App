@@ -574,7 +574,6 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Teachers Overall',fmt(teacherPct)],
     ['Theme Overall',fmt(overallPerformance)],
     ['Dimension Overall',fmt(overallPerformance)],
-,
     ['Student Post 2 Overall',fmt(studentPost2Totals.p)],
     ['Teacher Skill Pre Overall',fmt(teacherSkillPreTotals.p)],
     ['Teacher Skill Post Overall',fmt(teacherSkillPostTotals.p)],

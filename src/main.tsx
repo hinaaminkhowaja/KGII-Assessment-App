@@ -556,6 +556,18 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const preRecs=new Set(recPreRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
   const postRecs=new Set(recPostRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
 
+  const uniqueStudentCount=(rows:Rec[])=>{
+    const byRec=new Map<string,Set<string>>();
+    rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&r.Region&&r.LocalBoard&&r.REC).forEach(r=>{
+      const id=(norm(r.SourceRecordID)||norm(r.ChildName)).toLocaleLowerCase();
+      if(!id)return;
+      const key=recKey(r), set=byRec.get(key)||new Set<string>();
+      set.add(id);byRec.set(key,set);
+    });
+    let total=0;byRec.forEach(children=>total+=children.size);return total;
+  };
+  const teacherPreTotals=aggregate(teacherPreRows);
+  const teacherPostTotals=aggregate(teacherPostRows);
   const uniqueRecCount=(rows:Rec[])=>new Set(rows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
   const uniqueTeacherCount=(rows:Rec[])=>new Set(rows.filter(r=>r.TeacherName&&r.Region&&r.LocalBoard&&r.REC).map(r=>[recKey(r),norm(r.TeacherName).toLocaleLowerCase()].join('||'))).size;
   const post2RecCount=uniqueRecCount(studentPost2Rows);

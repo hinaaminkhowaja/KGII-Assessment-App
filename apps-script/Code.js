@@ -712,18 +712,102 @@ function getDashboardData(email) {
     'SourceRecordID', 'ChildName', 'TeacherName'
   ];
   const records = [];
-  // Cache REC/theme completion checks for this dashboard request. Without this
-  // request-level cache, every imported Kobo Post row rereads all six source
-  // sheets for each theme, which can exceed Apps Script execution limits and
-  // leave the dashboard with no data response.
-  const post2ClassificationCache = Object.create(null);
 
+  // Read each original source sheet exactly once for this dashboard request.
+  // Post 2 completion is indexed in memory below; it must never trigger a
+  // second full read of all six sheets for every REC/theme.
+  const sourceData = Object.create(null);
   sourceDefinitions.forEach(source => {
     const sheet = ss.getSheetByName(source.name);
     if (!sheet || sheet.getLastRow() < 2 || sheet.getLastColumn() < 1) return;
-
     const values = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
-    const headers = values[0].map(cleanValue);
+    sourceData[source.name] = { values, headers: values[0].map(cleanValue) };
+  });
+
+  const geoKeyForPost2 = value => cleanValue(value).toLowerCase()
+    .replace(/[_-]+/g, ' ').replace(/\\s+\\d+$/, '').replace(/\\s+/g, ' ').trim();
+  const post2GeoThemeKey = (region, localBoard, rec, theme) =>
+    [region, localBoard, rec, theme].map(geoKeyForPost2).join('|');
+  const expectedPost2 = Object.create(null);
+  const observedPost2 = Object.create(null);
+  const isCycle1 = value => {
+    const k = norm(value).replace(/[\\s_-]+/g, '');
+    return !k || k === 'c1' || k === 'cycle1' || k === '1';
+  };
+  const stageKey = value => norm(value).replace(/[\\s_-]+/g, '');
+  const studentCycle1MappingsBySource = Object.create(null);
+
+  mappings.forEach(m => {
+    if (norm(m.participant) !== 'student' || !isCycle1(m.cycle)) return;
+    const theme = cleanValue(m.theme);
+    if (!theme) return;
+    const stage = stageKey(m.assessment);
+    if (stage !== 'pre' && stage !== 'preassessment' && stage !== 'post' && stage !== 'postassessment') return;
+    const bucket = expectedPost2[theme] || (expectedPost2[theme] = { pre: new Set(), post: new Set() });
+    (stage === 'pre' || stage === 'preassessment' ? bucket.pre : bucket.post).add(m.indicator);
+    const sheetName = m.koboSheet;
+    if (!studentCycle1MappingsBySource[sheetName]) studentCycle1MappingsBySource[sheetName] = [];
+    studentCycle1MappingsBySource[sheetName].push(m);
+    const appSheetName = m.appSheet;
+    if (appSheetName && appSheetName !== sheetName) {
+      if (!studentCycle1MappingsBySource[appSheetName]) studentCycle1MappingsBySource[appSheetName] = [];
+      studentCycle1MappingsBySource[appSheetName].push(m);
+    }
+  });
+
+  // Build REC + theme observed-indicator sets in one in-memory pass over the
+  // six already-loaded sheets. This keeps Post 2 classification linear in the
+  // number of source rows rather than repeatedly scanning spreadsheets.
+  sourceDefinitions.forEach(source => {
+    const data = sourceData[source.name];
+    if (!data) return;
+    const { values, headers } = data;
+    const rowMappings = mappings.filter(m =>
+      norm(source.kind === 'kobo' ? m.koboSheet : m.appSheet) === norm(source.name) &&
+      norm(m.participant) === 'student' && isCycle1(m.cycle) &&
+      ['pre','preassessment','post','postassessment'].includes(stageKey(m.assessment))
+    );
+    if (!rowMappings.length) return;
+    const getRowValue = (row, candidates) => getValue(row, headers, candidates);
+    values.slice(1).forEach(row => {
+      if (!row.some(v => v !== '' && v !== null && v !== undefined)) return;
+      const region = getRowValue(row, source.kind === 'kobo'
+        ? ['1. Select your region','Select your region','Region'] : ['Region']);
+      const localBoard = getRowValue(row, ['LocalBoard','Local Board (Standardized)','Local Board']);
+      const rec = getRowValue(row, ['REC','REC (Standardized)']);
+      if (!region || !localBoard || !rec) return;
+      const rowCycleIndex = findIndex(headers, ['CycleID','Cycle ID']);
+      if (rowCycleIndex >= 0 && !isCycle1(row[rowCycleIndex])) return;
+      rowMappings.forEach(m => {
+        const column = source.kind === 'kobo' ? m.koboColumn : m.appColumn;
+        if (!Number.isInteger(column) || column < 1 || column > row.length) return;
+        const raw = row[column - 1];
+        if (raw === '' || raw === null || raw === undefined || typeof raw === 'boolean') return;
+        const score = Number(raw);
+        if (!Number.isFinite(score) || score < 0 || score > m.maxScore) return;
+        const key = post2GeoThemeKey(region, localBoard, rec, m.theme);
+        const bucket = observedPost2[key] || (observedPost2[key] = { pre: new Set(), post: new Set() });
+        const stage = stageKey(m.assessment);
+        (stage === 'pre' || stage === 'preassessment' ? bucket.pre : bucket.post).add(m.indicator);
+      });
+    });
+  });
+
+  const post2CompletedByTheme = Object.create(null);
+  Object.keys(observedPost2).forEach(key => {
+    const bucket = observedPost2[key];
+    const theme = key.split('|').pop();
+    const expected = expectedPost2[theme];
+    if (!expected || !expected.pre.size || !expected.post.size) return;
+    const complete = (needed, found) => Array.from(needed).every(id => found.has(id));
+    post2CompletedByTheme[key] = complete(expected.pre, bucket.pre) && complete(expected.post, bucket.post);
+  });
+
+  sourceDefinitions.forEach(source => {
+    const data = sourceData[source.name];
+    if (!data) return;
+    const values = data.values;
+    const headers = data.headers;
     const rowCycleIndex = findIndex(headers, ['CycleID', 'Cycle ID']);
     const rowAssessmentIndex = findIndex(headers, ['Assessment']);
     const sourceMappings = mappings.filter(m =>
@@ -776,11 +860,8 @@ function getDashboardData(email) {
               /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
             if (!isCycle1StudentPost) return m;
             const theme = cleanValue(m.theme);
-            const cacheKey = [region, localBoard, rec, theme].map(cleanValue).join('|').toLowerCase();
-            if (!Object.prototype.hasOwnProperty.call(post2ClassificationCache, cacheKey)) {
-              post2ClassificationCache[cacheKey] = recThemeHasPreAndPost_('Student', region, localBoard, rec, theme);
-            }
-            return post2ClassificationCache[cacheKey] ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2'}) : m;
+            const cacheKey = post2GeoThemeKey(region, localBoard, rec, theme);
+            return post2CompletedByTheme[cacheKey] ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2'}) : m;
           })
         : sourceMappings;
 

@@ -453,9 +453,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const phase3Score=cycle2?aggregate(phase3StudentRows).p*87/100:0;
   const phase1Cycle2=cycle2&&/^phase\s*1$/i.test(norm(f.phase));
   const phase2Cycle2=cycle2&&/^phase\s*2$/i.test(norm(f.phase));
-  const studentPost2Rows=phase1Cycle2?allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment)):[];
+  const studentPost2Rows=allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment));
   const studentPost2Totals=aggregate(studentPost2Rows);
-  const teacherSkillRows=phase1Cycle2?allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID))):[];
+  const teacherSkillRows=allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID)));
   const teacherSkillPreRows=teacherSkillRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const teacherSkillPostRows=teacherSkillRows.filter(r=>assessmentIs(r.Assessment,'Post'));
   const phase2StudentPreRows=phase2Cycle2?allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIs(r.Assessment,'Pre')):[];

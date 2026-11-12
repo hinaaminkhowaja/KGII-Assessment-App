@@ -764,7 +764,22 @@ function getDashboardData(email) {
             assessmentKey(m.assessment) === assessmentKey(rowAssessment))
         : sourceMappings;
 
-      rowMappings.forEach(m => {
+      const post2ByTheme = {};
+      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Post Assessment'
+        ? sourceMappings.map(m => {
+            const isCycle1StudentPost = norm(m.participant).toLowerCase() === 'student' &&
+              /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
+              /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
+            if (!isCycle1StudentPost) return m;
+            const theme = cleanValue(m.theme);
+            if (!Object.prototype.hasOwnProperty.call(post2ByTheme, theme)) {
+              post2ByTheme[theme] = recThemeHasPreAndPost_('Student', region, localBoard, rec, theme);
+            }
+            return post2ByTheme[theme] ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2'}) : m;
+          })
+        : sourceMappings;
+
+      effectiveMappings.forEach(m => {
         const configuredColumn = source.kind === 'kobo' ? m.koboColumn : m.appColumn;
         if (!Number.isInteger(configuredColumn) || configuredColumn < 1 || configuredColumn > row.length) return;
         const rawScore = row[configuredColumn - 1];

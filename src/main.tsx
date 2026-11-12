@@ -556,43 +556,36 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const preRecs=new Set(recPreRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
   const postRecs=new Set(recPostRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
 
+  const uniqueRecCount=(rows:Rec[])=>new Set(rows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
+  const uniqueTeacherCount=(rows:Rec[])=>new Set(rows.filter(r=>r.TeacherName&&r.Region&&r.LocalBoard&&r.REC).map(r=>[recKey(r),norm(r.TeacherName).toLocaleLowerCase()].join('||'))).size;
+  const post2RecCount=uniqueRecCount(studentPost2Rows);
+  const recPhase1PreRows=recPreRows.filter(r=>norm(r.Phase).toLowerCase()==='phase 1');
+  const recPhase1PostRows=recPostRows.filter(r=>norm(r.Phase).toLowerCase()==='phase 1');
+  const recPhase2PreRows=recPreRows.filter(r=>norm(r.Phase).toLowerCase()==='phase 2');
+  const recPhase2PostRows=recPostRows.filter(r=>norm(r.Phase).toLowerCase()==='phase 2');
   const cards=[
-    ['Overall Score',ratingSelected||cycle2?(score.toFixed(1)+' / '+totalMax.toFixed(1)):teacherOnly?((preScore+postScore).toFixed(1)+' / 32'):(score.toFixed(1)+' / '+totalMax.toFixed(1))],
-    ['Performance',fmt(overallPerformance)],
-    ['Status',statusFor(overallPerformance)],
-    ['Students Pre',String(preStudents)],
-    ['Students Post',String(postStudents)],
-    ['Students Post 2',String(new Set(studentPost2Rows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(r=>[r.Region,r.LocalBoard,r.REC].join('||'))).size)],
-    ['Teachers Pre',String(new Set(teacherPreRows.filter(r=>r.TeacherName).map(r=>[r.Region,r.LocalBoard,r.REC,norm(r.TeacherName).toLowerCase()].join('||'))).size)],
-    ['Teachers Post',String(new Set(teacherPostRows.filter(r=>r.TeacherName).map(r=>[r.Region,r.LocalBoard,r.REC,norm(r.TeacherName).toLowerCase()].join('||'))).size)],
-    ['Teachers Skill Pre',String(new Set(teacherSkillPreRows.filter(r=>r.TeacherName).map(r=>[r.Region,r.LocalBoard,r.REC,norm(r.TeacherName).toLowerCase()].join('||'))).size)],
-    ['Teachers Skill Post',String(new Set(teacherSkillPostRows.filter(r=>r.TeacherName).map(r=>[r.Region,r.LocalBoard,r.REC,norm(r.TeacherName).toLowerCase()].join('||'))).size)],
-    ['RECs Pre',String(preRecs)],
-    ['RECs Post',String(postRecs)],
-    ['RECs Post 2',String(new Set(studentPost2Rows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(r=>[r.Region,r.LocalBoard,r.REC].join('||'))).size)],
+    ['No. of Students',`${preStudents} / ${postStudents} / ${uniqueStudentCount(studentPost2Rows)}`],
+    ['No. of Teachers',`${uniqueTeacherCount(teacherPreRows)} / ${uniqueTeacherCount(teacherPostRows)} / ${uniqueTeacherCount(teacherSkillPreRows)} / ${uniqueTeacherCount(teacherSkillPostRows)}`],
+    ['No. of RECs Phase 1',`${uniqueRecCount(recPhase1PreRows)} / ${uniqueRecCount(recPhase1PostRows)}`],
+    ['No. of RECs Phase 2',`${uniqueRecCount(recPhase2PreRows)} / ${uniqueRecCount(recPhase2PostRows)}`],
     ['Students Overall',fmt(studentPct)],
     ['Teachers Overall',fmt(teacherPct)],
     ['Theme Overall',fmt(overallPerformance)],
     ['Dimension Overall',fmt(overallPerformance)],
+    ['Student Pre Overall',fmt(prePct)],
+    ['Student Post Overall',fmt(postPct)],
     ['Student Post 2 Overall',fmt(studentPost2Totals.p)],
+    ['Teacher Content Pre Overall',fmt(teacherPreTotals.p)],
+    ['Teacher Content Post Overall',fmt(teacherPostTotals.p)],
     ['Teacher Skill Pre Overall',fmt(teacherSkillPreTotals.p)],
-    ['Teacher Skill Post Overall',fmt(teacherSkillPostTotals.p)],
-    ...(phase2Cycle2?[
-      ['Student Pre Overall',phase2StudentPreTotals.max?phase2StudentPreTotals.score.toFixed(1)+' / '+phase2StudentPreTotals.max.toFixed(1):'—'],
-      ['Teacher Content Pre Overall',phase2TeacherPreTotals.max?phase2TeacherPreTotals.score.toFixed(1)+' / '+phase2TeacherPreTotals.max.toFixed(1):'—'],
-      ['Teacher Content Post Overall',phase2TeacherPostTotals.max?phase2TeacherPostTotals.score.toFixed(1)+' / '+phase2TeacherPostTotals.max.toFixed(1):'—']
-    ]:[]),
-    ['Pre Overall',cycle2?'—':ratingSelected?(preMax?preScore.toFixed(1)+' / '+preMax.toFixed(1):'—'):teacherOnly?(preScore.toFixed(1)+' / 16'):fmt(prePct)],
-    ['Post Overall',cycle2?'—':ratingSelected?(postMax?postScore.toFixed(1)+' / '+postMax.toFixed(1):'—'):teacherOnly?(postScore.toFixed(1)+' / 16'):fmt(postPct)]
+    ['Teacher Skill Post Overall',fmt(teacherSkillPostTotals.p)]
   ];
   const hiddenByRating=f.studentRating&&!f.teacherRating
-    ? ['No. of Teachers (Unique)','Teachers Overall',...(cycle2?['Pre Overall','Post Overall']:[])]
+    ? ['No. of Teachers']
     : f.teacherRating&&!f.studentRating
-      ? ['No. of Students','Students Overall',...(cycle2?['Post 2 Overall']:[])]
+      ? ['No. of Students']
       : [];
-  const visibleCards=teacherOnly
-    ? cards.filter(([label])=>!['No. of Students','No. of Teachers (Unique)','Students Overall','Teachers Overall','Theme Overall','Dimension Overall','Student Post 2 Overall'].includes(label))
-    : cards.filter(([label])=>!hiddenByRating.includes(String(label)));
+  const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label)));
    const phaseFieldForExpected=cycleLabel(f.cycle||'Cycle 1')==='Cycle 2'?'Cycle2Phase':'Cycle1Phase';
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&!!norm(r[phaseFieldForExpected])&&(!f.phase||geoNorm(r[phaseFieldForExpected])===geoNorm(f.phase))&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
   const themeCoverage = ['T1','T2','T3','T4'].map(theme => {

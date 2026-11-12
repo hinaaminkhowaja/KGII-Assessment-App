@@ -575,7 +575,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherPreTotals=aggregate(teacherPreRows);
   const teacherPostTotals=aggregate(teacherPostRows);
   const countSourceRows=filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
-  const allocationFor=(r:Rec)=>{const target=targetRecs.find((t:any)=>[geoNorm(t.Region),geoNorm(t.LocalBoard),geoNorm(t.REC)].join('|')===recKey(r));if(!target)return '';return phaseLabel(cycleLabel(r.CycleID)==='Cycle 2'?target.Cycle2Phase:target.Cycle1Phase)};
+  const allocationMap=new Map(targetRecs.map((t:any)=>[[geoNorm(t.Region),geoNorm(t.LocalBoard),geoNorm(t.REC)].join('|'),t]));
+  const allocationFor=(r:Rec)=>{const target=allocationMap.get([geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'));if(!target)return '';return phaseLabel(cycleLabel(r.CycleID)==='Cycle 2'?target.Cycle2Phase:target.Cycle1Phase)};
   const phaseRows=(phase:string)=>countSourceRows.filter(r=>allocationFor(r)===phase);
   const uniqueRecCount=(items:Rec[])=>new Set(items.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
   const uniqueTeacherCount=(items:Rec[])=>new Set(items.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&r.TeacherName&&r.Region&&r.LocalBoard&&r.REC).map(r=>[recKey(r),norm(r.TeacherName).toLocaleLowerCase()].join('||'))).size;

@@ -716,8 +716,10 @@ function getDashboardData(email) {
   // REC allocation is authoritative for new student Pre submissions in the
   // 2026+ cycle. A REC in Cycle 1 Phase 1 moves new Pre submissions to
   // Cycle 2 Phase 2; every other allocated REC remains Cycle 1 Phase 2.
+  // Preserve numeric suffixes in REC names (e.g. "Madaklast 3") so
+  // similarly named RECs never inherit another REC's phase allocation.
   const phaseGeoKey = value => cleanValue(value).toLowerCase()
-    .replace(/[_-]+/g, ' ').replace(/\s+\d+$/, '').replace(/\s+/g, ' ').trim();
+    .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   const phaseWiseSheet = ss.getSheetByName('RECs_list_Phase_Wise');
   const phaseWiseAllocations = Object.create(null);
   if (phaseWiseSheet && phaseWiseSheet.getLastRow() > 1) {
@@ -871,30 +873,22 @@ function getDashboardData(email) {
             assessmentKey(m.assessment) === assessmentKey(rowAssessment))
         : sourceMappings;
 
-      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Post Assessment'
+      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Pre Assessment'
         ? sourceMappings.map(m => {
-            const isCycle1StudentPost = norm(m.participant).toLowerCase() === 'student' &&
+            const isStudentPre = norm(m.participant).toLowerCase() === 'student' &&
               /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
-              /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
-            if (!isCycle1StudentPost) return m;
-            const cacheKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-            return post2CompletedByTheme[cacheKey]
-              ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2'}) : m;
+              /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
+            if (!isStudentPre || !year || Number(year) < 2026) return m;
+            const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
+            const c1Phase = norm(phaseWiseAllocations[allocationKey]);
+            const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
+            // The new submission is a Cycle 2 Phase 2 PRE assessment,
+            // not Post 2. RECs outside Cycle 1 Phase 1 remain Cycle 1 Phase 2.
+            return isCycle1Phase1
+              ? Object.assign({}, m, {cycle:'C2', assessment:'Pre', phase:'Phase 2'})
+              : Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
           })
-        : source.kind === 'kobo' && source.name === 'Students Pre Assessment'
-          ? sourceMappings.map(m => {
-              const isStudentPre = norm(m.participant).toLowerCase() === 'student' &&
-                /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
-                /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
-              if (!isStudentPre || !year || Number(year) < 2026) return m;
-              const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
-              const c1Phase = norm(phaseWiseAllocations[allocationKey]);
-              const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
-              return isCycle1Phase1
-                ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:'Phase 2'})
-                : Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
-            })
-          : sourceMappings;
+        : sourceMappings;
 
       effectiveMappings.forEach(m => {
         const configuredColumn = source.kind === 'kobo' ? m.koboColumn : m.appColumn;

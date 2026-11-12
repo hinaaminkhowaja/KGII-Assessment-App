@@ -725,17 +725,16 @@ function getDashboardData(email) {
   });
 
   const geoKeyForPost2 = value => cleanValue(value).toLowerCase()
-    .replace(/[_-]+/g, ' ').replace(/\\s+\\d+$/, '').replace(/\\s+/g, ' ').trim();
+    .replace(/[_-]+/g, ' ').replace(/\s+\d+$/, '').replace(/\s+/g, ' ').trim();
   const post2GeoThemeKey = (region, localBoard, rec, theme) =>
     [region, localBoard, rec, theme].map(geoKeyForPost2).join('|');
   const expectedPost2 = Object.create(null);
   const observedPost2 = Object.create(null);
   const isCycle1 = value => {
-    const k = norm(value).replace(/[\\s_-]+/g, '');
+    const k = norm(value).replace(/[\s_-]+/g, '');
     return !k || k === 'c1' || k === 'cycle1' || k === '1';
   };
   const stageKey = value => norm(value).replace(/[\\s_-]+/g, '');
-  const studentCycle1MappingsBySource = Object.create(null);
 
   mappings.forEach(m => {
     if (norm(m.participant) !== 'student' || !isCycle1(m.cycle)) return;
@@ -743,16 +742,9 @@ function getDashboardData(email) {
     if (!theme) return;
     const stage = stageKey(m.assessment);
     if (stage !== 'pre' && stage !== 'preassessment' && stage !== 'post' && stage !== 'postassessment') return;
-    const bucket = expectedPost2[theme] || (expectedPost2[theme] = { pre: new Set(), post: new Set() });
+    const themeKey = geoKeyForPost2(theme);
+    const bucket = expectedPost2[themeKey] || (expectedPost2[themeKey] = { pre: new Set(), post: new Set() });
     (stage === 'pre' || stage === 'preassessment' ? bucket.pre : bucket.post).add(m.indicator);
-    const sheetName = m.koboSheet;
-    if (!studentCycle1MappingsBySource[sheetName]) studentCycle1MappingsBySource[sheetName] = [];
-    studentCycle1MappingsBySource[sheetName].push(m);
-    const appSheetName = m.appSheet;
-    if (appSheetName && appSheetName !== sheetName) {
-      if (!studentCycle1MappingsBySource[appSheetName]) studentCycle1MappingsBySource[appSheetName] = [];
-      studentCycle1MappingsBySource[appSheetName].push(m);
-    }
   });
 
   // Build REC + theme observed-indicator sets in one in-memory pass over the

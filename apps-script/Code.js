@@ -734,7 +734,7 @@ function getDashboardData(email) {
     const k = norm(value).replace(/[\s_-]+/g, '');
     return !k || k === 'c1' || k === 'cycle1' || k === '1';
   };
-  const stageKey = value => norm(value).replace(/[\\s_-]+/g, '');
+  const stageKey = value => norm(value).replace(/[\s_-]+/g, '');
 
   mappings.forEach(m => {
     if (norm(m.participant) !== 'student' || !isCycle1(m.cycle)) return;

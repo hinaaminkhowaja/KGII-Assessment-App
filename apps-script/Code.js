@@ -871,20 +871,30 @@ function getDashboardData(email) {
             assessmentKey(m.assessment) === assessmentKey(rowAssessment))
         : sourceMappings;
 
-      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Pre Assessment'
+      const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Post Assessment'
         ? sourceMappings.map(m => {
-            const isStudentPre = norm(m.participant).toLowerCase() === 'student' &&
+            const isCycle1StudentPost = norm(m.participant).toLowerCase() === 'student' &&
               /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
-              /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
-            if (!isStudentPre || !year || Number(year) < 2026) return m;
-            const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
-            const c1Phase = norm(phaseWiseAllocations[allocationKey]);
-            const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
-            return isCycle1Phase1
-              ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:'Phase 2'})
-              : Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
+              /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
+            if (!isCycle1StudentPost) return m;
+            const cacheKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
+            return post2CompletedByTheme[cacheKey]
+              ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2'}) : m;
           })
-        : sourceMappings;
+        : source.kind === 'kobo' && source.name === 'Students Pre Assessment'
+          ? sourceMappings.map(m => {
+              const isStudentPre = norm(m.participant).toLowerCase() === 'student' &&
+                /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
+                /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
+              if (!isStudentPre || !year || Number(year) < 2026) return m;
+              const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
+              const c1Phase = norm(phaseWiseAllocations[allocationKey]);
+              const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
+              return isCycle1Phase1
+                ? Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:'Phase 2'})
+                : Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
+            })
+          : sourceMappings;
 
       effectiveMappings.forEach(m => {
         const configuredColumn = source.kind === 'kobo' ? m.koboColumn : m.appColumn;

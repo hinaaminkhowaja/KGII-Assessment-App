@@ -133,7 +133,7 @@ function ratingFilterMatch(r:Rec,f:any){
  return (type==='student'&&!!studentRating&&score===Number(studentRating))||(type==='teacher'&&!!teacherRating&&score===Number(teacherRating));
 }
 function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\s_-]+/g,'');}
-function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.cycle||f.cycle==='All'||cycleLabel(r.CycleID)===cycleLabel(f.cycle))&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year))&&ratingFilterMatch(r,f))}
+function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[
@@ -1005,7 +1005,7 @@ function RecSurveySummary({records,participantType,region,board,rec,onRefresh}:{
   finally{setLoading(false);}
  };
  useEffect(()=>{void load();},[participantType,region,board,rec]);
- const stages=['Pre','Post','Post 2'];
+ const stages=['Pre','Post','Post 2','Post 3'];
  const themes=participantType==='Teacher'
   ? ['T1','T2','T3','T4','S1','S2','S3']
   : ['T1','T2','T3','T4'];
@@ -1021,18 +1021,17 @@ function RecSurveySummary({records,participantType,region,board,rec,onRefresh}:{
  <p className="form-message">Scores are consolidated from saved indicator responses. A dash means no matching response data was found.</p></>}
  </section>;
 }
-function GeoFields({refs,value,onChange,afterRec,cycle='Cycle 1'}:{refs:Ref[];value:any;onChange:(x:any)=>void;afterRec?:React.ReactNode;cycle?:string}){
- const phaseKey=cycle==='Cycle 2'?'Cycle2Phase':'Cycle1Phase';
- const eligible=refs.filter(r=>(!r.Status||/^(active|yes|1|true)$/i.test(r.Status))&&(!r[phaseKey]||!!r[phaseKey]));
+function GeoFields({refs,value,onChange,afterRec}:{refs:Ref[];value:any;onChange:(x:any)=>void;afterRec?:React.ReactNode}){
+ const eligible=refs.filter(r=>(!r.Status||/^(active|yes|1|true)$/i.test(r.Status)));
  const regions=uniqueGeoValues(eligible.map(r=>r.Region));
  const boards=uniqueGeoValues(eligible.filter(r=>geoNorm(r.Region)===geoNorm(value.region)).map(r=>r.LocalBoard));
  const matching=eligible.filter(r=>geoNorm(r.Region)===geoNorm(value.region)&&geoNorm(r.LocalBoard)===geoNorm(value.board));
- const phaseGroups=new Map<string,string[]>();
- matching.forEach(r=>{const phase=norm(r[phaseKey])||'Phase not specified';if(!phaseGroups.has(phase))phaseGroups.set(phase,[]);if(!phaseGroups.get(phase)!.some(x=>geoNorm(x)===geoNorm(r.REC)))phaseGroups.get(phase)!.push(r.REC);});
+ const yearGroups=new Map<string,string[]>();
+ matching.forEach(r=>{const year=norm(r.StartingYear)||'Starting year not specified';if(!yearGroups.has(year))yearGroups.set(year,[]);if(!yearGroups.get(year)!.some(x=>geoNorm(x)===geoNorm(r.REC)))yearGroups.get(year)!.push(r.REC);});
  return <div className="survey-grid">
   <Field label="Region" required><select value={value.region} onChange={e=>onChange({...value,region:e.target.value,board:'',rec:''})}><option value="">Select region</option>{regions.map(x=><option key={x} value={x}>{displayGeo(x)}</option>)}</select></Field>
   <Field label="Local Board" required><select value={value.board} disabled={!value.region} onChange={e=>onChange({...value,board:e.target.value,rec:''})}><option value="">Select Local Board</option>{boards.map(x=><option key={x}>{x}</option>)}</select></Field>
-  <Field label="REC (grouped by phase)" required><select value={value.rec} disabled={!value.board} onChange={e=>onChange({...value,rec:e.target.value})}><option value="">Select REC</option>{[...phaseGroups.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([phase,recs])=><optgroup key={phase} label={phase}>{recs.sort((a,b)=>a.localeCompare(b)).map(x=><option key={x}>{x}</option>)}</optgroup>)}</select>{afterRec}</Field>
+  <Field label="REC (grouped by starting year)" required><select value={value.rec} disabled={!value.board} onChange={e=>onChange({...value,rec:e.target.value})}><option value="">Select REC</option>{[...yearGroups.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([year,recs])=><optgroup key={year} label={year==='Starting year not specified'?year:'Starting year '+year}>{recs.sort((a,b)=>a.localeCompare(b)).map(x=><option key={x}>{x}</option>)}</optgroup>)}</select>{afterRec}</Field>
  </div>;
 }
 function Field({label,required,children,wide}:{label:string;required?:boolean;children:React.ReactNode;wide?:boolean}){return <label className={wide?'field wide':'field'}><span>{label}{required&&<em> *</em>}</span>{children}</label>}

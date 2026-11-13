@@ -534,7 +534,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     if(year===2026)return ((cohort===2026&&!skill)||(cohort===2025&&skill))&&(!stage||stageMatches(r,stage));
     return false;
   }),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
-  const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(rowsForCounts().filter(r=>{
+  const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(rowsForCounts().filter(r=>{
     const cohort=recStartingYearForRow(r),participant=norm(r.ParticipantType).toLowerCase(),skill=isTeacherSkillRow(r);
     if(year===2025)return (cohort===2025||(!cohort&&Number(r.Year)===2025))&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
     if(year===2026)return cohort===2026&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);

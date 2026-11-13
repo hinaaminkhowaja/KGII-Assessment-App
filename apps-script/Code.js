@@ -758,7 +758,7 @@ function getDashboardData(email) {
   // Cycle 2 cutoff. Once qualified, all later student themes from that REC
   // are classified consistently as Cycle 2 Post 2.
   const geoKeyForPost2 = value => cleanValue(value).toLowerCase()
-    .replace(/[_-]+/g, ' ').replace(/\\s+/g, ' ').trim();
+    .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   const recKeyForPost2 = (region, localBoard, rec) =>
     [region, localBoard, rec].map(geoKeyForPost2).join('|');
   const themeKeyForPost2 = (region, localBoard, rec, theme) =>
@@ -766,10 +766,10 @@ function getDashboardData(email) {
   const expectedPost2 = Object.create(null);
   const observedPost2 = Object.create(null);
   const isCycle1 = value => {
-    const k = norm(value).replace(/[\\s_-]+/g, '');
+    const k = norm(value).replace(/[\s_-]+/g, '');
     return !k || k === 'c1' || k === 'cycle1' || k === '1';
   };
-  const stageKey = value => norm(value).replace(/[\\s_-]+/g, '');
+  const stageKey = value => norm(value).replace(/[\s_-]+/g, '');
   mappings.forEach(m => {
     if (norm(m.participant) !== 'student' || !isCycle1(m.cycle)) return;
     const theme = cleanValue(m.theme);

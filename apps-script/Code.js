@@ -807,16 +807,17 @@ function getDashboardData(email) {
         const score = Number(raw);
         if (!Number.isFinite(score) || score < 0 || score > m.maxScore) return;
         const key = post2GeoThemeKey(region, localBoard, rec, m.theme);
-        const bucket = observedPost2[key] || (observedPost2[key] = { pre: new Set(), post: new Set(), postLatestTime: 0 });
+        const bucket = observedPost2[key] || (observedPost2[key] = { pre: new Set(), post: new Set(), preTimes: Object.create(null), postTimes: Object.create(null) });
         const stage = stageKey(m.assessment);
-        if (stage === 'pre' || stage === 'preassessment') {
-          bucket.pre.add(m.indicator);
-        } else {
-          bucket.post.add(m.indicator);
-          const rawStart = getRowValue(row, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt']) ||
-            getRowValue(row, ['end', 'End']);
-          const submittedAt = rawStart instanceof Date ? rawStart.getTime() : Date.parse(cleanValue(rawStart));
-          if (Number.isFinite(submittedAt)) bucket.postLatestTime = Math.max(bucket.postLatestTime, submittedAt);
+        const rawStart = getRowValue(row, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt']) ||
+          getRowValue(row, ['end', 'End']);
+        const submittedAt = rawStart instanceof Date ? rawStart.getTime() : Date.parse(cleanValue(rawStart));
+        const isPre = stage === 'pre' || stage === 'preassessment';
+        const targetSet = isPre ? bucket.pre : bucket.post;
+        const targetTimes = isPre ? bucket.preTimes : bucket.postTimes;
+        targetSet.add(m.indicator);
+        if (Number.isFinite(submittedAt) && (!targetTimes[m.indicator] || submittedAt < targetTimes[m.indicator])) {
+          targetTimes[m.indicator] = submittedAt;
         }
       });
     });
@@ -829,10 +830,15 @@ function getDashboardData(email) {
     const expected = expectedPost2[theme];
     if (!expected || !expected.pre.size || !expected.post.size) return;
     const complete = (needed, found) => Array.from(needed).every(id => found.has(id));
-    if (complete(expected.pre, bucket.pre) && complete(expected.post, bucket.post) && bucket.postLatestTime > 0) {
-      // Store the timestamp when the original theme-level Post was completed.
-      // A later submission is Post 2 only if it occurs strictly after this point.
-      post2CompletedByTheme[key] = bucket.postLatestTime;
+    if (complete(expected.pre, bucket.pre) && complete(expected.post, bucket.post)) {
+      const completionTime = indicatorSet => Array.from(indicatorSet).reduce((latest, indicator) => {
+        const submittedAt = (indicatorSet === expected.pre ? bucket.preTimes : bucket.postTimes)[indicator] || 0;
+        return Math.max(latest, submittedAt);
+      }, 0);
+      const preCompletedAt = completionTime(expected.pre);
+      const postCompletedAt = completionTime(expected.post);
+      const baselineCompletedAt = Math.max(preCompletedAt, postCompletedAt);
+      if (baselineCompletedAt > 0) post2CompletedByTheme[key] = baselineCompletedAt;
     }
   });
 

@@ -203,13 +203,13 @@ function App(){
     Status:norm(x.Status??x.status)
   })).filter((x:any)=>x.Region&&x.LocalBoard&&x.REC);
   const normalizedRefs=normalizeRefs(targets);
-  const ii=arrayFrom(d,'indicators','APP_Indicators');
+  const ii=Array.isArray(d.indicators)?d.indicators:[];
   setTargetRecs(targets);
   activeTargetRecs=targets;
   setRefs(normalizedRefs);
   if(ii.length)setIndicators(ii);
   localStorage.setItem('kgii_assessment_cached_target_recs',JSON.stringify(targets));
-  localStorage.setItem('kgii_assessment_cached_indicators',JSON.stringify(ii));
+  localStorage.removeItem('kgii_assessment_cached_indicators');
   setDirectoryLoaded(true);
  };
  const loadDashboard=async(email:string)=>{
@@ -285,14 +285,14 @@ const recs = useMemo(
   const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''}),[cohortScopedRecords,f]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
- // Region options are sourced from the current dashboard records (APP_Records).
+ // Region options are sourced from the live six-source dashboard response.
  // Exclude the obsolete coded Lower Chitral value; keep only a plain "Lower Chitral"
  // option if that exact value is present in the current records.
  const regions = uniqueGeoValues(records.map(r=>r.Region)).map(displayGeo).sort((a,b)=>a.localeCompare(b));
 const pts=unique(allowedRecords,'ParticipantType'),assessments=[...new Set([...unique(allowedRecords,'Assessment').map(a=>/^post\s*2$/i.test(a)?'Post 2':a) ,'Post 2','Post 3'])].sort(),themes=unique(allowedRecords,'ThemeID'),dims=unique(allowedRecords,'DimensionID'),years=[...new Set([...unique(allowedRecords,'Year'),'2025','2026','2027'])].sort();const teacherNames=unique(allowedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(!f.region||r.Region===f.region)&&(!f.board||r.LocalBoard===f.board)&&(!f.rec||r.REC===f.rec)),'TeacherName');
  const refresh=async(u= user)=>{if(!u)return;setApiError('');try{if(page==='admin'&&u.role==='admin')await loadAdmin(u.email);else await loadDashboard(u.email);}catch(e:any){setApiError(e.message||'Could not refresh from Apps Script.')}finally{setLoading(false)}};
  // Refresh dashboard data every 15 minutes so Kobo imports become visible without a new login.
- // The Apps Script Kobo-to-APP_Records sync continues independently every five minutes.
+ // Dashboard refresh reads the original assessment and survey sheets directly.
  useEffect(()=>{
   const dashboardPages=['dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis'];
   if(!user?.email||!dashboardPages.includes(page))return;

@@ -448,7 +448,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const recStartingYear=(r:Rec)=>{const match=targetRecs.find((t:any)=>geoNorm(t.Region)===geoNorm(r.Region)&&geoNorm(t.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(t.REC)===geoNorm(r.REC));return Number(match?.StartingYear)||0;};
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
-  const isTeacherSkillRecord=(r:Rec)=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(norm(r.CycleID).toUpperCase()==='C2'||/^S[123]$/i.test(norm(r.ThemeID))||/^(instructional|questioning|feedback)$/i.test(norm(r.DimensionID)));
+  const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);
   const student2025Rows=studentRowsAll.filter(r=>recStartingYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||(assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment))));
   const student2026Rows=studentRowsAll.filter(r=>(recStartingYear(r)===2026&&assessmentIs(r.Assessment,'Pre'))||(recStartingYear(r)===2025&&assessmentIsPost2(r.Assessment)));
   const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(recStartingYear(r)===2025||recStartingYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
@@ -489,13 +489,13 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const includeTeacher=(!ratingSelected||!!f.teacherRating)&&(!f.pt||norm(f.pt).toLowerCase()==='teacher');
   const studentPost2Rows=allStageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment));
   const studentPost2Totals=aggregate(studentPost2Rows);
-  const teacherSkillRows=allStageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherSkillRows=allStageRows.filter(r=>isTeacherSkillRec(r));
   const teacherSkillPreRows=teacherSkillRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const teacherSkillPostRows=teacherSkillRows.filter(r=>assessmentIs(r.Assessment,'Post'));
   const teacherSkillPreTotals=aggregate(teacherSkillPreRows);
   const teacherSkillPostTotals=aggregate(teacherSkillPostRows);
-  const teacherPreRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre')&&!/^S[123]$/i.test(norm(r.ThemeID)));
-  const teacherPostRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post')&&!/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherPreRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre')&&!isTeacherSkillRec(r));
+  const teacherPostRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post')&&!isTeacherSkillRec(r));
   const teacherContentRows=teacherRows.filter(r=>!isTeacherSkillRecord(r));
   const teacherSkillsRows=teacherRows.filter(r=>isTeacherSkillRecord(r));
 
@@ -522,7 +522,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     return 0;
   };
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
-  const isTeacherSkillRow=(r:Rec)=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID));
+  const isTeacherSkillRow=(r:Rec)=>isTeacherSkillRec(r);
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recCohortForStage(r,year,stage)===(stage==='Post 2'?2025:year)&&stageMatches(r,stage)),studentIdentity);
   // Teacher content belongs to its own REC StartingYear cohort. Existing 2025
@@ -892,7 +892,7 @@ function StudentTeacherCrossAnalysis({rows,f}:{rows:Rec[];f:any}){
   const scoped=levelKey?clean.filter(r=>norm((r as any)[levelKey])===name):clean;
   const students=scoped.filter(r=>r.ParticipantType==='Student'),teachers=scoped.filter(r=>r.ParticipantType==='Teacher');
   const studentPre=stageAggregate(students,'Pre'),studentPost=stageAggregate(students,'Post'),studentPost2=post2Aggregate(students),teacherPre=stageAggregate(teachers,'Pre'),teacherPost=stageAggregate(teachers,'Post');
-  const teacherSkillRows=teachers.filter(r=>/^S[123]$/i.test(norm(r.ThemeID)));const teacherSkillPre=stageAggregate(teacherSkillRows,'Pre'),teacherSkillPost=stageAggregate(teacherSkillRows,'Post');
+  const teacherSkillRows=teachers.filter(r=>isTeacherSkillRec(r));const teacherSkillPre=stageAggregate(teacherSkillRows,'Pre'),teacherSkillPost=stageAggregate(teacherSkillRows,'Post');
   const uaPre=stageAggregate(students.filter(r=>norm(r.DimensionID).toUpperCase()==='UA'),'Pre'),uaPost=stageAggregate(students.filter(r=>norm(r.DimensionID).toUpperCase()==='UA'),'Post');
   const appPre=stageAggregate(students.filter(r=>norm(r.DimensionID).toUpperCase()==='A'),'Pre'),appPost=stageAggregate(students.filter(r=>norm(r.DimensionID).toUpperCase()==='A'),'Post');
   const teacherOverall=aggregate(teachers),studentOverall=aggregate(students);
@@ -949,6 +949,7 @@ function count(rows:Rec[],item:string,pt:string,key:'Region'|'LocalBoard'|'REC'|
   return new Set(scoped.map(identity)).size;
 }
 function RecAnalysis({rows,all,f,metricRows,phase3Rows,allCycleRows,refs,targetRecs,sourceRows}:{rows:Rec[];all:Rec[];f:any;metricRows:Rec[];phase3Rows:Rec[];allCycleRows:Rec[];refs:Ref[];targetRecs:any[];sourceRows:Rec[]}){return <><Kpis rows={rows} metricRows={metricRows} phase3Rows={phase3Rows} allCycleRows={allCycleRows} sourceRows={sourceRows} targetRecs={targetRecs} f={f} refs={refs}/><div className="grid2"><CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(rows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/><CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(rows,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/></div><Chart title="Assessment Performance — Pre vs Post" data={group(rows,'Assessment').map(x=>({label:x.key,value:x.p}))}/><WayForward rows={rows} scope="rec" f={f}/></>}
+function isTeacherSkillRec(r:Rec){return norm(r.ParticipantType).toLowerCase()==='teacher'&&(norm(r.CycleID).toUpperCase()==='C2'||/^S[123]$/i.test(norm(r.ThemeID))||/^(instructional|questioning|feedback)$/i.test(norm(r.DimensionID)));}
 function assessmentIs(value:string,stage:'Pre'|'Post'){
  const a=norm(value).toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^skill/,'');
  return stage==='Pre'?/^pre(?:assessment)?$/.test(a):/^post(?:assessment)?$/.test(a);

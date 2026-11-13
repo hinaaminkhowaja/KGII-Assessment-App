@@ -578,7 +578,7 @@ function getRecDirectoryData() {
   if (values.length < 2) throw new Error('RECs_list_Phase_Wise has no REC rows.');
 
   const headers = values[0].map(h => String(h).trim());
-  const requiredHeaders = ['Region', 'LocalBoard', 'REC', 'Cycle 1 Phase', 'Cycle 2 Phase', 'Status'];
+  const requiredHeaders = ['Region', 'LocalBoard', 'REC', 'StartingYear', 'Status'];
   const indexes = {};
   requiredHeaders.forEach(header => {
     indexes[header] = headers.indexOf(header);
@@ -591,8 +591,7 @@ function getRecDirectoryData() {
       Region: clean(row[indexes.Region]).replace(/_\d+$/, ''),
       LocalBoard: clean(row[indexes.LocalBoard]),
       REC: clean(row[indexes.REC]),
-      Cycle1Phase: clean(row[indexes['Cycle 1 Phase']]),
-      Cycle2Phase: clean(row[indexes['Cycle 2 Phase']]),
+      StartingYear: Number(clean(row[indexes.StartingYear])) || '',
       Status: clean(row[indexes.Status])
     }));
 
@@ -713,31 +712,32 @@ function getDashboardData(email) {
   ];
   const records = [];
 
-  // REC allocation is authoritative for new student Pre submissions in the
-  // 2026+ cycle. A REC in Cycle 1 Phase 1 moves new Pre submissions to
-  // Cycle 2 Phase 2; every other allocated REC remains Cycle 1 Phase 2.
-  // Preserve numeric suffixes in REC names (e.g. "Madaklast 3") so
-  // similarly named RECs never inherit another REC's phase allocation.
+  // REC cohort year is the permanent allocation source for year-wise progression.
   const phaseGeoKey = value => cleanValue(value).toLowerCase()
     .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const phaseWiseSheet = ss.getSheetByName('RECs_list_Phase_Wise');
-  const phaseWiseAllocations = Object.create(null);
-  if (phaseWiseSheet && phaseWiseSheet.getLastRow() > 1) {
-    const phaseValues = phaseWiseSheet.getDataRange().getValues();
-    const phaseHeaders = phaseValues[0].map(cleanValue);
-    const phaseCol = candidates => findIndex(phaseHeaders, candidates);
-    const regionCol = phaseCol(['Region']);
-    const boardCol = phaseCol(['LocalBoard', 'Local Board']);
-    const recCol = phaseCol(['REC']);
-    const c1PhaseCol = phaseCol(['Cycle 1 Phase', 'Cycle1Phase', 'Cycle 1 Phase (REC)']);
-    const statusCol = phaseCol(['Status']);
-    if ([regionCol, boardCol, recCol, c1PhaseCol].every(i => i >= 0)) {
-      phaseValues.slice(1).forEach(row => {
+  const recMasterSheet = ss.getSheetByName('RECs_list_Phase_Wise');
+  const recStartingYears = Object.create(null);
+  if (recMasterSheet && recMasterSheet.getLastRow() > 1) {
+    const masterValues = recMasterSheet.getDataRange().getValues();
+    const masterHeaders = masterValues[0].map(cleanValue);
+    const masterCol = candidates => findIndex(masterHeaders, candidates);
+    const regionCol = masterCol(['Region']);
+    const boardCol = masterCol(['LocalBoard', 'Local Board']);
+    const recCol = masterCol(['REC']);
+    const startingYearCol = masterCol(['StartingYear', 'Starting Year']);
+    const statusCol = masterCol(['Status']);
+    if ([regionCol, boardCol, recCol, startingYearCol].every(i => i >= 0)) {
+      masterValues.slice(1).forEach(row => {
         const status = statusCol >= 0 ? norm(row[statusCol]) : '';
         if (status && !['active','yes','true','1'].includes(status)) return;
         const key = [row[regionCol], row[boardCol], row[recCol]].map(phaseGeoKey).join('|');
-        if (key.replace(/\|/g, '')) phaseWiseAllocations[key] = cleanValue(row[c1PhaseCol]);
+        const startingYear = Number(row[startingYearCol]);
+        if (key.replace(/\|/g, '') && Number.isInteger(startingYear) && startingYear >= 2000) {
+          recStartingYears[key] = startingYear;
+        }
       });
+    } else {
+      throw new Error('RECs_list_Phase_Wise must contain Region, LocalBoard, REC, StartingYear and Status headers.');
     }
   }
 

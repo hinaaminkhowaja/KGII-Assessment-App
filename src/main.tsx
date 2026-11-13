@@ -480,9 +480,13 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Year-wise participation counts use the assessment submission year.
   // StartingYear is used only for REC cohort membership, never to infer a stage.
   const rowsForYear=(year:number)=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:'',year:String(year)});
-  const stageRowsForYear=(year:number,participant:string,stage?:string)=>rowsForYear(year).filter(r=>
-    norm(r.ParticipantType).toLowerCase()===participant.toLowerCase()&&(!stage||assessmentIs(r.Assessment,stage as 'Pre'|'Post')||(stage==='Post 2'&&assessmentIsPost2(r.Assessment)))
-  );
+  const stageRowsForYear=(year:number,participant:string,stage?:string)=>rowsForYear(year).filter(r=>{
+    if(norm(r.ParticipantType).toLowerCase()!==participant.toLowerCase())return false;
+    if(!stage)return true;
+    if(stage==='Pre')return assessmentIs(r.Assessment,'Pre');
+    if(stage==='Post')return assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment));
+    return stage==='Post 2'&&assessmentIsPost2(r.Assessment);
+  });
   const studentCountForYear=(year:number,stage:string)=>uniqueStudentCount(stageRowsForYear(year,'Student',stage));
   const teacherCountForYear=(year:number,stage?:string)=>uniqueTeacherCount(stageRowsForYear(year,'Teacher',stage));
   const recCountForYear=(year:number,stage:string)=>uniqueRecCount(rowsForYear(year).filter(r=>assessmentIs(r.Assessment,stage)));

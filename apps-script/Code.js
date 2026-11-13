@@ -760,10 +760,10 @@ function getDashboardData(email) {
   const expectedPost2 = Object.create(null);
   const observedPost2 = Object.create(null);
   const isCycle1 = value => {
-    const k = norm(value).replace(/[\s_-]+/g, '');
+    const k = norm(value).replace(/[\\s_-]+/g, '');
     return !k || k === 'c1' || k === 'cycle1' || k === '1';
   };
-  const stageKey = value => norm(value).replace(/[\s_-]+/g, '');
+  const stageKey = value => norm(value).replace(/[\\s_-]+/g, '');
 
   mappings.forEach(m => {
     if (norm(m.participant) !== 'student' || !isCycle1(m.cycle)) return;
@@ -776,9 +776,9 @@ function getDashboardData(email) {
     (stage === 'pre' || stage === 'preassessment' ? bucket.pre : bucket.post).add(m.indicator);
   });
 
-  // Build REC + theme observed-indicator sets in one in-memory pass over the
-  // six already-loaded sheets. This keeps Post 2 classification linear in the
-  // number of source rows rather than repeatedly scanning spreadsheets.
+  // Establish baseline completion from complete individual REC/theme
+  // submissions. Do not combine partial indicator sets across different
+  // student submissions: that can create a false early completion date.
   sourceDefinitions.forEach(source => {
     const data = sourceData[source.name];
     if (!data) return;
@@ -797,8 +797,13 @@ function getDashboardData(email) {
       const localBoard = getRowValue(row, ['LocalBoard','Local Board (Standardized)','Local Board']);
       const rec = getRowValue(row, ['REC','REC (Standardized)']);
       if (!region || !localBoard || !rec) return;
-      const rowCycleIndex = findIndex(headers, ['CycleID','Cycle ID']);
-      if (rowCycleIndex >= 0 && !isCycle1(row[rowCycleIndex])) return;
+      const cycleIndex = findIndex(headers, ['CycleID','Cycle ID']);
+      if (cycleIndex >= 0 && !isCycle1(row[cycleIndex])) return;
+      const rawStart = getRowValue(row, ['start','Start','SubmissionDate','SubmittedAt','CreatedAt']) ||
+        getRowValue(row, ['end','End']);
+      const submittedAt = rawStart instanceof Date ? rawStart.getTime() : Date.parse(cleanValue(rawStart));
+      if (!Number.isFinite(submittedAt)) return;
+      const rowThemeStages = Object.create(null);
       rowMappings.forEach(m => {
         const column = source.kind === 'kobo' ? m.koboColumn : m.appColumn;
         if (!Number.isInteger(column) || column < 1 || column > row.length) return;
@@ -806,39 +811,31 @@ function getDashboardData(email) {
         if (raw === '' || raw === null || raw === undefined || typeof raw === 'boolean') return;
         const score = Number(raw);
         if (!Number.isFinite(score) || score < 0 || score > m.maxScore) return;
-        const key = post2GeoThemeKey(region, localBoard, rec, m.theme);
-        const bucket = observedPost2[key] || (observedPost2[key] = { pre: new Set(), post: new Set(), preTimes: Object.create(null), postTimes: Object.create(null) });
         const stage = stageKey(m.assessment);
-        const rawStart = getRowValue(row, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt']) ||
-          getRowValue(row, ['end', 'End']);
-        const submittedAt = rawStart instanceof Date ? rawStart.getTime() : Date.parse(cleanValue(rawStart));
-        const isPre = stage === 'pre' || stage === 'preassessment';
-        const targetSet = isPre ? bucket.pre : bucket.post;
-        const targetTimes = isPre ? bucket.preTimes : bucket.postTimes;
-        targetSet.add(m.indicator);
-        if (Number.isFinite(submittedAt) && (!targetTimes[m.indicator] || submittedAt < targetTimes[m.indicator])) {
-          targetTimes[m.indicator] = submittedAt;
-        }
+        const stageName = stage === 'pre' || stage === 'preassessment' ? 'pre' : 'post';
+        const key = post2GeoThemeKey(region, localBoard, rec, m.theme);
+        const groupKey = key + '|' + stageName;
+        const group = rowThemeStages[groupKey] || (rowThemeStages[groupKey] = { key, stage: stageName, indicators: new Set() });
+        group.indicators.add(m.indicator);
+      });
+      Object.keys(rowThemeStages).forEach(groupKey => {
+        const group = rowThemeStages[groupKey];
+        const theme = group.key.split('|').pop();
+        const expected = expectedPost2[theme];
+        const needed = expected && expected[group.stage];
+        if (!needed || !needed.size || !Array.from(needed).every(id => group.indicators.has(id))) return;
+        const bucket = observedPost2[group.key] || (observedPost2[group.key] = { preTimes: [], postTimes: [] });
+        bucket[group.stage + 'Times'].push(submittedAt);
       });
     });
   });
-
   const post2CompletedByTheme = Object.create(null);
   Object.keys(observedPost2).forEach(key => {
     const bucket = observedPost2[key];
-    const theme = key.split('|').pop();
-    const expected = expectedPost2[theme];
-    if (!expected || !expected.pre.size || !expected.post.size) return;
-    const complete = (needed, found) => Array.from(needed).every(id => found.has(id));
-    if (complete(expected.pre, bucket.pre) && complete(expected.post, bucket.post)) {
-      const completionTime = indicatorSet => Array.from(indicatorSet).reduce((latest, indicator) => {
-        const submittedAt = (indicatorSet === expected.pre ? bucket.preTimes : bucket.postTimes)[indicator] || 0;
-        return Math.max(latest, submittedAt);
-      }, 0);
-      const preCompletedAt = completionTime(expected.pre);
-      const postCompletedAt = completionTime(expected.post);
-      const baselineCompletedAt = Math.max(preCompletedAt, postCompletedAt);
-      if (baselineCompletedAt > 0) post2CompletedByTheme[key] = baselineCompletedAt;
+    const preCompletedAt = bucket.preTimes.length ? Math.min(...bucket.preTimes) : 0;
+    const postCompletedAt = bucket.postTimes.length ? Math.min(...bucket.postTimes) : 0;
+    if (preCompletedAt > 0 && postCompletedAt > 0) {
+      post2CompletedByTheme[key] = Math.max(preCompletedAt, postCompletedAt);
     }
   });
 

@@ -880,13 +880,14 @@ function getDashboardData(email) {
               /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
               /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
             if (!isStudentPost || !year || Number(year) < 2026) return m;
-            const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
-            const c1Phase = norm(phaseWiseAllocations[allocationKey]);
-            if (!/^phase\s*1$|^1$/i.test(c1Phase)) return m;
+            const cohortKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
+            const startingYear = Number(recStartingYears[cohortKey]);
+            if (!startingYear || Number(year) <= startingYear) return m;
             const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
             if (!post2CompletedByTheme[historyKey]) return m;
-            // Kobo follow-up rows imported into Students Post Assessment become Cycle 2 Post 2.
-            return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:'Phase 1'});
+            // A later-year Kobo submission becomes the next follow-up stage
+            // only after the REC/theme's baseline Pre and Post are complete.
+            return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
           })
         : source.kind === 'kobo' && source.name === 'Students Pre Assessment'
           ? sourceMappings.map(m => {
@@ -894,20 +895,13 @@ function getDashboardData(email) {
                 /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
                 /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
               if (!isStudentPre || !year || Number(year) < 2026) return m;
-              const allocationKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
-              const c1Phase = norm(phaseWiseAllocations[allocationKey]);
-              const isCycle1Phase1 = /^phase\s*1$|^1$/i.test(c1Phase);
-              if (!isCycle1Phase1) {
-                return Object.assign({}, m, {cycle:'C1', assessment:'Pre', phase:'Phase 2'});
-              }
+              const cohortKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
+              const startingYear = Number(recStartingYears[cohortKey]);
+              if (!startingYear || Number(year) <= startingYear) return m;
               const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-              const priorTheme = observedPost2[historyKey];
-              const hasPriorPre = !!(priorTheme && priorTheme.pre && priorTheme.pre.size);
-              return Object.assign({}, m, {
-                cycle:'C2',
-                assessment: hasPriorPre ? 'Post 2' : 'Pre',
-                phase: hasPriorPre ? 'Phase 1' : 'Phase 2'
-              });
+              if (!post2CompletedByTheme[historyKey]) return Object.assign({}, m, {cycle:'C2', phase:''});
+              // A later-year repeat for a completed REC/theme advances to Post 2.
+              return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
             })
           : sourceMappings;
 

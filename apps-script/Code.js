@@ -830,6 +830,12 @@ function getDashboardData(email) {
     });
   });
   const post2CompletedByTheme = Object.create(null);
+  // A REC enters the 2026 follow-up cohort only when every student theme's
+  // original Pre and Post was complete before 1 November 2026.
+  const post2EligibleRecs = Object.create(null);
+  const post2Cutoff = new Date(2026, 10, 1).getTime();
+  const recKeyForPost2 = (region, localBoard, rec) =>
+    [region, localBoard, rec].map(geoKeyForPost2).join('|');
   Object.keys(observedPost2).forEach(key => {
     const bucket = observedPost2[key];
     const preCompletedAt = bucket.preTimes.length ? Math.min(...bucket.preTimes) : 0;
@@ -839,6 +845,22 @@ function getDashboardData(email) {
     }
   });
 
+  const recThemeCompletion = Object.create(null);
+  Object.keys(post2CompletedByTheme).forEach(themeKey => {
+    const parts = themeKey.split('|');
+    const recKey = parts.slice(0, 3).join('|');
+    const list = recThemeCompletion[recKey] || (recThemeCompletion[recKey] = []);
+    list.push(post2CompletedByTheme[themeKey]);
+  });
+  Object.keys(recThemeCompletion).forEach(recKey => {
+    const completions = recThemeCompletion[recKey];
+    const expectedThemeCount = Object.keys(expectedPost2).length;
+    if (completions.length === expectedThemeCount && completions.every(t => t > 0 && t < post2Cutoff)) {
+      post2EligibleRecs[recKey] = true;
+    }
+  });
+
+  const seenStudentThemeDayIndicator = new Set();
   sourceDefinitions.forEach(source => {
     const data = sourceData[source.name];
     if (!data) return;
@@ -901,10 +923,8 @@ function getDashboardData(email) {
             const cohortKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
             const startingYear = Number(recStartingYears[cohortKey]);
             if (!startingYear || Number(year) <= startingYear) return m;
-            const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-            if (!post2CompletedByTheme[historyKey] || !Number.isFinite(submissionTime) || submissionTime <= post2CompletedByTheme[historyKey]) return m;
-            // A later-year Kobo submission becomes the next follow-up stage
-            // only after the REC/theme's baseline Pre and Post are complete.
+            const recKey = recKeyForPost2(region, localBoard, rec);
+            if (!post2EligibleRecs[recKey] || !Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
             return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
           })
         : source.kind === 'kobo' && source.name === 'Students Pre Assessment'
@@ -916,10 +936,12 @@ function getDashboardData(email) {
               const cohortKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
               const startingYear = Number(recStartingYears[cohortKey]);
               if (!startingYear || Number(year) <= startingYear) return m;
-              const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-              if (!post2CompletedByTheme[historyKey] || !Number.isFinite(submissionTime) || submissionTime <= post2CompletedByTheme[historyKey]) return Object.assign({}, m, {cycle:'C2', phase:''});
-              // A later-year repeat for a completed REC/theme advances to Post 2.
-              return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
+              const recKey = recKeyForPost2(region, localBoard, rec);
+              if (!Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
+              // Existing 2025 RECs: completed all original themes before November => Post 2.
+              // Incomplete 2025 RECs continue their original Post assessment.
+              if (post2EligibleRecs[recKey]) return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
+              return Object.assign({}, m, {cycle:'C1', assessment:'Post', phase:''});
             })
           : sourceMappings;
 
@@ -932,6 +954,22 @@ function getDashboardData(email) {
         if (!Number.isFinite(score) || !Number.isFinite(m.maxScore) || score < 0 || score > m.maxScore) return;
 
         // Keep each indicator/cycle/assessment as a separate normalized row.
+        // Deduplicate repeated submissions by the same child for the same
+        // REC/theme/stage/day/indicator. This prevents same-day repeats from
+        // inflating normalized scores and participant counts.
+        if (norm(m.participant).toLowerCase() === 'student' && childName) {
+          const dayKey = Number.isFinite(submissionTime)
+            ? Utilities.formatDate(new Date(submissionTime), Session.getScriptTimeZone(), 'yyyy-MM-dd')
+            : '';
+          if (dayKey) {
+            const duplicateKey = [
+              recKeyForPost2(region, localBoard, rec), norm(childName).toLowerCase(),
+              geoKeyForPost2(m.theme), norm(m.assessment).toLowerCase(), dayKey, norm(m.indicator)
+            ].join('|');
+            if (seenStudentThemeDayIndicator.has(duplicateKey)) return;
+            seenStudentThemeDayIndicator.add(duplicateKey);
+          }
+        }
         const recordID = [
           source.name, sourceRecordID, m.cycle, m.assessment, m.indicator
         ].join('|');

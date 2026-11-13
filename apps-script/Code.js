@@ -776,9 +776,10 @@ function getDashboardData(email) {
     (stage === 'pre' || stage === 'preassessment' ? bucket.pre : bucket.post).add(m.indicator);
   });
 
-  // Establish baseline completion from complete individual REC/theme
-  // submissions. Do not combine partial indicator sets across different
-  // student submissions: that can create a false early completion date.
+  // Establish baseline completion at REC + theme + stage level.
+  // Kobo can submit different children/indicators in separate rows, so
+  // aggregate indicator evidence across rows instead of requiring every
+  // expected indicator to appear in one individual row.
   sourceDefinitions.forEach(source => {
     const data = sourceData[source.name];
     if (!data) return;
@@ -789,21 +790,19 @@ function getDashboardData(email) {
       ['pre','preassessment','post','postassessment'].includes(stageKey(m.assessment))
     );
     if (!rowMappings.length) return;
-    const getRowValue = (row, candidates) => getValue(row, headers, candidates);
     values.slice(1).forEach(row => {
       if (!row.some(v => v !== '' && v !== null && v !== undefined)) return;
-      const region = getRowValue(row, source.kind === 'kobo'
+      const region = getValue(row, headers, source.kind === 'kobo'
         ? ['1. Select your region','Select your region','Region'] : ['Region']);
-      const localBoard = getRowValue(row, ['LocalBoard','Local Board (Standardized)','Local Board']);
-      const rec = getRowValue(row, ['REC','REC (Standardized)']);
+      const localBoard = getValue(row, headers, ['LocalBoard','Local Board (Standardized)','Local Board']);
+      const rec = getValue(row, headers, ['REC','REC (Standardized)']);
       if (!region || !localBoard || !rec) return;
       const cycleIndex = findIndex(headers, ['CycleID','Cycle ID']);
       if (cycleIndex >= 0 && !isCycle1(row[cycleIndex])) return;
-      const rawStart = getRowValue(row, ['start','Start','SubmissionDate','SubmittedAt','CreatedAt']) ||
-        getRowValue(row, ['end','End']);
+      const rawStart = getValue(row, headers, ['start','Start','SubmissionDate','SubmittedAt','CreatedAt']) ||
+        getValue(row, headers, ['end','End']);
       const submittedAt = rawStart instanceof Date ? rawStart.getTime() : Date.parse(cleanValue(rawStart));
       if (!Number.isFinite(submittedAt)) return;
-      const rowThemeStages = Object.create(null);
       rowMappings.forEach(m => {
         const column = source.kind === 'kobo' ? m.koboColumn : m.appColumn;
         if (!Number.isInteger(column) || column < 1 || column > row.length) return;
@@ -814,49 +813,36 @@ function getDashboardData(email) {
         const stage = stageKey(m.assessment);
         const stageName = stage === 'pre' || stage === 'preassessment' ? 'pre' : 'post';
         const key = post2GeoThemeKey(region, localBoard, rec, m.theme);
-        const groupKey = key + '|' + stageName;
-        const group = rowThemeStages[groupKey] || (rowThemeStages[groupKey] = { key, stage: stageName, indicators: new Set() });
-        group.indicators.add(m.indicator);
-      });
-      Object.keys(rowThemeStages).forEach(groupKey => {
-        const group = rowThemeStages[groupKey];
-        const theme = group.key.split('|').pop();
-        const expected = expectedPost2[theme];
-        const needed = expected && expected[group.stage];
-        if (!needed || !needed.size || !Array.from(needed).every(id => group.indicators.has(id))) return;
-        const bucket = observedPost2[group.key] || (observedPost2[group.key] = { preTimes: [], postTimes: [] });
-        bucket[group.stage + 'Times'].push(submittedAt);
+        const bucket = observedPost2[key] || (observedPost2[key] = { pre: Object.create(null), post: Object.create(null) });
+        const prior = bucket[stageName][m.indicator];
+        if (!prior || submittedAt < prior) bucket[stageName][m.indicator] = submittedAt;
       });
     });
   });
+
   const post2CompletedByTheme = Object.create(null);
-  // A REC enters the 2026 follow-up cohort only when every student theme's
-  // original Pre and Post was complete before 1 November 2026.
-  const post2EligibleRecs = Object.create(null);
+  // Completion is assessed independently for each REC and theme.
+  // A theme qualifies only when every configured Pre and Post indicator
+  // has been received before 1 November 2026.
   const post2Cutoff = new Date(2026, 10, 1).getTime();
   const recKeyForPost2 = (region, localBoard, rec) =>
     [region, localBoard, rec].map(geoKeyForPost2).join('|');
   Object.keys(observedPost2).forEach(key => {
     const bucket = observedPost2[key];
-    const preCompletedAt = bucket.preTimes.length ? Math.min(...bucket.preTimes) : 0;
-    const postCompletedAt = bucket.postTimes.length ? Math.min(...bucket.postTimes) : 0;
-    if (preCompletedAt > 0 && postCompletedAt > 0) {
+    const parts = key.split('|');
+    const theme = parts.slice(3).join('|');
+    const expected = expectedPost2[geoKeyForPost2(theme)];
+    if (!expected || !expected.pre.size || !expected.post.size) return;
+    const stageCompletionTime = stageName => {
+      const times = Array.from(expected[stageName]).map(indicator => bucket[stageName][indicator]);
+      if (times.some(time => !Number.isFinite(time))) return 0;
+      return Math.max(...times);
+    };
+    const preCompletedAt = stageCompletionTime('pre');
+    const postCompletedAt = stageCompletionTime('post');
+    if (preCompletedAt > 0 && postCompletedAt > 0 &&
+        preCompletedAt < post2Cutoff && postCompletedAt < post2Cutoff) {
       post2CompletedByTheme[key] = Math.max(preCompletedAt, postCompletedAt);
-    }
-  });
-
-  const recThemeCompletion = Object.create(null);
-  Object.keys(post2CompletedByTheme).forEach(themeKey => {
-    const parts = themeKey.split('|');
-    const recKey = parts.slice(0, 3).join('|');
-    const list = recThemeCompletion[recKey] || (recThemeCompletion[recKey] = []);
-    list.push(post2CompletedByTheme[themeKey]);
-  });
-  Object.keys(recThemeCompletion).forEach(recKey => {
-    const completions = recThemeCompletion[recKey];
-    const expectedThemeCount = Object.keys(expectedPost2).length;
-    if (completions.length === expectedThemeCount && completions.every(t => t > 0 && t < post2Cutoff)) {
-      post2EligibleRecs[recKey] = true;
     }
   });
 

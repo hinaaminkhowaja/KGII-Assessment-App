@@ -942,8 +942,17 @@ function getDashboardData(email) {
         const configuredColumn = source.kind === 'kobo' ? m.koboColumn : m.appColumn;
         if (!Number.isInteger(configuredColumn) || configuredColumn < 1 || configuredColumn > row.length) return;
         const rawScore = row[configuredColumn - 1];
-        if (rawScore === '' || rawScore === null || rawScore === undefined || typeof rawScore === 'boolean') return;
-        const score = Number(rawScore);
+        // The original Student Pre sheet is the complete baseline instrument:
+        // all 29 indicators across all four themes remain in its denominator.
+        // Blank responses are retained as zero, not dropped from the score base.
+        const isStudentPreBaseline =
+          source.name === 'Students Pre Assessment' &&
+          norm(m.participant).toLowerCase() === 'student' &&
+          (norm(m.assessment).replace(/[\\s_-]+/g, '') === 'pre' || stageKey_(m.assessment) === 'preassessment');
+        if (typeof rawScore === 'boolean') return;
+        const isBlankScore = rawScore === '' || rawScore === null || rawScore === undefined;
+        if (isBlankScore && !isStudentPreBaseline) return;
+        const score = isBlankScore ? 0 : Number(rawScore);
         if (!Number.isFinite(score) || !Number.isFinite(m.maxScore) || score < 0 || score > m.maxScore) return;
 
         // Keep each indicator/cycle/assessment as a separate normalized row.

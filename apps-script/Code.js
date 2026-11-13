@@ -8046,63 +8046,54 @@ function getDashboardData(email) {
     const sh=ss.getSheetByName(s.name);if(!sh||sh.getLastRow()<2)return;
     const v=sh.getDataRange().getValues();loaded.push({source:s,headers:v[0].map(clean),rows:v.slice(1)});
   });
+  // Student stages are independent for each REC + theme. Original pre sheet is fixed baseline.
   const events=Object.create(null);
+  const themeNamesForRow_=(x,r)=>{
+    if(x.source.name==='APP_Student_Surveys')return [directThemeId_(clean(val(r,x.headers,['ThemeName'])))].filter(Boolean);
+    const cols=x.headers.map((name,j)=>({name,j})).filter(c=>/^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name));
+    return [...new Set(cols.filter(c=>r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined).map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
+  };
+  const rowDate_=(r,h)=>['start','Start','SubmittedAt','SubmissionDate','AssessmentDate','end','End'].map(k=>val(r,h,[k])).find(v=>clean(v)!=='');
+  const recThemeKey_=(region,board,rec,theme)=>[geoKey(region),geoKey(board),geoKey(rec),geoKey(theme)].join('|');
   loaded.filter(x=>x.source.kind==='student-kobo'||x.source.kind==='student-app').forEach(x=>{
     x.rows.forEach((r,i)=>{
-      const h=x.headers, region=val(r,h,['1. Select your region','Select your region','Region']);
-      let board=val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']);
-      let rec=val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']);
-      if(!board||!rec||!region)return;
-      const dateValue=['start','Start','SubmittedAt','SubmissionDate','end','End','AssessmentDate']
-        .map(name=>val(r,h,[name])).find(value=>clean(value)!=='');
-      const d=dateOf(dateValue);
-      if(!d)return;
-      // One assessment date advances the entire REC across all themes.
-      const key=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
+      if(x.source.name==='Students Pre Assessment')return;
+      const h=x.headers,region=val(r,h,['1. Select your region','Select your region','Region']);
+      const board=val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']);
+      const rec=val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']);
+      if(!region||!board||!rec)return;
+      const d=dateOf(rowDate_(r,h));if(!d)return;
       const day=Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd');
-      (events[key]||(events[key]=[])).push({time:day,source:x.source.name,row:i+2,stage:x.source.stage||clean(val(r,h,['Assessment']))});
+      themeNamesForRow_(x,r).forEach(theme=>{
+        const key=recThemeKey_(region,board,rec,theme);
+        (events[key]||(events[key]=[])).push({time:day,source:x.source.name,row:i+2});
+      });
     });
   });
   Object.keys(events).forEach(k=>{
-    const unique=[...new Set(events[k].map(e=>e.time))].sort();
-    events[k].forEach(e=>{
-      const n=unique.indexOf(e.time);
-      e.sequence=n+1;
-      e.assessment=n===0?'Pre':n===1?'Post':'Post '+n;
-    });
+    const dates=[...new Set(events[k].map(e=>e.time))].sort();
+    events[k].forEach(e=>{e.sequence=dates.indexOf(e.time)+2;e.assessment=e.sequence===2?'Post':'Post '+(e.sequence-1);});
   });
-  // Persist REC-level stage labels on the three student source sheets.
-  // These are script-maintained values (not fragile row-by-row formulas).
-  loaded.filter(x=>x.source.kind==='student-kobo'||x.source.kind==='student-app').forEach(x=>{
-    const sh=ss.getSheetByName(x.source.name);
-    let stageCol=idx(x.headers,['AssessmentStage']);
-    if(stageCol<0){
-      stageCol=x.headers.length;
-      sh.getRange(1,stageCol+1).setValue('AssessmentStage');
-      x.headers.push('AssessmentStage');
-      x.rows.forEach(r=>r.push(''));
-    }
-    let sequenceCol=idx(x.headers,['AssessmentSequence']);
-    if(sequenceCol<0){
-      sequenceCol=x.headers.length;
-      sh.getRange(1,sequenceCol+1).setValue('AssessmentSequence');
-      x.headers.push('AssessmentSequence');
-      x.rows.forEach(r=>r.push(''));
-    }
-    const stageValues=[],sequenceValues=[];
-    x.rows.forEach((r,i)=>{
-      const key=[geoKey(val(r,x.headers,['1. Select your region','Select your region','Region'])),
-        geoKey(val(r,x.headers,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board'])),
-        geoKey(val(r,x.headers,['REC','REC (Standardized)','Name of RECs','Name of REC']))].join('|');
-      const event=(events[key]||[]).find(e=>e.source===x.source.name&&e.row===i+2);
-      const stage=event?event.assessment:'';
-      const sequence=event?event.sequence:'';
-      r[stageCol]=stage;r[sequenceCol]=sequence;
-      stageValues.push([stage]);sequenceValues.push([sequence]);
+  // Append helper columns to imported student sheets; no manual formulas required.
+  loaded.filter(x=>x.source.name==='Students Post Assessment'||x.source.name==='APP_Student_Surveys').forEach(x=>{
+    const sh=ss.getSheetByName(x.source.name),h=x.headers;
+    const ensureCol=name=>{let j=idx(h,[name]);if(j<0){j=h.length;sh.getRange(1,j+1).setValue(name);h.push(name);x.rows.forEach(r=>r.push(''));}return j;};
+    const dateCol=ensureCol('AssessmentDate'),keyCol=ensureCol('RECKey');
+    const stageCols=[1,2,3,4].map(n=>ensureCol('Theme'+n+'AssessmentStage'));
+    const seqCols=[1,2,3,4].map(n=>ensureCol('Theme'+n+'Sequence'));
+    const out=x.rows.map((r,i)=>{
+      const region=val(r,h,['1. Select your region','Select your region','Region']);
+      const board=val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']);
+      const rec=val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']);
+      const d=dateOf(rowDate_(r,h)),rk=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
+      const stages=[],seqs=[];
+      for(let n=1;n<=4;n++){const e=(events[recThemeKey_(region,board,rec,'Theme '+n)]||[]).find(v=>v.source===x.source.name&&v.row===i+2);stages.push(e?e.assessment:'');seqs.push(e?e.sequence:'');}
+      return {date:d||'',key:rk,stages,seqs};
     });
-    if(stageValues.length){
-      sh.getRange(2,stageCol+1,stageValues.length,1).setValues(stageValues);
-      sh.getRange(2,sequenceCol+1,sequenceValues.length,1).setValues(sequenceValues);
+    if(out.length){
+      sh.getRange(2,dateCol+1,out.length,1).setValues(out.map(o=>[o.date]));
+      sh.getRange(2,keyCol+1,out.length,1).setValues(out.map(o=>[o.key]));
+      for(let n=0;n<4;n++){sh.getRange(2,stageCols[n]+1,out.length,1).setValues(out.map(o=>[o.stages[n]]));sh.getRange(2,seqCols[n]+1,out.length,1).setValues(out.map(o=>[o.seqs[n]]));}
     }
   });
   const headers=['RecordID','CycleID','Year','CohortYear','ParticipantType','Assessment','Region','LocalBoard','REC','ParticipantCount','Phase','ThemeID','DimensionID','IndicatorID','Score','MaxScore','SourceSheet','SourceRow','SourceRecordID','ChildName','TeacherName'];
@@ -8125,11 +8116,11 @@ function getDashboardData(email) {
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
       const numericCols=h.map((name,j)=>({name,j})).filter(c=>/^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name));
       if(s.kind==='student-kobo'||s.kind==='student-app'){
-        const themeNames=s.kind==='student-app'?[directThemeId_(clean(val(r,h,['ThemeName'])))]:[...new Set(numericCols.map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
+        const themeNames=s.kind==='student-app'?[directThemeId_(clean(val(r,h,['ThemeName'])))]:[...new Set(numericCols.filter(c=>r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined).map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
         themeNames.filter(Boolean).forEach(theme=>{
-          const eventKey=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
+          const eventKey=recThemeKey_(region,board,rec,theme);
           const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);
-          let assessment=clean(val(r,h,['AssessmentStage']))||(event?event.assessment:clean(val(r,h,['Assessment','Specify the phase']))||'Pre');
+          let assessment=s.name==='Students Pre Assessment'?'Pre':(event?event.assessment:clean(val(r,h,['Assessment','Specify the phase']))||'Post');
           let cycle='C1';
           numericCols.forEach(c=>{
             if(s.kind==='student-app'&&!new RegExp('^'+theme.replace(' ','\\\\s*')+'\\\\s*:','i').test(c.name))return;

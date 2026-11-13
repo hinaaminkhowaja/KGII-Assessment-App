@@ -7631,107 +7631,103 @@ function updateStandardizedGeography() {
 }
 
 
+/**
+ * Audits teacher geography directly in the agreed original source sheet.
+ * APP_Records is a normalized destination and is intentionally not read here.
+ * Read-only: no spreadsheet cells are changed.
+ */
 function auditTeacherGeography() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sh = ss.getSheetByName('APP_Records');
-  if (!sh) throw new Error('APP_Records not found.');
+  const SOURCE_SHEET = 'Teachers Assessment';
+  const source = ss.getSheetByName(SOURCE_SHEET);
+  if (!source) throw new Error('Original source sheet not found: ' + SOURCE_SHEET);
 
-  const data = sh.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).trim());
-  const col = {};
-  headers.forEach((h, i) => col[h] = i);
+  const values = source.getDataRange().getValues();
+  if (values.length < 2) {
+    throw new Error(SOURCE_SHEET + ' has no assessment rows.');
+  }
 
-  ['ParticipantType', 'SourceSheet', 'SourceRow',
-   'LocalBoard', 'REC'].forEach(h => {
-    if (col[h] === undefined) {
-      throw new Error('Missing column: ' + h);
-    }
-  });
+  const headers = values[0].map(h =>
+    String(h == null ? '' : h).replace(/\\u00a0/g, ' ').trim()
+  );
+  const normHeader = h => String(h || '')
+    .replace(/\\u00a0/g, ' ')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+  const findColumn = candidates => {
+    const wanted = candidates.map(normHeader);
+    return headers.findIndex(h => wanted.includes(normHeader(h)));
+  };
 
-  const cache = {};
-  let teacherRecords = 0;
-  let checked = 0;
-  let boardDifferences = 0;
-  let recDifferences = 0;
-  let missingGeography = 0;
+  const boardCol = findColumn(['LocalBoard', 'Local Board (Standardized)']);
+  const recCol = findColumn(['REC', 'REC (Standardized)']);
+  const regionCol = findColumn([
+    'Select your region', '1. Select your region', 'Region'
+  ]);
+  const nameCol = findColumn([
+    'Name of participant', 'Your Name', 'TeacherName'
+  ]);
+  const idCol = findColumn(['_uuid', '_id', 'meta/rootUuid']);
+
+  const missingHeaders = [];
+  if (boardCol < 0) missingHeaders.push('LocalBoard');
+  if (recCol < 0) missingHeaders.push('REC');
+  if (missingHeaders.length) {
+    throw new Error(
+      SOURCE_SHEET + ' is missing standardized geography header(s): ' +
+      missingHeaders.join(', ') +
+      '. Expected LocalBoard and REC (or legacy standardized header names).'
+    );
+  }
+
+  let totalRows = 0;
+  let rowsWithGeography = 0;
+  let rowsMissingBoard = 0;
+  let rowsMissingREC = 0;
   const samples = [];
 
-  for (let i = 1; i < data.length; i++) {
-    const r = data[i];
-    if (String(r[col.ParticipantType]).trim().toLowerCase()
-        !== 'teacher') continue;
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const hasAnyData = row.some(v => String(v == null ? '' : v).trim() !== '');
+    if (!hasAnyData) continue;
 
-    teacherRecords++;
+    totalRows++;
+    const board = String(row[boardCol] || '').trim();
+    const rec = String(row[recCol] || '').trim();
 
-    const sourceName = String(r[col.SourceSheet] || '')
-      .trim().toLowerCase();
-    const sourceRow = Number(r[col.SourceRow]);
+    if (board) rowsWithGeography++;
+    else rowsMissingBoard++;
 
-    if (!cache[sourceName]) {
-      const source = ss.getSheetByName(sourceName);
-      if (!source) {
-        cache[sourceName] = null;
-      } else {
-        const v = source.getDataRange().getValues();
-        const hs = v[0].map(h => String(h).trim());
-        cache[sourceName] = {
-          rows: v,
-          board: hs.findIndex(h =>
-            h.toLowerCase() === 'local board (standardized)'),
-          rec: hs.findIndex(h =>
-            h.toLowerCase() === 'rec (standardized)')
-        };
-      }
-    }
+    if (!rec) rowsMissingREC++;
 
-    const src = cache[sourceName];
-    if (!src || !Number.isInteger(sourceRow) ||
-        sourceRow < 2 || sourceRow >= src.rows.length + 1 ||
-        src.board < 0 || src.rec < 0) {
-      missingGeography++;
-      continue;
-    }
-
-    const sourceData = src.rows[sourceRow - 1];
-    const board = String(sourceData[src.board] || '').trim();
-    const rec = String(sourceData[src.rec] || '').trim();
-
-    if (!board || !rec) {
-      missingGeography++;
-      continue;
-    }
-
-    checked++;
-    const oldBoard = String(r[col.LocalBoard] || '').trim();
-    const oldREC = String(r[col.REC] || '').trim();
-    const boardDiff = oldBoard !== board;
-    const recDiff = oldREC !== rec;
-
-    if (boardDiff) boardDifferences++;
-    if (recDiff) recDifferences++;
-
-    if ((boardDiff || recDiff) && samples.length < 10) {
+    if ((!board || !rec) && samples.length < 20) {
       samples.push({
-        APP_RecordsRow: i + 1,
-        SourceSheet: sourceName,
-        SourceRow: sourceRow,
-        currentBoard: oldBoard,
-        standardizedBoard: board,
-        currentREC: oldREC,
-        standardizedREC: rec
+        sourceSheet: SOURCE_SHEET,
+        sourceRow: i + 1,
+        submissionID: idCol >= 0 ? row[idCol] : '',
+        teacherName: nameCol >= 0 ? row[nameCol] : '',
+        region: regionCol >= 0 ? row[regionCol] : '',
+        LocalBoard: board,
+        REC: rec
       });
     }
   }
 
-  Logger.log(JSON.stringify({
-    status: 'AUDIT ONLY — NO CELLS CHANGED',
-    teacherRecords: teacherRecords,
-    teacherRecordsChecked: checked,
-    localBoardDifferences: boardDifferences,
-    recDifferences: recDifferences,
-    missingOrUnmatchedGeography: missingGeography,
-    samples: samples
-  }, null, 2));
+  const report = {
+    status: 'AUDIT ONLY — ORIGINAL SOURCE SHEET; NO CELLS CHANGED',
+    sourceSheet: SOURCE_SHEET,
+    totalNonblankSubmissions: totalRows,
+    rowsWithLocalBoard: totalRows - rowsMissingBoard,
+    rowsMissingLocalBoard: rowsMissingBoard,
+    rowsWithREC: totalRows - rowsMissingREC,
+    rowsMissingREC: rowsMissingREC,
+    rowsWithBothGeographyFields: totalRows - samples.filter(s => !s.LocalBoard || !s.REC).length,
+    samplesMissingGeography: samples,
+    appRecordsRead: false
+  };
+
+  Logger.log(JSON.stringify(report, null, 2));
+  return report;
 }
 
 

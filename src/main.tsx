@@ -458,9 +458,15 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const studentPct=averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
   const teacherContentPct=stageAverage(teacherContentAllRows,['Pre','Post']);
   const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
+  // Overall framework: 87 student Pre/Post indicators, 87 student Post 2
+  // indicators, 16 teacher content indicators (Pre + Post), and 48 teacher
+  // skills indicators (Pre + Post). Cohort year must not duplicate the
+  // student indicator denominator.
+  const studentPrePostPct=stageAverage(studentRowsAll,['Pre','Post']);
+  const studentPost2Pct=stageAverage(studentRowsAll,['Post 2']);
   const weightedComponents=[
-    {weight:87,p:student2025Pct,has:student2025Rows.length>0},
-    {weight:87,p:student2026Pct,has:student2026Rows.length>0},
+    {weight:87,p:studentPrePostPct,has:studentRowsAll.some(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'))},
+    {weight:87,p:studentPost2Pct,has:studentRowsAll.some(r=>assessmentIsPost2(r.Assessment))},
     {weight:16,p:teacherContentPct,has:teacherContentAllRows.length>0},
     {weight:48,p:teacherSkillsPct,has:teacherSkills2026Rows.length>0}
   ].filter(x=>x.has);

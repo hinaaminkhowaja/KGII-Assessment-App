@@ -507,10 +507,19 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // not the calendar date on which a Kobo/app submission was uploaded.
   const rowsForCounts=()=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:'',year:''});
   const recStartingYearForRow=(r:Rec)=>{const t=targetRecs.find((x:any)=>geoNorm(x.Region)===geoNorm(r.Region)&&geoNorm(x.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(x.REC)===geoNorm(r.REC));return Number(t?.StartingYear)||0;};
+  const studentIdentity=(r:Rec)=>r.SourceRecordID||r.RecordID||r.ChildName||'';
+  const recCohortForStage=(r:Rec,year:number,stage:'Pre'|'Post'|'Post 2')=>{
+    const masterYear=recStartingYearForRow(r);
+    if(masterYear)return masterYear;
+    // Fallback only for first-cycle submissions when a REC has no master-list match.
+    // Never infer Post 2 cohort from the submission year.
+    if(stage!=='Post 2')return Number(r.Year)||0;
+    return 0;
+  };
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const isTeacherSkillRow=(r:Rec)=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID));
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
-  const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recStartingYearForRow(r)===(stage==='Post 2'?2025:year)&&stageMatches(r,stage)),r=>r.ChildName||r.SourceRecordID||r.RecordID);
+  const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recCohortForStage(r,year,stage)===(stage==='Post 2'?2025:year)&&stageMatches(r,stage)),studentIdentity);
   // Teacher content belongs to its own REC StartingYear cohort. Existing 2025
   // RECs' Skills Pre/Post are counted in the 2026 teacher stage totals.
   const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>distinctCount(rowsForCounts().filter(r=>{
@@ -522,7 +531,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   }),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
   const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(rowsForCounts().filter(r=>{
     const cohort=recStartingYearForRow(r),participant=norm(r.ParticipantType).toLowerCase(),skill=isTeacherSkillRow(r);
-    if(year===2025)return cohort===2025&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
+    if(year===2025)return (cohort===2025||(!cohort&&Number(r.Year)===2025))&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
     if(year===2026)return ((cohort===2026&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage))||(cohort===2025&&((participant==='student'&&stage==='Post'&&assessmentIsPost2(r.Assessment))||(skill&&stageMatches(r,stage)))));
     return false;
   }),r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));

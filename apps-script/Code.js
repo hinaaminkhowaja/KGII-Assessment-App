@@ -8129,7 +8129,7 @@ function getDashboardData(email) {
         themeNames.filter(Boolean).forEach(theme=>{
           const eventKey=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
           const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);
-          let assessment=event?event.assessment:clean(val(r,h,['Assessment','Specify the phase']))||'Pre';
+          let assessment=clean(val(r,h,['AssessmentStage']))||(event?event.assessment:clean(val(r,h,['Assessment','Specify the phase']))||'Pre');
           let cycle='C1';
           numericCols.forEach(c=>{
             if(s.kind==='student-app'&&!new RegExp('^'+theme.replace(' ','\\\\s*')+'\\\\s*:','i').test(c.name))return;

@@ -487,9 +487,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     if(stage==='Post')return assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment));
     return stage==='Post 2'&&assessmentIsPost2(r.Assessment);
   });
-  const studentCountForYear=(year:number,stage:string)=>uniqueStudentCount(stageRowsForYear(year,'Student',stage));
-  const teacherCountForYear=(year:number,stage?:string)=>uniqueTeacherCount(stageRowsForYear(year,'Teacher',stage));
-  const recCountForYear=(year:number,stage:string)=>uniqueRecCount(rowsForYear(year).filter(r=>assessmentIs(r.Assessment,stage)));
+  const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
+  const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(stageRowsForYear(year,'Student',stage),r=>r.ChildName||r.SourceRecordID||r.RecordID);
+  const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>distinctCount(stageRowsForYear(year,'Teacher',stage),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
+  const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(rowsForYear(year).filter(r=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment))),r=>[r.Region,r.LocalBoard,r.REC].map(norm).join('||'));
   const student2025Pre=studentCountForYear(2025,'Pre');
   const student2025Post=studentCountForYear(2025,'Post');
   const student2026Pre=studentCountForYear(2026,'Pre');
@@ -502,9 +503,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const rec2026Pre=recCountForYear(2026,'Pre');
   const rec2026Post=recCountForYear(2026,'Post');
   const cards=[
-    ['Overall Score',`${score.toFixed(1)} / ${totalMax.toFixed(1)}`],
-    ['Performance',fmt(overallPerformance)],
-    ['Status',statusFor(overallPerformance)],
+    ['Overall Score',`${overall.score.toFixed(1)} / ${overall.max.toFixed(1)}`],
+    ['Performance',fmt(overall.p)],
+    ['Status',statusFor(overall.p)],
     ['No. of Students (2025 Pre / Post)',`${student2025Pre} / ${student2025Post}`],
     ['No. of Students (2026 Pre / Post 2)',`${student2026Pre} / ${student2026Post2}`],
     ['No. of Teachers (2025)',String(teacher2025)],

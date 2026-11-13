@@ -813,7 +813,7 @@ function getDashboardData(email) {
         const stage = stageKey(m.assessment);
         const stageName = stage === 'pre' || stage === 'preassessment' ? 'pre' : 'post';
         const key = post2GeoThemeKey(region, localBoard, rec, m.theme);
-        const bucket = observedPost2[key] || (observedPost2[key] = { pre: Object.create(null), post: Object.create(null) });
+        const bucket = observedPost2[key] || (observedPost2[key] = { pre: Object.create(null), post: Object.create(null), theme: cleanValue(m.theme) });
         const prior = bucket[stageName][m.indicator];
         if (!prior || submittedAt < prior) bucket[stageName][m.indicator] = submittedAt;
       });
@@ -829,8 +829,7 @@ function getDashboardData(email) {
     [region, localBoard, rec].map(geoKeyForPost2).join('|');
   Object.keys(observedPost2).forEach(key => {
     const bucket = observedPost2[key];
-    const parts = key.split('|');
-    const theme = parts.slice(3).join('|');
+    const theme = bucket.theme;
     const expected = expectedPost2[geoKeyForPost2(theme)];
     if (!expected || !expected.pre.size || !expected.post.size) return;
     const stageCompletionTime = stageName => {

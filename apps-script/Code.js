@@ -8120,3 +8120,30 @@ function getDashboardData(email) {
 }
 
 function directThemeId_(name){const n=String(name||'').toLowerCase().replace(/[^a-z]/g,'');const map={'authorityandleadership':'Theme 1','authorityleadership':'Theme 1','ismailimuslimtraditions':'Theme 2','roleinfamilycommunityandsociety':'Theme 3','twoaspectsoflife':'Theme 4'};return map[n]||name;}
+
+
+/* Runtime compatibility for legacy survey handlers: mappings are generated
+   from the fixed source headers; normalized records are no longer written. */
+function indicatorReferenceRows_(){
+  const rows=[];
+  const themes=[
+    ['Theme 1','Authority and Leadership',10],
+    ['Theme 2','Ismaili Muslim Traditions',7],
+    ['Theme 3','Role in family, community and society',4],
+    ['Theme 4','Two aspects of life',8]
+  ];
+  themes.forEach((t,ti)=>{
+    for(let n=1;n<=t[2];n++){
+      const dim=(ti===0?[1,3,5,6,7,9,10].includes(n):false)?'UA':'A';
+      const id='Theme'+(ti+1)+':'+dim+n;
+      ['Pre','Post','Post 2','Post 3','Post 4','Post 5'].forEach(stage=>{
+        rows.push({CycleID:'C1',ParticipantType:'Student',Assessment:stage,ThemeID:'Theme '+(ti+1),ThemeName:t[1],DimensionID:dim,IndicatorID:id,MaxScore:3,SourceSheet:'',SourceColumn:0,AppSourceSheet:'APP_Student_Surveys',AppSourceColumn:0});
+      });
+    }
+    ['Pre','Post'].forEach(stage=>{
+      rows.push({CycleID:'C1',ParticipantType:'Teacher',Assessment:stage,ThemeID:'Theme '+(ti+1),ThemeName:t[1],DimensionID:'Overall',IndicatorID:stage+'Rating',MaxScore:5,SourceSheet:'',SourceColumn:0,AppSourceSheet:'APP_Teacher_Surveys',AppSourceColumn:0});
+    });
+  });
+  return rows;
+}
+function appendNormalizedRecords_(){return 0;}

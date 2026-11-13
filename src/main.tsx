@@ -451,82 +451,36 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherCount=teacherCountRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const recPreRows=recCountRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const recPostRows=recCountRows.filter(r=>assessmentIs(r.Assessment,'Post'));
-  const cycle2=cycleLabel(f.cycle)==='Cycle 2';
-  const studentPct=cycle2?aggregate(phase3Rows).p:aggregate(studentRows).p;
+  const studentPct=aggregate(studentRows).p;
   const teacherPct=aggregate(teacherRows).p;
   const prePct=aggregate(preRows).p;
   const postPct=aggregate(postRows).p;
   const teacherOnly=hideTeacherBreakdown;
   const includeStudent=(!ratingSelected||!!f.studentRating)&&(!f.pt||norm(f.pt).toLowerCase()==='student');
   const includeTeacher=(!ratingSelected||!!f.teacherRating)&&(!f.pt||norm(f.pt).toLowerCase()==='teacher');
-  const phase3StudentRows=includeStudent?phase3Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'):[];
-  const phase3Score=cycle2?aggregate(phase3StudentRows).p*87/100:0;
-  const phase1Cycle2=cycle2&&/^phase\s*1$/i.test(norm(f.phase));
-  const phase2Cycle2=cycle2&&/^phase\s*2$/i.test(norm(f.phase));
-  const studentPost2Rows=allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment));
+  const studentPost2Rows=allStageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment));
   const studentPost2Totals=aggregate(studentPost2Rows);
-  const teacherSkillRows=allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherSkillRows=allStageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID)));
   const teacherSkillPreRows=teacherSkillRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const teacherSkillPostRows=teacherSkillRows.filter(r=>assessmentIs(r.Assessment,'Post'));
-  const phase2StudentPreRows=phase2Cycle2?allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIs(r.Assessment,'Pre')):[];
-  const phase2TeacherContentRows=phase2Cycle2?allCycleRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&!/^S[123]$/i.test(norm(r.ThemeID))):[];
-  const phase2TeacherPreRows=phase2TeacherContentRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
-  const phase2TeacherPostRows=phase2TeacherContentRows.filter(r=>assessmentIs(r.Assessment,'Post'));
   const teacherSkillPreTotals=aggregate(teacherSkillPreRows);
   const teacherSkillPostTotals=aggregate(teacherSkillPostRows);
-  const phase2StudentPreTotals=aggregate(phase2StudentPreRows);
-  const phase2TeacherPreTotals=aggregate(phase2TeacherPreRows);
-  const phase2TeacherPostTotals=aggregate(phase2TeacherPostRows);
-  const teacherPreRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre'));
-  const teacherPostRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post'));
+  const teacherPreRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre')&&!/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherPostRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post')&&!/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherPreTotals=aggregate(teacherPreRows);
+  const teacherPostTotals=aggregate(teacherPostRows);
   const selectedRatingMax=(f.studentRating?87:0)+(f.teacherRating?16:0);
   const preSelected=ratingSelected&&(!f.assessment||assessmentIs(f.assessment,'Pre'));
   const postSelected=ratingSelected&&(!f.assessment||assessmentIs(f.assessment,'Post'));
   const studentStageScore=(stageRows:Rec[])=>aggregate(stageRows.filter(r=>r.ParticipantType==='Student')).p*87/100;
-  const teacherStageScore=(stageRows:Rec[])=>cycle2
-    ? aggregate(stageRows.filter(r=>r.ParticipantType==='Teacher')).p*48/100
-    : scoreOutOf(stageRows,'Teacher',4);
-  const preScore=cycle2
-    ? phase2Cycle2
-      ? (includeStudent?aggregate(phase2StudentPreRows).p*87/100:0)+(includeTeacher?phase2TeacherPreTotals.p*16/100:0)
-      : (includeTeacher?teacherStageScore(teacherPreRows):0)
-    : ratingSelected
-      ? (f.studentRating?studentStageScore(preRows):0)+(f.teacherRating?teacherStageScore(preRows):0)
-      : teacherOnly?scoreModel(preRows).total:prePct;
-  const postScore=cycle2
-    ? phase2Cycle2
-      ? (includeTeacher?phase2TeacherPostTotals.p*16/100:0)
-      : (includeTeacher?teacherStageScore(teacherPostRows):0)
-    : ratingSelected
-      ? (f.studentRating?studentStageScore(postRows):0)+(f.teacherRating?teacherStageScore(postRows):0)
-      : teacherOnly?scoreModel(postRows).total:postPct;
-  const preMax=cycle2
-    ? phase2Cycle2
-      ? (includeStudent?87:0)+(includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Pre'))?16:0)
-      : (includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Pre'))?48:0)
-    : ratingSelected?(preSelected?selectedRatingMax:0):16;
-  const postMax=cycle2
-    ? phase2Cycle2
-      ? (includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Post'))?16:0)
-      : (includeTeacher&&(!f.assessment||assessmentIs(f.assessment,'Post'))?48:0)
-    : ratingSelected?(postSelected?selectedRatingMax:0):16;
-  const phase3Max=cycle2&&includeStudent&&phase3StudentRows.length?87:0;
-  const cycle2Score=phase3Score+preScore+postScore;
-  const cycle2Max=phase3Max+preMax+postMax;
-  const cycleAll=!f.cycle||f.cycle==='All';
-  const cycle1Rows=scoreRows.filter(r=>cycleLabel(r.CycleID)==='Cycle 1');
-  const cycle2Rows=scoreRows.filter(r=>cycleLabel(r.CycleID)==='Cycle 2');
-  const cycle1Score=aggregate(cycle1Rows).p*206/100;
-  const cycle2TeacherPre=aggregate(cycle2Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre'))).p*48/100;
-  const cycle2TeacherPost=aggregate(cycle2Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post'))).p*48/100;
-  const cycle2StudentScore=includeStudent?aggregate(phase3Rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&(!f.studentRating||ratingFilterMatch(r,f)))).p*87/100:0;
-  const allCycleScore=cycle1Score+cycle2StudentScore+(includeTeacher?cycle2TeacherPre+cycle2TeacherPost:0);
-  const allCycleMax=ratingSelected
-    ? 2*selectedRatingMax+(f.studentRating?87:0)+(f.teacherRating?96:0)
-    : 389;
-  const score=cycleAll?allCycleScore:cycle2?cycle2Score:ratingSelected?preScore+postScore:overall.p*206/100;
-  const totalMax=cycleAll?allCycleMax:cycle2?cycle2Max:ratingSelected?preMax+postMax:206;
-  const overallPerformance=cycleAll||cycle2?pct(score,totalMax):overall.p;
+  const teacherStageScore=(stageRows:Rec[])=>scoreOutOf(stageRows,'Teacher',4);
+  const preScore=ratingSelected?(f.studentRating?studentStageScore(preRows):0)+(f.teacherRating?teacherStageScore(preRows):0):teacherOnly?scoreModel(preRows).total:prePct;
+  const postScore=ratingSelected?(f.studentRating?studentStageScore(postRows):0)+(f.teacherRating?teacherStageScore(postRows):0):teacherOnly?scoreModel(postRows).total:postPct;
+  const preMax=ratingSelected?(preSelected?selectedRatingMax:0):16;
+  const postMax=ratingSelected?(postSelected?selectedRatingMax:0):16;
+  const score=ratingSelected?preScore+postScore:overall.p*206/100;
+  const totalMax=ratingSelected?preMax+postMax:206;
+  const overallPerformance=ratingSelected?pct(score,totalMax):overall.p;
 
   // Keep the existing dashboard participant-count calculations and show them on
   // the dashboard and all non-teacher analysis views.
@@ -587,22 +541,29 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherPreTotals=aggregate(teacherPreRows);
   const teacherPostTotals=aggregate(teacherPostRows);
   const countSourceRows=filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
-  const allocationMap=new Map(targetRecs.filter((t:any)=>{const status=norm(t.Status).toLowerCase();return !status||['active','yes','true','1'].includes(status)}).map((t:any)=>[[geoNorm(t.Region),geoNorm(t.LocalBoard),geoNorm(t.REC)].join('|'),t]));
-  const allocationFor=(r:Rec)=>{const target=allocationMap.get([geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'));if(!target)return '';return phaseLabel(cycleLabel(r.CycleID)==='Cycle 2'?target.Cycle2Phase:target.Cycle1Phase)};
-  const phaseRows=(phase:string)=>countSourceRows.filter(r=>allocationFor(r)===phase);
   const uniqueRecCount=(items:Rec[])=>new Set(items.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
   const uniqueTeacherCount=(items:Rec[])=>new Set(items.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&r.TeacherName&&r.Region&&r.LocalBoard&&r.REC).map(r=>[recKey(r),norm(r.TeacherName).toLocaleLowerCase()].join('||'))).size;
-  const phase1Rows=phaseRows('Phase 1'),phase2Rows=phaseRows('Phase 2');
-  const phase1PreRecs=uniqueRecCount(phase1Rows.filter(r=>assessmentIs(r.Assessment,'Pre')));
-  const phase1PostRecs=uniqueRecCount(phase1Rows.filter(r=>assessmentIs(r.Assessment,'Post')));
-  const phase2PreRecs=uniqueRecCount(phase2Rows.filter(r=>assessmentIs(r.Assessment,'Pre')));
-  const phase2PostRecs=uniqueRecCount(phase2Rows.filter(r=>assessmentIs(r.Assessment,'Post')));
+  const stageRows=(participant:string,stage:string,skills?:boolean)=>countSourceRows.filter(r=>norm(r.ParticipantType).toLowerCase()===participant.toLowerCase()&&assessmentIs(r.Assessment,stage)&&(skills===undefined||(/^S[123]$/i.test(norm(r.ThemeID)))===skills));
+  const studentPreCount=uniqueStudentCount(stageRows('Student','Pre'));
+  const studentPostCount=uniqueStudentCount(stageRows('Student','Post'));
+  const studentPost2Count=uniqueStudentCount(stageRows('Student','Post 2'));
+  const studentPost3Count=uniqueStudentCount(stageRows('Student','Post 3'));
+  const teacherContentPreCount=uniqueTeacherCount(stageRows('Teacher','Pre',false));
+  const teacherContentPostCount=uniqueTeacherCount(stageRows('Teacher','Post',false));
+  const teacherSkillPreCount=uniqueTeacherCount(stageRows('Teacher','Pre',true));
+  const teacherSkillPostCount=uniqueTeacherCount(stageRows('Teacher','Post',true));
+  const recPreCount=uniqueRecCount(countSourceRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
+  const recPostCount=uniqueRecCount(countSourceRows.filter(r=>assessmentIs(r.Assessment,'Post')));
+  const recPost2Count=uniqueRecCount(countSourceRows.filter(r=>assessmentIsPost2(r.Assessment)));
+  const recPost3Count=uniqueRecCount(countSourceRows.filter(r=>/^post\\s*3$/i.test(norm(r.Assessment))));
   const cards=[
     ['Overall Score',`${score.toFixed(1)} / ${totalMax.toFixed(1)}`],
     ['Performance',fmt(overallPerformance)],
     ['Status',statusFor(overallPerformance)],
-    ['No. of Students (Pre / Post / Post 2)',`${preStudents} / ${postStudents} / ${uniqueStudentCount(studentPost2Rows)}`],
-    ['No. of Teachers (Phase 1 / Phase 2)',`${uniqueTeacherCount(phase1Rows)} / ${uniqueTeacherCount(phase2Rows)}`],
+    ['No. of Students (Pre / Post / Post 2 / Post 3)',`${studentPreCount} / ${studentPostCount} / ${studentPost2Count} / ${studentPost3Count}`],
+    ['No. of Teachers – Content (Pre / Post)',`${teacherContentPreCount} / ${teacherContentPostCount}`],
+     ['No. of Teachers – Skills (Pre / Post)',`${teacherSkillPreCount} / ${teacherSkillPostCount}`],
+     ['No. of RECs (Pre / Post / Post 2 / Post 3)',`${recPreCount} / ${recPostCount} / ${recPost2Count} / ${recPost3Count}`],
     ['No. of RECs Phase 1 (Pre / Post)',`${phase1PreRecs} / ${phase1PostRecs}`],
     ['No. of RECs Phase 2 (Pre / Post)',`${phase2PreRecs} / ${phase2PostRecs}`],
     ['Students Overall',fmt(studentPct)],

@@ -8053,15 +8053,14 @@ function getDashboardData(email) {
       let board=val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']);
       let rec=val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']);
       if(!board||!rec||!region)return;
-      const d=dateOf(val(r,h,['start','Start','SubmittedAt','SubmissionDate','end','End']));
+      const dateValue=['start','Start','SubmittedAt','SubmissionDate','end','End','AssessmentDate']
+        .map(name=>val(r,h,[name])).find(value=>clean(value)!=='');
+      const d=dateOf(dateValue);
       if(!d)return;
-      const themeCols=h.map((name,j)=>({name,j,m:name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i)})).filter(x=>x.m);
-      const themes=x.source.kind==='student-app'?[directThemeId_(clean(val(r,h,['ThemeName'])))]:[...new Set(themeCols.map(c=>'Theme '+c.m[1]))];
-      themes.forEach(t=>{
-        const key=[geoKey(region),geoKey(board),geoKey(rec),geoKey(t)].join('|');
-        const day=Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd');
-        (events[key]||(events[key]=[])).push({time:day,source:x.source.name,row:i+2,stage:x.source.stage||clean(val(r,h,['Assessment']))});
-      });
+      // One assessment date advances the entire REC across all themes.
+      const key=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
+      const day=Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd');
+      (events[key]||(events[key]=[])).push({time:day,source:x.source.name,row:i+2,stage:x.source.stage||clean(val(r,h,['Assessment']))});
     });
   });
   Object.keys(events).forEach(k=>{
@@ -8094,7 +8093,7 @@ function getDashboardData(email) {
       if(s.kind==='student-kobo'||s.kind==='student-app'){
         const themeNames=s.kind==='student-app'?[directThemeId_(clean(val(r,h,['ThemeName'])))]:[...new Set(numericCols.map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
         themeNames.filter(Boolean).forEach(theme=>{
-          const eventKey=[geoKey(region),geoKey(board),geoKey(rec),geoKey(theme)].join('|');
+          const eventKey=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
           const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);
           let assessment=event?event.assessment:clean(val(r,h,['Assessment','Specify the phase']))||'Pre';
           let cycle='C1';

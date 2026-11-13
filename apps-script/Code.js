@@ -8048,6 +8048,7 @@ function getDashboardData(email) {
   });
   // Student stages are independent for each REC + theme. Original pre sheet is fixed baseline.
   const events=Object.create(null);
+  const recEvents=Object.create(null);
   const themeNamesForRow_=(x,r)=>{
     if(x.source.name==='APP_Student_Surveys')return [directThemeId_(clean(val(r,x.headers,['ThemeName'])))].filter(Boolean);
     const cols=x.headers.map((name,j)=>({name,j})).filter(c=>/^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name));
@@ -8064,21 +8065,31 @@ function getDashboardData(email) {
       if(!region||!board||!rec)return;
       const d=dateOf(rowDate_(r,h));if(!d)return;
       const day=Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd');
-      themeNamesForRow_(x,r).forEach(theme=>{
+      const rowThemes=themeNamesForRow_(x,r);
+      if(rowThemes.length){
+        const recKey=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
+        (recEvents[recKey]||(recEvents[recKey]=[])).push({time:day,source:x.source.name,row:i+2});
+      }
+      rowThemes.forEach(theme=>{
         const key=recThemeKey_(region,board,rec,theme);
         (events[key]||(events[key]=[])).push({time:day,source:x.source.name,row:i+2});
       });
     });
   });
-  Object.keys(events).forEach(k=>{
-    const dates=[...new Set(events[k].map(e=>e.time))].sort();
-    events[k].forEach(e=>{e.sequence=dates.indexOf(e.time)+2;e.assessment=e.sequence===2?'Post':'Post '+(e.sequence-1);});
-  });
+  const assignStages_=map=>{
+    Object.keys(map).forEach(k=>{
+      const dates=[...new Set(map[k].map(e=>e.time))].sort();
+      map[k].forEach(e=>{e.sequence=dates.indexOf(e.time)+2;e.assessment=e.sequence===2?'Post':'Post '+(e.sequence-1);});
+    });
+  };
+  assignStages_(events);
+  assignStages_(recEvents);
   // Append helper columns to imported student sheets; no manual formulas required.
   loaded.filter(x=>x.source.name==='Students Post Assessment'||x.source.name==='APP_Student_Surveys').forEach(x=>{
     const sh=ss.getSheetByName(x.source.name),h=x.headers;
     const ensureCol=name=>{let j=idx(h,[name]);if(j<0){j=h.length;sh.getRange(1,j+1).setValue(name);h.push(name);x.rows.forEach(r=>r.push(''));}return j;};
     const dateCol=ensureCol('AssessmentDate'),keyCol=ensureCol('RECKey');
+    const overallStageCol=ensureCol('AssessmentStage'),overallSequenceCol=ensureCol('AssessmentSequence');
     const stageCols=[1,2,3,4].map(n=>ensureCol('Theme'+n+'AssessmentStage'));
     const seqCols=[1,2,3,4].map(n=>ensureCol('Theme'+n+'Sequence'));
     const out=x.rows.map((r,i)=>{
@@ -8086,13 +8097,17 @@ function getDashboardData(email) {
       const board=val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']);
       const rec=val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']);
       const d=dateOf(rowDate_(r,h)),rk=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
+      const day=d?Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd'):'';
+      const overall=(recEvents[rk]||[]).find(v=>v.source===x.source.name&&v.row===i+2);
       const stages=[],seqs=[];
       for(let n=1;n<=4;n++){const e=(events[recThemeKey_(region,board,rec,'Theme '+n)]||[]).find(v=>v.source===x.source.name&&v.row===i+2);stages.push(e?e.assessment:'');seqs.push(e?e.sequence:'');}
-      return {date:d||'',key:rk,stages,seqs};
+      return {date:d||'',key:rk,overallStage:overall?overall.assessment:'',overallSequence:overall?overall.sequence:'',stages,seqs};
     });
     if(out.length){
       sh.getRange(2,dateCol+1,out.length,1).setValues(out.map(o=>[o.date]));
       sh.getRange(2,keyCol+1,out.length,1).setValues(out.map(o=>[o.key]));
+      sh.getRange(2,overallStageCol+1,out.length,1).setValues(out.map(o=>[o.overallStage]));
+      sh.getRange(2,overallSequenceCol+1,out.length,1).setValues(out.map(o=>[o.overallSequence]));
       for(let n=0;n<4;n++){sh.getRange(2,stageCols[n]+1,out.length,1).setValues(out.map(o=>[o.stages[n]]));sh.getRange(2,seqCols[n]+1,out.length,1).setValues(out.map(o=>[o.seqs[n]]));}
     }
   });

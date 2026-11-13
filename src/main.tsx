@@ -490,7 +490,11 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(stageRowsForYear(year,'Student',stage),r=>r.ChildName||r.SourceRecordID||r.RecordID);
   const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>distinctCount(stageRowsForYear(year,'Teacher',stage),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
-  const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(rowsForYear(year).filter(r=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment))),r=>[r.Region,r.LocalBoard,r.REC].map(norm).join('||'));
+  // REC cohort is assigned by the permanent StartingYear in the REC master list.
+  // Assessment year is deliberately ignored for REC cohort membership.
+  const recRowsForCohort=(startingYear:number)=>rowsForYearForCohort().filter(r=>targetRecs.some((t:any)=>Number(t.StartingYear)===startingYear&&['active','yes','true','1'].includes(norm(t.Status).toLowerCase())&&geoNorm(t.Region)===geoNorm(r.Region)&&geoNorm(t.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(t.REC)===geoNorm(r.REC)));
+  const rowsForYearForCohort=()=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:'',year:''});
+  const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(recRowsForCohort(year).filter(r=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment))),r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
   const student2025Pre=studentCountForYear(2025,'Pre');
   const student2025Post=studentCountForYear(2025,'Post');
   const student2026Pre=studentCountForYear(2026,'Pre');

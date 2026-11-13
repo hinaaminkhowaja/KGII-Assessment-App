@@ -924,7 +924,12 @@ function getDashboardData(email) {
             const startingYear = Number(recStartingYears[cohortKey]);
             if (!startingYear || Number(year) <= startingYear) return m;
             const recKey = recKeyForPost2(region, localBoard, rec);
-            if (!post2EligibleRecs[recKey] || !Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
+            const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
+            const startingYear = Number(recStartingYears[[region, localBoard, rec].map(phaseGeoKey).join('|')]);
+            if (startingYear !== 2025 || !Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
+            // Promote only this REC/theme when its own original Pre AND Post
+            // were both complete before November 2026. Other themes remain Post.
+            if (!post2CompletedByTheme[themeKey] || post2CompletedByTheme[themeKey] >= post2Cutoff) return m;
             return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
           })
         : source.kind === 'kobo' && source.name === 'Students Pre Assessment'
@@ -937,10 +942,15 @@ function getDashboardData(email) {
               const startingYear = Number(recStartingYears[cohortKey]);
               if (!startingYear || Number(year) <= startingYear) return m;
               const recKey = recKeyForPost2(region, localBoard, rec);
-              if (!Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
-              // Existing 2025 RECs: completed all original themes before November => Post 2.
-              // Incomplete 2025 RECs continue their original Post assessment.
-              if (post2EligibleRecs[recKey]) return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
+              const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
+              const startingYear = Number(recStartingYears[[region, localBoard, rec].map(phaseGeoKey).join('|')]);
+              if (startingYear !== 2025 || !Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
+              // The new submission advances to Post 2 only for the same theme
+              // whose original Pre and Post were complete before November.
+              if (post2CompletedByTheme[themeKey] && post2CompletedByTheme[themeKey] < post2Cutoff) {
+                return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
+              }
+              // If this theme's original Post was not yet complete, continue it.
               return Object.assign({}, m, {cycle:'C1', assessment:'Post', phase:''});
             })
           : sourceMappings;

@@ -8145,19 +8145,14 @@ function removeAssessmentHelperColumnsFromSheets() {
     'Theme1AssessmentStage', 'Theme2AssessmentStage', 'Theme3AssessmentStage', 'Theme4AssessmentStage',
     'Theme1Sequence', 'Theme2Sequence', 'Theme3Sequence', 'Theme4Sequence'
   ]);
-  const sheetNames = [
-    'Students Pre Assessment', 'Students Post Assessment', 'Teachers Assessment',
-    'APP_Student_Surveys', 'APP_Teacher_Surveys', 'APP_Teacher_Surveys_Cycle2'
-  ];
   const report = [];
-  sheetNames.forEach(name => {
-    const sh = ss.getSheetByName(name);
-    if (!sh || sh.getLastColumn() < 1) return;
+  ss.getSheets().forEach(sh => {
+    if (sh.getLastColumn() < 1) return;
     const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0];
     const cols = [];
     headers.forEach((header, i) => { if (remove.has(String(header || '').trim())) cols.push(i + 1); });
     cols.sort((a, b) => b - a).forEach(col => sh.deleteColumn(col));
-    report.push({sheet: name, removedColumns: cols.length});
+    if (cols.length) report.push({sheet: sh.getName(), removedColumns: cols.length});
   });
   return {success: true, message: 'Temporary assessment helper columns removed.', sheets: report};
 }

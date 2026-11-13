@@ -752,38 +752,42 @@ function getDashboardData(email) {
     sourceData[source.name] = { values, headers: values[0].map(cleanValue) };
   });
 
-  // Keep numeric REC suffixes so Madaklast 2 and Madaklast 3 remain distinct.
+  // Cycle 2 eligibility is REC-level, not child-level: children may change
+  // between cycles. A REC qualifies when at least one configured theme has
+  // its complete Cycle 1 student Pre AND Post baseline recorded before the
+  // Cycle 2 cutoff. Once qualified, all later student themes from that REC
+  // are classified consistently as Cycle 2 Post 2.
   const geoKeyForPost2 = value => cleanValue(value).toLowerCase()
     .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const post2GeoThemeKey = (region, localBoard, rec, theme) =>
-    [region, localBoard, rec, theme].map(geoKeyForPost2).join('|');
+  const recKeyForPost2 = (region, localBoard, rec) =>
+    [region, localBoard, rec].map(geoKeyForPost2).join('|');
+  const themeKeyForPost2 = (region, localBoard, rec, theme) =>
+    recKeyForPost2(region, localBoard, rec) + '|' + geoKeyForPost2(theme);
   const expectedPost2 = Object.create(null);
   const observedPost2 = Object.create(null);
   const isCycle1 = value => {
-    const k = norm(value).replace(/[\\s_-]+/g, '');
+    const k = norm(value).replace(/[\s_-]+/g, '');
     return !k || k === 'c1' || k === 'cycle1' || k === '1';
   };
-  const stageKey = value => norm(value).replace(/[\\s_-]+/g, '');
-
+  const stageKey = value => norm(value).replace(/[\s_-]+/g, '');
   mappings.forEach(m => {
     if (norm(m.participant) !== 'student' || !isCycle1(m.cycle)) return;
     const theme = cleanValue(m.theme);
-    if (!theme) return;
     const stage = stageKey(m.assessment);
-    if (stage !== 'pre' && stage !== 'preassessment' && stage !== 'post' && stage !== 'postassessment') return;
+    if (!theme || !['pre','preassessment','post','postassessment'].includes(stage)) return;
+    const stageName = stage === 'pre' || stage === 'preassessment' ? 'pre' : 'post';
     const themeKey = geoKeyForPost2(theme);
-    const bucket = expectedPost2[themeKey] || (expectedPost2[themeKey] = { pre: new Set(), post: new Set() });
-    (stage === 'pre' || stage === 'preassessment' ? bucket.pre : bucket.post).add(m.indicator);
+    const bucket = expectedPost2[themeKey] || (expectedPost2[themeKey] = {pre:new Set(),post:new Set()});
+    bucket[stageName].add(m.indicator);
   });
 
-  // Establish baseline completion at REC + theme + stage level.
-  // Kobo can submit different children/indicators in separate rows, so
-  // aggregate indicator evidence across rows instead of requiring every
-  // expected indicator to appear in one individual row.
+  // Collect baseline evidence across all children in each REC. A child is
+  // deliberately NOT part of this key because the Cycle 2 cohort can contain
+  // different children from the Cycle 1 cohort.
   sourceDefinitions.forEach(source => {
     const data = sourceData[source.name];
     if (!data) return;
-    const { values, headers } = data;
+    const {values,headers} = data;
     const rowMappings = mappings.filter(m =>
       norm(source.kind === 'kobo' ? m.koboSheet : m.appSheet) === norm(source.name) &&
       norm(m.participant) === 'student' && isCycle1(m.cycle) &&
@@ -792,56 +796,44 @@ function getDashboardData(email) {
     if (!rowMappings.length) return;
     values.slice(1).forEach(row => {
       if (!row.some(v => v !== '' && v !== null && v !== undefined)) return;
-      const region = getValue(row, headers, source.kind === 'kobo'
+      const region = getValue(row,headers,source.kind === 'kobo'
         ? ['1. Select your region','Select your region','Region'] : ['Region']);
-      const localBoard = getValue(row, headers, ['LocalBoard','Local Board (Standardized)','Local Board']);
-      const rec = getValue(row, headers, ['REC','REC (Standardized)']);
+      const localBoard = getValue(row,headers,['LocalBoard','Local Board (Standardized)','Local Board']);
+      const rec = getValue(row,headers,['REC','REC (Standardized)']);
       if (!region || !localBoard || !rec) return;
-      const cycleIndex = findIndex(headers, ['CycleID','Cycle ID']);
+      const cycleIndex = findIndex(headers,['CycleID','Cycle ID']);
       if (cycleIndex >= 0 && !isCycle1(row[cycleIndex])) return;
-      const rawStart = getValue(row, headers, ['start','Start','SubmissionDate','SubmittedAt','CreatedAt']) ||
-        getValue(row, headers, ['end','End']);
+      const rawStart = getValue(row,headers,['start','Start','SubmissionDate','SubmittedAt','CreatedAt']) ||
+        getValue(row,headers,['end','End']);
       const submittedAt = rawStart instanceof Date ? rawStart.getTime() : Date.parse(cleanValue(rawStart));
-      if (!Number.isFinite(submittedAt)) return;
+      if (!Number.isFinite(submittedAt) || submittedAt >= new Date(2026,10,1).getTime()) return;
       rowMappings.forEach(m => {
         const column = source.kind === 'kobo' ? m.koboColumn : m.appColumn;
         if (!Number.isInteger(column) || column < 1 || column > row.length) return;
-        const raw = row[column - 1];
+        const raw = row[column-1];
         if (raw === '' || raw === null || raw === undefined || typeof raw === 'boolean') return;
         const score = Number(raw);
         if (!Number.isFinite(score) || score < 0 || score > m.maxScore) return;
         const stage = stageKey(m.assessment);
         const stageName = stage === 'pre' || stage === 'preassessment' ? 'pre' : 'post';
-        const key = post2GeoThemeKey(region, localBoard, rec, m.theme);
-        const bucket = observedPost2[key] || (observedPost2[key] = { pre: Object.create(null), post: Object.create(null), theme: cleanValue(m.theme) });
-        const prior = bucket[stageName][m.indicator];
-        if (!prior || submittedAt < prior) bucket[stageName][m.indicator] = submittedAt;
+        const key = themeKeyForPost2(region,localBoard,rec,m.theme);
+        const bucket = observedPost2[key] || (observedPost2[key] = {pre:new Set(),post:new Set(),recKey:recKeyForPost2(region,localBoard,rec)});
+        bucket[stageName].add(m.indicator);
       });
     });
   });
 
-  const post2CompletedByTheme = Object.create(null);
-  // Completion is assessed independently for each REC and theme.
-  // A theme qualifies only when every configured Pre and Post indicator
-  // has been received before 1 November 2026.
-  const post2Cutoff = new Date(2026, 10, 1).getTime();
-  const recKeyForPost2 = (region, localBoard, rec) =>
-    [region, localBoard, rec].map(geoKeyForPost2).join('|');
+  const post2CompletedByRec = Object.create(null);
+  const post2Cutoff = new Date(2026,10,1).getTime();
   Object.keys(observedPost2).forEach(key => {
     const bucket = observedPost2[key];
-    const theme = bucket.theme;
-    const expected = expectedPost2[geoKeyForPost2(theme)];
+    const theme = key.split('|').pop();
+    const expected = expectedPost2[theme];
     if (!expected || !expected.pre.size || !expected.post.size) return;
-    const stageCompletionTime = stageName => {
-      const times = Array.from(expected[stageName]).map(indicator => bucket[stageName][indicator]);
-      if (times.some(time => !Number.isFinite(time))) return 0;
-      return Math.max(...times);
-    };
-    const preCompletedAt = stageCompletionTime('pre');
-    const postCompletedAt = stageCompletionTime('post');
-    if (preCompletedAt > 0 && postCompletedAt > 0 &&
-        preCompletedAt < post2Cutoff && postCompletedAt < post2Cutoff) {
-      post2CompletedByTheme[key] = Math.max(preCompletedAt, postCompletedAt);
+    const complete = stageName =>
+      Array.from(expected[stageName]).every(indicator => bucket[stageName].has(indicator));
+    if (complete('pre') && complete('post')) {
+      post2CompletedByRec[bucket.recKey] = true;
     }
   });
 
@@ -910,11 +902,11 @@ function getDashboardData(email) {
             // Post 2 depend on a matching RECs_list_Phase_Wise row: older REC
             // directory labels/status values can otherwise leave valid new
             // submissions incorrectly classified as Cycle 1 Post.
-            const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
+            const recKey = recKeyForPost2(region, localBoard, rec);
             if (!Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
             // Promote only this REC/theme when its own original Pre AND Post
             // were both complete before November 2026. Other themes remain Post.
-            if (!post2CompletedByTheme[themeKey] || post2CompletedByTheme[themeKey] >= post2Cutoff) return m;
+            if (!post2CompletedByRec[recKey]) return m;
             return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
           })
         : source.kind === 'kobo' && source.name === 'Students Pre Assessment'
@@ -926,11 +918,11 @@ function getDashboardData(email) {
               // Use the same REC/theme baseline rule as Post Assessment.
               // A missing or differently-labelled REC directory row must not
               // block valid Cycle 2 classification.
-              const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
+              const recKey = recKeyForPost2(region, localBoard, rec);
               if (!Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
               // The new submission advances to Post 2 only for the same theme
               // whose original Pre and Post were complete before November.
-              if (post2CompletedByTheme[themeKey] && post2CompletedByTheme[themeKey] < post2Cutoff) {
+              if (post2CompletedByRec[recKey]) {
                 return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
               }
               // If this theme's original Post was not yet complete, continue it.

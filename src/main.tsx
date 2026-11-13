@@ -950,11 +950,10 @@ function count(rows:Rec[],item:string,pt:string,key:'Region'|'LocalBoard'|'REC'|
 }
 function RecAnalysis({rows,all,f,metricRows,phase3Rows,allCycleRows,refs,targetRecs,sourceRows}:{rows:Rec[];all:Rec[];f:any;metricRows:Rec[];phase3Rows:Rec[];allCycleRows:Rec[];refs:Ref[];targetRecs:any[];sourceRows:Rec[]}){return <><Kpis rows={rows} metricRows={metricRows} phase3Rows={phase3Rows} allCycleRows={allCycleRows} sourceRows={sourceRows} targetRecs={targetRecs} f={f} refs={refs}/><div className="grid2"><CompareChart title="Theme Performance — Pre vs Post" data={compareGroup(rows,'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/><CompareChart title="Dimension Performance — Pre vs Post" data={compareGroup(rows,'DimensionID').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post}))}/></div><Chart title="Assessment Performance — Pre vs Post" data={group(rows,'Assessment').map(x=>({label:x.key,value:x.p}))}/><WayForward rows={rows} scope="rec" f={f}/></>}
 function assessmentIs(value:string,stage:'Pre'|'Post'){
- const a=norm(value).toLowerCase().replace(/[^a-z]/g,'').replace(/^skill/,'');
- const target=stage.toLowerCase();
- return a===target||a.startsWith(target);
+ const a=norm(value).toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^skill/,'');
+ return stage==='Pre'?/^pre(?:assessment)?$/.test(a):/^post(?:assessment)?$/.test(a);
 }
-function assessmentIsPost2(value:string){return /^post\s*[-_]?\s*2$/i.test(norm(value));}
+function assessmentIsPost2(value:string){return /^post2(?:assessment)?$/i.test(norm(value).replace(/[^a-z0-9]/g,''));}
 function stageAggregate(rows:Rec[],stage:'Pre'|'Post'){return aggregate(rows.filter(r=>assessmentIs(r.Assessment,stage)))}
 function post2Aggregate(rows:Rec[]){return aggregate(rows.filter(r=>assessmentIsPost2(r.Assessment)))}
 function RubricDetailTable({rows,title}:{rows:Rec[];title:string}){

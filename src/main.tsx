@@ -499,6 +499,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacher2026Post=teacherCountForYear(2026,'Post');
   const rec2025Pre=recCountForYear(2025,'Pre');
   const rec2025Post=recCountForYear(2025,'Post');
+  const rec2026Pre=recCountForYear(2026,'Pre');
+  const rec2026Post=recCountForYear(2026,'Post');
   const cards=[
     ['Overall Score',`${score.toFixed(1)} / ${totalMax.toFixed(1)}`],
     ['Performance',fmt(overallPerformance)],
@@ -508,6 +510,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['No. of Teachers (2025)',String(teacher2025)],
     ['No. of Teachers (2026 Pre / Post)',`${teacher2026Pre} / ${teacher2026Post}`],
     ['No. of RECs (2025 Pre / Post)',`${rec2025Pre} / ${rec2025Post}`],
+    ['No. of RECs (2026 Pre / Post)',`${rec2026Pre} / `${rec2026Post}`],
     ['Students Overall',fmt(studentPct)],
     ['Teachers Content Overall',fmt(teacherContentPct)],
     ['Teachers Skills Overall',fmt(teacherSkillsPct)],

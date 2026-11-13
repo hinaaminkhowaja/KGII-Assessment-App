@@ -8110,7 +8110,7 @@ function getDashboardData(email) {
       } else if(s.kind==='teacher-kobo'){
         numericCols.forEach(c=>{const raw=r[c.j];if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);if(!mm)return;const assessment=clean(val(r,h,['Specify the phase','Assessment']))||'Pre';records.push([id+'-'+c.name,'C1',year,cohort,'Teacher',assessment,region,board,rec,1,'','T'+mm[1],mm[2].toUpperCase(),'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,'',teacher]);});
       } else if(s.kind==='teacher-app'){
-        const theme=clean(val(r,h,['ThemeName']))||'Authority and Leadership';
+        const theme=directThemeId_(clean(val(r,h,['ThemeName']))||'Authority and Leadership');
         ['PreRating','PostRating'].forEach(k=>{const raw=val(r,h,[k]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+k,'C1',year,cohort,'Teacher',k==='PreRating'?'Pre':'Post',region,board,rec,1,'',theme,'Overall',theme+':'+k,score,5,s.name,i+2,id,'',teacher]);});
       } else if(s.kind==='teacher-c2'){
         const assessment=clean(val(r,h,['Assessment']))||'Pre';

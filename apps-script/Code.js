@@ -905,13 +905,13 @@ function getDashboardData(email) {
               /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
               /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
             if (!isStudentPost || !year || Number(year) < 2026) return m;
-            const cohortKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
-            const startingYear = Number(recStartingYears[cohortKey]);
-            if (!startingYear || Number(year) <= startingYear) return m;
-            const recKey = recKeyForPost2(region, localBoard, rec);
+            // The source row's timestamp and the REC/theme's completed
+            // Cycle 1 baseline are the authoritative cohort test. Do not make
+            // Post 2 depend on a matching RECs_list_Phase_Wise row: older REC
+            // directory labels/status values can otherwise leave valid new
+            // submissions incorrectly classified as Cycle 1 Post.
             const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-
-            if (startingYear !== 2025 || !Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
+            if (!Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
             // Promote only this REC/theme when its own original Pre AND Post
             // were both complete before November 2026. Other themes remain Post.
             if (!post2CompletedByTheme[themeKey] || post2CompletedByTheme[themeKey] >= post2Cutoff) return m;
@@ -923,12 +923,11 @@ function getDashboardData(email) {
                 /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
                 /^pre(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
               if (!isStudentPre || !year || Number(year) < 2026) return m;
-              const cohortKey = [region, localBoard, rec].map(phaseGeoKey).join('|');
-              const startingYear = Number(recStartingYears[cohortKey]);
-              if (!startingYear || Number(year) <= startingYear) return m;
-              const recKey = recKeyForPost2(region, localBoard, rec);
+              // Use the same REC/theme baseline rule as Post Assessment.
+              // A missing or differently-labelled REC directory row must not
+              // block valid Cycle 2 classification.
               const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-              if (startingYear !== 2025 || !Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
+              if (!Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
               // The new submission advances to Post 2 only for the same theme
               // whose original Pre and Post were complete before November.
               if (post2CompletedByTheme[themeKey] && post2CompletedByTheme[themeKey] < post2Cutoff) {

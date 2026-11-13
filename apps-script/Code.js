@@ -8056,7 +8056,7 @@ function getDashboardData(email) {
       const d=dateOf(val(r,h,['start','Start','SubmittedAt','SubmissionDate','end','End']));
       if(!d)return;
       const themeCols=h.map((name,j)=>({name,j,m:name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i)})).filter(x=>x.m);
-      const themes=x.source.kind==='student-app'?[clean(val(r,h,['ThemeName']))]:[...new Set(themeCols.map(c=>'Theme '+c.m[1]))];
+      const themes=x.source.kind==='student-app'?[directThemeId_(clean(val(r,h,['ThemeName'])))]:[...new Set(themeCols.map(c=>'Theme '+c.m[1]))];
       themes.forEach(t=>{
         const key=[geoKey(region),geoKey(board),geoKey(rec),geoKey(t)].join('|');
         (events[key]||(events[key]=[])).push({time:d.getTime(),source:x.source.name,row:i+2,stage:x.source.stage||clean(val(r,h,['Assessment']))});
@@ -8096,12 +8096,8 @@ function getDashboardData(email) {
           const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);
           let assessment=event?event.assessment:clean(val(r,h,['Assessment','Specify the phase']))||'Pre';
           let cycle='C1';
-          if(s.kind==='student-app'){
-            const explicit=clean(val(r,h,['Assessment']));
-            if(explicit)assessment=explicit;
-          }
           numericCols.forEach(c=>{
-            if(s.kind==='student-app'&&!norm(c.name).startsWith(norm(theme).replace(' ','')+':'))return;
+            if(s.kind==='student-app'&&!new RegExp('^'+theme.replace(' ','\\\\s*')+'\\\\s*:','i').test(c.name))return;
             const raw=r[c.j];if(raw===''||raw===null||raw===undefined)return;
             const score=Number(raw);if(!Number.isFinite(score))return;
             const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
@@ -8122,3 +8118,5 @@ function getDashboardData(email) {
   });
   return {success:true,user,access:isAdmin?'ALL':access,headers,records,targetRecs:directory,refs:directory.map(x=>({Region:x.Region,LocalBoard:x.LocalBoard,REC:x.REC})),indicators:[]};
 }
+
+function directThemeId_(name){const n=String(name||'').toLowerCase().replace(/[^a-z]/g,'');const map={'authorityandleadership':'Theme 1','authorityleadership':'Theme 1','ismailimuslimtraditions':'Theme 2','roleinfamilycommunityandsociety':'Theme 3','twoaspectsoflife':'Theme 4'};return map[n]||name;}

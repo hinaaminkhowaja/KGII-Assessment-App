@@ -448,10 +448,11 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const recStartingYear=(r:Rec)=>{const match=targetRecs.find((t:any)=>geoNorm(t.Region)===geoNorm(r.Region)&&geoNorm(t.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(t.REC)===geoNorm(r.REC));return Number(match?.StartingYear)||0;};
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
+  const isTeacherSkillRecord=(r:Rec)=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(norm(r.CycleID).toUpperCase()==='C2'||/^S[123]$/i.test(norm(r.ThemeID))||/^(instructional|questioning|feedback)$/i.test(norm(r.DimensionID)));
   const student2025Rows=studentRowsAll.filter(r=>recStartingYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||(assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment))));
   const student2026Rows=studentRowsAll.filter(r=>(recStartingYear(r)===2026&&assessmentIs(r.Assessment,'Pre'))||(recStartingYear(r)===2025&&assessmentIsPost2(r.Assessment)));
-  const teacherContentAllRows=teacherRowsAll.filter(r=>!/^S[123]$/i.test(norm(r.ThemeID))&&(recStartingYear(r)===2025||recStartingYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||(assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment))));
-  const teacherSkills2026Rows=teacherRowsAll.filter(r=>recStartingYear(r)===2025&&/^S[123]$/i.test(norm(r.ThemeID))&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(recStartingYear(r)===2025||recStartingYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);
   const student2026Pct=stageAverage(student2026Rows,['Pre','Post 2']);
   const studentPct=averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
@@ -495,8 +496,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherSkillPostTotals=aggregate(teacherSkillPostRows);
   const teacherPreRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre')&&!/^S[123]$/i.test(norm(r.ThemeID)));
   const teacherPostRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post')&&!/^S[123]$/i.test(norm(r.ThemeID)));
-  const teacherContentRows=teacherRows.filter(r=>!/^S[123]$/i.test(norm(r.ThemeID)));
-  const teacherSkillsRows=teacherRows.filter(r=>/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherContentRows=teacherRows.filter(r=>!isTeacherSkillRecord(r));
+  const teacherSkillsRows=teacherRows.filter(r=>isTeacherSkillRecord(r));
 
   const themePct=['T1','T2','T3','T4'].map(theme=>aggregate(metricRows.filter(r=>norm(r.ThemeID)===theme)).p).filter((p,i)=>metricRows.some(r=>norm(r.ThemeID)===['T1','T2','T3','T4'][i]));
   const themeOverall=themePct.length?themePct.reduce((a,b)=>a+b,0)/themePct.length:0;

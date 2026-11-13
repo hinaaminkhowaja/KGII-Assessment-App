@@ -7989,3 +7989,136 @@ function notifyAdminsOfAccessRequest() {
   );
 }
 
+
+
+
+/* DIRECT-SOURCE DASHBOARD (no APP_Records / APP_Indicators dependency) */
+function getDashboardData(email) {
+  const auth = getUserByEmail(email);
+  if (!auth || !auth.success) return auth || {success:false,message:'User not found.'};
+  const user = auth.user;
+  if (String(user.status||'').toLowerCase()!=='approved' && String(user.role||'').toLowerCase()!=='admin')
+    return {success:false,message:'Your account has not been approved.'};
+  const isAdmin = String(user.role||'').toLowerCase()==='admin';
+  const access = isAdmin ? [] : getUserAccess(user.email);
+  if (!isAdmin && !access.length) return {success:false,message:'No active access has been assigned to this account.'};
+
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  const norm=v=>String(v==null?'':v).replace(/\u00a0/g,' ').trim().replace(/\s+/g,' ').toLowerCase();
+  const clean=v=>String(v==null?'':v).replace(/\u00a0/g,' ').trim();
+  const idx=(h,names)=>{for(const n of names){const i=h.findIndex(x=>norm(x)===norm(n));if(i>=0)return i;}return -1;};
+  const val=(r,h,names)=>{const i=idx(h,names);return i<0?'':r[i];};
+  const yearOf=v=>{if(v instanceof Date&&!isNaN(v))return String(v.getFullYear());const m=clean(v).match(/(?:19|20)\d{2}/);return m?m[0]:'';};
+  const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v;const d=new Date(v);return isNaN(d)?null:d;};
+  const geoKey=v=>norm(v).replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const master=ss.getSheetByName('RECs_list_Phase_Wise');
+  const masterRows=master&&master.getLastRow()>1?master.getDataRange().getValues():[];
+  const mh=masterRows.length?masterRows[0].map(clean):[];
+  const directory=[];
+  masterRows.slice(1).forEach(r=>{
+    const Region=clean(val(r,mh,['Region'])).replace(/_\d+$/,'');
+    const LocalBoard=clean(val(r,mh,['LocalBoard','Local Board']));
+    const REC=clean(val(r,mh,['REC']));
+    const StartingYear=Number(val(r,mh,['StartingYear','Starting Year']))||'';
+    const Status=clean(val(r,mh,['Status']));
+    if(Region&&LocalBoard&&REC)directory.push({Region,LocalBoard,REC,StartingYear,Status});
+  });
+  const active=directory.filter(x=>!x.Status||['active','yes','true','1'].includes(norm(x.Status)));
+  const masterMap=new Map(active.map(x=>[[geoKey(x.Region),geoKey(x.LocalBoard),geoKey(x.REC)].join('|'),x]));
+  const allowed=(region,board,rec)=>{
+    if(!masterMap.has([geoKey(region),geoKey(board),geoKey(rec)].join('|')))return false;
+    if(isAdmin)return true;
+    return access.some(a=>{
+      const ar=geoKey(a.Region||a.region),ab=geoKey(a.LocalBoard||a.localBoard),ac=geoKey(a.REC||a.rec);
+      return (!ar||ar===geoKey(region))&&(!ab||ab===geoKey(board))&&(!ac||ac===geoKey(rec));
+    });
+  };
+  const sources=[
+    {name:'Students Pre Assessment',kind:'student-kobo',stage:'pre'},
+    {name:'Students Post Assessment',kind:'student-kobo',stage:'auto'},
+    {name:'Teachers Assessment',kind:'teacher-kobo'},
+    {name:'APP_Student_Surveys',kind:'student-app'},
+    {name:'APP_Teacher_Surveys',kind:'teacher-app'},
+    {name:'APP_Teacher_Surveys_Cycle2',kind:'teacher-c2'}
+  ];
+  const loaded=[];
+  sources.forEach(s=>{
+    const sh=ss.getSheetByName(s.name);if(!sh||sh.getLastRow()<2)return;
+    const v=sh.getDataRange().getValues();loaded.push({source:s,headers:v[0].map(clean),rows:v.slice(1)});
+  });
+  const events=Object.create(null);
+  loaded.filter(x=>x.source.kind==='student-kobo'||x.source.kind==='student-app').forEach(x=>{
+    x.rows.forEach((r,i)=>{
+      const h=x.headers, region=val(r,h,['1. Select your region','Select your region','Region']);
+      let board=val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']);
+      let rec=val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']);
+      if(!board||!rec||!region)return;
+      const d=dateOf(val(r,h,['start','Start','SubmittedAt','SubmissionDate','end','End']));
+      if(!d)return;
+      const themeCols=h.map((name,j)=>({name,j,m:name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i)})).filter(x=>x.m);
+      const themes=x.source.kind==='student-app'?[clean(val(r,h,['ThemeName']))]:[...new Set(themeCols.map(c=>'Theme '+c.m[1]))];
+      themes.forEach(t=>{
+        const key=[geoKey(region),geoKey(board),geoKey(rec),geoKey(t)].join('|');
+        (events[key]||(events[key]=[])).push({time:d.getTime(),source:x.source.name,row:i+2,stage:x.source.stage||clean(val(r,h,['Assessment']))});
+      });
+    });
+  });
+  Object.keys(events).forEach(k=>{
+    const unique=[...new Set(events[k].map(e=>e.time))].sort((a,b)=>a-b);
+    events[k].forEach(e=>{
+      const n=unique.indexOf(e.time);
+      e.sequence=n+1;
+      e.assessment=n===0?'Pre':n===1?'Post':'Post '+n;
+    });
+  });
+  const headers=['RecordID','CycleID','Year','CohortYear','ParticipantType','Assessment','Region','LocalBoard','REC','ParticipantCount','Phase','ThemeID','DimensionID','IndicatorID','Score','MaxScore','SourceSheet','SourceRow','SourceRecordID','ChildName','TeacherName'];
+  const records=[];
+  loaded.forEach(x=>{
+    const s=x.source,h=x.headers;
+    x.rows.forEach((r,i)=>{
+      if(!r.some(v=>v!==''&&v!==null))return;
+      const region=clean(val(r,h,['1. Select your region','Select your region','Region']));
+      const board=clean(val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']));
+      const rec=clean(val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']));
+      if(!region||!board||!rec||!allowed(region,board,rec))return;
+      const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','end','End']);
+      const date=dateOf(submitted);const year=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
+      const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|'));
+      const cohort=masterRec?masterRec.StartingYear:'';
+      const id=clean(val(r,h,['_uuid','_id','SubmissionID','meta/rootUuid']))||s.name+'-'+(i+2);
+      const child=clean(val(r,h,['Name of a child:','Name of a child','ChildName']));
+      const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
+      const numericCols=h.map((name,j)=>({name,j})).filter(c=>/^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name));
+      if(s.kind==='student-kobo'||s.kind==='student-app'){
+        const themeNames=s.kind==='student-app'?[clean(val(r,h,['ThemeName']))]:[...new Set(numericCols.map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
+        themeNames.filter(Boolean).forEach(theme=>{
+          const eventKey=[geoKey(region),geoKey(board),geoKey(rec),geoKey(theme)].join('|');
+          const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);
+          let assessment=event?event.assessment:clean(val(r,h,['Assessment','Specify the phase']))||'Pre';
+          let cycle='C1';
+          if(s.kind==='student-app'){
+            const explicit=clean(val(r,h,['Assessment']));
+            if(explicit)assessment=explicit;
+          }
+          numericCols.forEach(c=>{
+            if(s.kind==='student-app'&&!norm(c.name).startsWith(norm(theme).replace(' ','')+':'))return;
+            const raw=r[c.j];if(raw===''||raw===null||raw===undefined)return;
+            const score=Number(raw);if(!Number.isFinite(score))return;
+            const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
+            if(!mm)return;
+            records.push([id+'-'+mm[1]+'-'+mm[2]+'-'+mm[3],cycle,year,cohort,'Student',assessment,region,board,rec,1,'', 'Theme '+mm[1],mm[2].toUpperCase(), 'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,child,'']);
+          });
+        });
+      } else if(s.kind==='teacher-kobo'){
+        numericCols.forEach(c=>{const raw=r[c.j];if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);if(!mm)return;const assessment=clean(val(r,h,['Specify the phase','Assessment']))||'Pre';records.push([id+'-'+c.name,'C1',year,cohort,'Teacher',assessment,region,board,rec,1,'','Theme '+mm[1],mm[2].toUpperCase(),'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,'',teacher]);});
+      } else if(s.kind==='teacher-app'){
+        const theme=clean(val(r,h,['ThemeName']))||'Authority and Leadership';
+        ['PreRating','PostRating'].forEach(k=>{const raw=val(r,h,[k]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+k,'C1',year,cohort,'Teacher',k==='PreRating'?'Pre':'Post',region,board,rec,1,'',theme,'Overall',theme+':'+k,score,5,s.name,i+2,id,'',teacher]);});
+      } else if(s.kind==='teacher-c2'){
+        const assessment=clean(val(r,h,['Assessment']))||'Pre';
+        ['Instructional','Questioning','Feedback'].forEach(dim=>{for(let n=1;n<=4;n++){const key=dim+'_Indicator'+n,raw=val(r,h,[key]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+key,'C2',year||clean(val(r,h,['Year'])),cohort,'Teacher',assessment,region,board,rec,1,'',clean(val(r,h,['AssessmentContext']))||'Teaching Practice',dim,dim+n,score,4,s.name,i+2,id,'',teacher]);}});
+      }
+    });
+  });
+  return {success:true,user,access:isAdmin?'ALL':access,headers,records,targetRecs:directory,refs:directory.map(x=>({Region:x.Region,LocalBoard:x.LocalBoard,REC:x.REC})),indicators:[]};
+}

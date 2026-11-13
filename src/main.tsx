@@ -437,7 +437,30 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const allStageRows=allCycleRows;
   const ratingSelected=!!(f.studentRating||f.teacherRating);
   const scoreRows=ratingSelected?metricRows.filter(r=>(!f.studentRating&&!f.teacherRating)||(!!f.studentRating&&norm(r.ParticipantType).toLowerCase()==='student')||(!!f.teacherRating&&norm(r.ParticipantType).toLowerCase()==='teacher')):metricRows;
-  const overall=aggregate(scoreRows);
+  // The dashboard uses the agreed 238-indicator framework. Each component
+  // is normalized within its own assessment stages before being weighted.
+  const pctOf=(items:Rec[])=>aggregate(items).p;
+  const averagePresent=(values:number[])=>values.length?values.reduce((a,b)=>a+b,0)/values.length:0;
+  const stageAverage=(items:Rec[],stages:string[])=>averagePresent(stages.map(stage=>aggregate(items.filter(r=>assessmentKey(r.Assessment)===assessmentKey(stage))).p).filter((_,i)=>aggregate(items.filter(r=>assessmentKey(r.Assessment)===assessmentKey(stages[i]))).max>0));
+  const student2025Rows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&Number(r.Year)===2025);
+  const student2026Rows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&Number(r.Year)===2026);
+  const teacherContentAllRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&!/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherSkills2026Rows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID))&&Number(r.Year)===2026);
+  const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);
+  const student2026Pct=stageAverage(student2026Rows,['Pre','Post 2']);
+  const studentPct=averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
+  const teacherContentByYear=[2025,2026].map(y=>teacherContentAllRows.filter(r=>Number(r.Year)===y)).filter(x=>x.length);
+  const teacherContentPct=averagePresent(teacherContentByYear.map(x=>stageAverage(x,['Pre','Post'])));
+  const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
+  const weightedComponents=[
+    {weight:87,p:student2025Pct,has:student2025Rows.length>0},
+    {weight:87,p:student2026Pct,has:student2026Rows.length>0},
+    {weight:16,p:teacherContentPct,has:teacherContentAllRows.length>0},
+    {weight:48,p:teacherSkillsPct,has:teacherSkills2026Rows.length>0}
+  ].filter(x=>x.has);
+  const overallMax=weightedComponents.reduce((n,x)=>n+x.weight,0);
+  const overallScore=weightedComponents.reduce((n,x)=>n+x.weight*x.p/100,0);
+  const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
   const studentRows=scoreRows.filter(r=>r.ParticipantType==='Student');
@@ -452,7 +475,6 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherCount=teacherCountRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const recPreRows=recCountRows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const recPostRows=recCountRows.filter(r=>assessmentIs(r.Assessment,'Post'));
-  const studentPct=aggregate(studentRows).p;
   const teacherPct=aggregate(teacherRows).p;
   const prePct=aggregate(preRows).p;
   const postPct=aggregate(postRows).p;
@@ -470,8 +492,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherPostRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post')&&!/^S[123]$/i.test(norm(r.ThemeID)));
   const teacherContentRows=teacherRows.filter(r=>!/^S[123]$/i.test(norm(r.ThemeID)));
   const teacherSkillsRows=teacherRows.filter(r=>/^S[123]$/i.test(norm(r.ThemeID)));
-  const teacherContentPct=aggregate(teacherContentRows).p;
-  const teacherSkillsPct=aggregate(teacherSkillsRows).p;
+
   const themePct=['T1','T2','T3','T4'].map(theme=>aggregate(metricRows.filter(r=>norm(r.ThemeID)===theme)).p).filter((p,i)=>metricRows.some(r=>norm(r.ThemeID)===['T1','T2','T3','T4'][i]));
   const themeOverall=themePct.length?themePct.reduce((a,b)=>a+b,0)/themePct.length:0;
   const dimensionPct=['UA','A'].map(dim=>aggregate(metricRows.filter(r=>norm(r.DimensionID)===dim)).p).filter((p,i)=>metricRows.some(r=>norm(r.DimensionID)===['UA','A'][i]));

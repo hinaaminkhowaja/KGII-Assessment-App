@@ -490,12 +490,11 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(stageRowsForYear(year,'Student',stage),r=>r.ChildName||r.SourceRecordID||r.RecordID);
   const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>distinctCount(stageRowsForYear(year,'Teacher',stage),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
-  // REC cohort is assigned by the permanent StartingYear in the REC master list.
-  // Post 2 is the later post-stage follow-up for the same cohort, so it counts
-  // toward that cohort's Post REC coverage even when submitted in a later year.
-  const recRowsForCohort=(startingYear:number)=>rowsForYearForCohort().filter(r=>targetRecs.some((t:any)=>Number(t.StartingYear)===startingYear&&['active','yes','true','1'].includes(norm(t.Status).toLowerCase())&&geoNorm(t.Region)===geoNorm(r.Region)&&geoNorm(t.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(t.REC)===geoNorm(r.REC)));
-  const rowsForYearForCohort=()=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:'',year:''});
-  const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(recRowsForCohort(year).filter(r=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):assessmentIs(r.Assessment,'Post')&&!/^post\\s*3$/i.test(norm(r.Assessment))),r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
+  // REC scorecards are grouped by the year the assessment was submitted.
+  // StartingYear remains the REC's cohort identity; it does not move a 2025 REC
+  // out of its cohort. A 2025 REC's Post 2 submitted in 2026 belongs in 2026 Post.
+  const recRowsForAssessmentYear=(year:number)=>rowsForYear(year).filter(r=>targetRecs.some((t:any)=>Number(t.StartingYear)>0&&Number(t.StartingYear)<=year&&['active','yes','true','1'].includes(norm(t.Status).toLowerCase())&&geoNorm(t.Region)===geoNorm(r.Region)&&geoNorm(t.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(t.REC)===geoNorm(r.REC)));
+  const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(recRowsForAssessmentYear(year).filter(r=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):assessmentIs(r.Assessment,'Post')&&!/^post\\s*3$/i.test(norm(r.Assessment))),r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
   const student2025Pre=studentCountForYear(2025,'Pre');
   const student2025Post=studentCountForYear(2025,'Post');
   const student2026Pre=studentCountForYear(2026,'Pre');

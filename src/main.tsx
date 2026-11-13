@@ -564,8 +564,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['No. of Teachers – Content (Pre / Post)',`${teacherContentPreCount} / ${teacherContentPostCount}`],
      ['No. of Teachers – Skills (Pre / Post)',`${teacherSkillPreCount} / ${teacherSkillPostCount}`],
      ['No. of RECs (Pre / Post / Post 2 / Post 3)',`${recPreCount} / ${recPostCount} / ${recPost2Count} / ${recPost3Count}`],
-    ['No. of RECs Phase 1 (Pre / Post)',`${phase1PreRecs} / ${phase1PostRecs}`],
-    ['No. of RECs Phase 2 (Pre / Post)',`${phase2PreRecs} / ${phase2PostRecs}`],
+    
     ['Students Overall',fmt(studentPct)],
     ['Teachers Overall',fmt(teacherPct)],
     ['Theme Overall',fmt(overallPerformance)],
@@ -584,8 +583,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       ? ['No. of Students']
       : [];
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label)));
-   const phaseFieldForExpected=cycleLabel(f.cycle||'Cycle 1')==='Cycle 2'?'Cycle2Phase':'Cycle1Phase';
-   const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&!!norm(r[phaseFieldForExpected])&&(!f.phase||geoNorm(r[phaseFieldForExpected])===geoNorm(f.phase))&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
+   const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
   const themeCoverage = ['T1','T2','T3','T4'].map(theme => {
     const themeRows = metricRows.filter(r => r.ThemeID === theme);
     const countStage = (stage:'Pre'|'Post') => {
@@ -618,16 +616,12 @@ function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a
 
 function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{records:Rec[];refs:Ref[];targetRecs:any[];f:any;level?:'region'|'board'|'rec'}) {
   const geoMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec));
-  const scopedRecords=records.filter(r=>geoMatches(r)&&(!f.cycle||f.cycle==='All'||cycleLabel(r.CycleID)===cycleLabel(f.cycle))&&(!f.year||String(r.Year)===String(f.year)));
+  const scopedRecords=records.filter(r=>geoMatches(r)&&(!f.year||String(r.Year)===String(f.year)));
   const activeTarget=(r:any)=>['active','yes','true','1'].includes(norm(r.Status??r.status).toLowerCase());
   const targetMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&activeTarget(r);
-  // Scope the geographic directory to the selected cycle before building
-  // Region, Local Board and REC groups. A REC without an assigned phase in
-  // the selected cycle must not appear in that cycle's coverage/status.
-  const scopedTargets=targetRecs.filter(targetMatches).filter((r:any)=>{
-    const phase=cycleLabel(f.cycle||'Cycle 1')==='Cycle 2'?norm(r.Cycle2Phase):norm(r.Cycle1Phase);
-    return !!phase&&(!f.phase||geoNorm(phase)===geoNorm(f.phase));
-  });
+  // The year filter applies to assessment records; REC membership is
+  // determined by the permanent StartingYear cohort in the master list.
+  const scopedTargets=targetRecs.filter(targetMatches).filter((r:any)=>!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year));
   const themes=['T1','T2','T3','T4'];
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';
@@ -927,7 +921,7 @@ function StudentTeacherCrossAnalysis({rows,f}:{rows:Rec[];f:any}){
  const overallStudentGain=delta(national?.studentPost,national?.studentPre),overallTeacherGain=delta(national?.teacherPost,national?.teacherPre);
  const priorities=[{title:'Understanding',gain:national?.uaGain},{title:'Articulation',gain:national?.uaGain},{title:'Application',gain:national?.appGain}].sort((a,b)=>(a.gain??0)-(b.gain??0));
  return <div className="cross-analysis">
-  <section className="card cross-hero"><span className="eyebrow">STUDENT LEARNING · TEACHER DEVELOPMENT</span><h2>Student–Teacher Assessment Analysis</h2><p>Compare pre/post performance and identify themes, dimensions and rubrics requiring further support.</p><div className="cross-cycle">Cycle: {f.cycle&&f.cycle!=='All'?cycleLabel(f.cycle):'All cycles'} · View: {selectedLevel}</div></section>
+  <section className="card cross-hero"><span className="eyebrow">STUDENT LEARNING · TEACHER DEVELOPMENT</span><h2>Student–Teacher Assessment Analysis</h2><p>Compare pre/post performance and identify themes, dimensions and rubrics requiring further support.</p><div className="cross-cycle">Assessment year: {f.year||'All years'} · View: {selectedLevel}</div></section>
   <div className="cross-summary-grid">
    <section className="card cross-summary"><h3>Student performance</h3><div className="cross-three"><div><small>Pre</small><strong>{cell(national?.studentPre.p||0,!!national?.studentPre.max)}</strong><span>Overall score</span></div><div><small>Post</small><strong>{cell(national?.studentPost.p||0,!!national?.studentPost.max)}</strong><span>Overall score</span></div><div><small>Post 2</small><strong>{cell(national?.studentPost2.p||0,!!national?.studentPost2.max)}</strong><span>Student follow-up</span></div><div><small>Change</small>{change(overallStudentGain)}<span>Post minus pre</span></div></div><div className="cross-dimension-row"><span>Understanding / Articulation (UA)</span><b>{cell(national?.uaPre.p||0,!!national?.uaPre.max)} → {cell(national?.uaPost.p||0,!!national?.uaPost.max)}</b>{change(national?.uaGain??null)}</div><div className="cross-dimension-row"><span>Application (A)</span><b>{cell(national?.appPre.p||0,!!national?.appPre.max)} → {cell(national?.appPost.p||0,!!national?.appPost.max)}</b>{change(national?.appGain??null)}</div></section>
    <section className="card cross-summary"><h3>Teacher performance</h3><div className="cross-three"><div><small>Pre</small><strong>{cell(national?.teacherPre.p||0,!!national?.teacherPre.max)}</strong><span>Overall score</span></div><div><small>Post</small><strong>{cell(national?.teacherPost.p||0,!!national?.teacherPost.max)}</strong><span>Overall score</span></div><div><small>Change</small>{change(overallTeacherGain)}<span>Post minus pre</span></div></div><div className="cross-dimension-row"><span>Teacher skills Pre → Post</span><b>{cell(national?.teacherSkillPre.p||0,!!national?.teacherSkillPre.max)} → {cell(national?.teacherSkillPost.p||0,!!national?.teacherSkillPost.max)}</b>{change(delta(national?.teacherSkillPost,national?.teacherSkillPre))}</div><p className="cross-summary-note">Teacher performance and student learning are compared at REC level; individual teacher-to-child attribution is not available in the current data.</p></section>

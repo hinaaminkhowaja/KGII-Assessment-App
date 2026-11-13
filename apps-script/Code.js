@@ -943,7 +943,6 @@ function getDashboardData(email) {
               if (!startingYear || Number(year) <= startingYear) return m;
               const recKey = recKeyForPost2(region, localBoard, rec);
               const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-              const startingYear = Number(recStartingYears[[region, localBoard, rec].map(phaseGeoKey).join('|')]);
               if (startingYear !== 2025 || !Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
               // The new submission advances to Post 2 only for the same theme
               // whose original Pre and Post were complete before November.

@@ -8084,33 +8084,7 @@ function getDashboardData(email) {
   };
   assignStages_(events);
   assignStages_(recEvents);
-  // Append helper columns to imported student sheets; no manual formulas required.
-  loaded.filter(x=>x.source.name==='Students Post Assessment'||x.source.name==='APP_Student_Surveys').forEach(x=>{
-    const sh=ss.getSheetByName(x.source.name),h=x.headers;
-    const ensureCol=name=>{let j=idx(h,[name]);if(j<0){j=h.length;sh.getRange(1,j+1).setValue(name);h.push(name);x.rows.forEach(r=>r.push(''));}return j;};
-    const dateCol=ensureCol('AssessmentDate'),keyCol=ensureCol('RECKey');
-    const overallStageCol=ensureCol('AssessmentStage'),overallSequenceCol=ensureCol('AssessmentSequence');
-    const stageCols=[1,2,3,4].map(n=>ensureCol('Theme'+n+'AssessmentStage'));
-    const seqCols=[1,2,3,4].map(n=>ensureCol('Theme'+n+'Sequence'));
-    const out=x.rows.map((r,i)=>{
-      const region=val(r,h,['1. Select your region','Select your region','Region']);
-      const board=val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']);
-      const rec=val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']);
-      const d=dateOf(rowDate_(r,h)),rk=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
-      const day=d?Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd'):'';
-      const overall=(recEvents[rk]||[]).find(v=>v.source===x.source.name&&v.row===i+2);
-      const stages=[],seqs=[];
-      for(let n=1;n<=4;n++){const e=(events[recThemeKey_(region,board,rec,'Theme '+n)]||[]).find(v=>v.source===x.source.name&&v.row===i+2);stages.push(e?e.assessment:'');seqs.push(e?e.sequence:'');}
-      return {date:d||'',key:rk,overallStage:overall?overall.assessment:'',overallSequence:overall?overall.sequence:'',stages,seqs};
-    });
-    if(out.length){
-      sh.getRange(2,dateCol+1,out.length,1).setValues(out.map(o=>[o.date]));
-      sh.getRange(2,keyCol+1,out.length,1).setValues(out.map(o=>[o.key]));
-      sh.getRange(2,overallStageCol+1,out.length,1).setValues(out.map(o=>[o.overallStage]));
-      sh.getRange(2,overallSequenceCol+1,out.length,1).setValues(out.map(o=>[o.overallSequence]));
-      for(let n=0;n<4;n++){sh.getRange(2,stageCols[n]+1,out.length,1).setValues(out.map(o=>[o.stages[n]]));sh.getRange(2,seqCols[n]+1,out.length,1).setValues(out.map(o=>[o.seqs[n]]));}
-    }
-  });
+  // Temporary assessment helper columns are no longer written to source sheets.
   const headers=['RecordID','CycleID','Year','CohortYear','ParticipantType','Assessment','Region','LocalBoard','REC','ParticipantCount','Phase','ThemeID','DimensionID','IndicatorID','Score','MaxScore','SourceSheet','SourceRow','SourceRecordID','ChildName','TeacherName'];
   const records=[];
   loaded.forEach(x=>{
@@ -8158,6 +8132,34 @@ function getDashboardData(email) {
     });
   });
   return {success:true,user,access:isAdmin?'ALL':access,headers,records,targetRecs:directory,refs:directory.map(x=>({Region:x.Region,LocalBoard:x.LocalBoard,REC:x.REC})),indicators:[]};
+}
+
+/**
+ * One-time cleanup: remove temporary assessment helper columns from source sheets.
+ * Safe to run repeatedly; original assessment data columns are preserved.
+ */
+function removeAssessmentHelperColumnsFromSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const remove = new Set([
+    'AssessmentDate', 'RECKey', 'AssessmentStage', 'AssessmentSequence',
+    'Theme1AssessmentStage', 'Theme2AssessmentStage', 'Theme3AssessmentStage', 'Theme4AssessmentStage',
+    'Theme1Sequence', 'Theme2Sequence', 'Theme3Sequence', 'Theme4Sequence'
+  ]);
+  const sheetNames = [
+    'Students Pre Assessment', 'Students Post Assessment', 'Teachers Assessment',
+    'APP_Student_Surveys', 'APP_Teacher_Surveys', 'APP_Teacher_Surveys_Cycle2'
+  ];
+  const report = [];
+  sheetNames.forEach(name => {
+    const sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastColumn() < 1) return;
+    const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0];
+    const cols = [];
+    headers.forEach((header, i) => { if (remove.has(String(header || '').trim())) cols.push(i + 1); });
+    cols.sort((a, b) => b - a).forEach(col => sh.deleteColumn(col));
+    report.push({sheet: name, removedColumns: cols.length});
+  });
+  return {success: true, message: 'Temporary assessment helper columns removed.', sheets: report};
 }
 
 function directThemeId_(name){const n=String(name||'').toLowerCase().replace(/[^a-z]/g,'');const map={'authorityandleadership':'Theme 1','authorityleadership':'Theme 1','ismailimuslimtraditions':'Theme 2','roleinfamilycommunityandsociety':'Theme 3','twoaspectsoflife':'Theme 4'};return map[n]||name;}

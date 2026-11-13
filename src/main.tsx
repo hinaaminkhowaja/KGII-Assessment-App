@@ -443,15 +443,19 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   type ScoreStage='Pre'|'Post'|'Post 2';
   const stageRows=(items:Rec[],stage:ScoreStage)=>items.filter(r=>stage==='Post 2'?assessmentIsPost2(r.Assessment):assessmentIs(r.Assessment,stage)&&(stage!=='Post'||!assessmentIsPost2(r.Assessment)));
   const stageAverage=(items:Rec[],stages:ScoreStage[])=>averagePresent(stages.map(stage=>aggregate(stageRows(items,stage))).filter(x=>x.max>0).map(x=>x.p));
-  const student2025Rows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&Number(r.Year)===2025);
-  const student2026Rows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&Number(r.Year)===2026);
-  const teacherContentAllRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&!/^S[123]$/i.test(norm(r.ThemeID)));
-  const teacherSkills2026Rows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID))&&Number(r.Year)===2026);
+  // Classify programme year by the REC's master StartingYear, not by the
+  // submission timestamp. 2025-26 submissions may legitimately be dated 2026.
+  const recStartingYear=(r:Rec)=>{const match=targetRecs.find((t:any)=>geoNorm(t.Region)===geoNorm(r.Region)&&geoNorm(t.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(t.REC)===geoNorm(r.REC));return Number(match?.StartingYear)||0;};
+  const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
+  const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
+  const student2025Rows=studentRowsAll.filter(r=>recStartingYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||(assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment))));
+  const student2026Rows=studentRowsAll.filter(r=>(recStartingYear(r)===2026&&assessmentIs(r.Assessment,'Pre'))||(recStartingYear(r)===2025&&assessmentIsPost2(r.Assessment)));
+  const teacherContentAllRows=teacherRowsAll.filter(r=>!/^S[123]$/i.test(norm(r.ThemeID))&&(recStartingYear(r)===2025||recStartingYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||(assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment))));
+  const teacherSkills2026Rows=teacherRowsAll.filter(r=>recStartingYear(r)===2025&&/^S[123]$/i.test(norm(r.ThemeID))&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);
   const student2026Pct=stageAverage(student2026Rows,['Pre','Post 2']);
   const studentPct=averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
-  const teacherContentByYear=[2025,2026].map(y=>teacherContentAllRows.filter(r=>Number(r.Year)===y)).filter(x=>x.length);
-  const teacherContentPct=averagePresent(teacherContentByYear.map(x=>stageAverage(x,['Pre','Post'])));
+  const teacherContentPct=stageAverage(teacherContentAllRows,['Pre','Post']);
   const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
   const weightedComponents=[
     {weight:87,p:student2025Pct,has:student2025Rows.length>0},

@@ -439,9 +439,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const scoreRows=ratingSelected?metricRows.filter(r=>(!f.studentRating&&!f.teacherRating)||(!!f.studentRating&&norm(r.ParticipantType).toLowerCase()==='student')||(!!f.teacherRating&&norm(r.ParticipantType).toLowerCase()==='teacher')):metricRows;
   // The dashboard uses the agreed 238-indicator framework. Each component
   // is normalized within its own assessment stages before being weighted.
-  const pctOf=(items:Rec[])=>aggregate(items).p;
   const averagePresent=(values:number[])=>values.length?values.reduce((a,b)=>a+b,0)/values.length:0;
-  const stageAverage=(items:Rec[],stages:string[])=>averagePresent(stages.map(stage=>aggregate(items.filter(r=>assessmentKey(r.Assessment)===assessmentKey(stage))).p).filter((_,i)=>aggregate(items.filter(r=>assessmentKey(r.Assessment)===assessmentKey(stages[i]))).max>0));
+  const stageRows=(items:Rec[],stage:string)=>items.filter(r=>stage==='Post 2'?assessmentIsPost2(r.Assessment):assessmentIs(r.Assessment,stage)&&(stage!=='Post'||!assessmentIsPost2(r.Assessment)));
+  const stageAverage=(items:Rec[],stages:string[])=>averagePresent(stages.map(stage=>aggregate(stageRows(items,stage))).filter((_,i)=>aggregate(stageRows(items,stages[i])).max>0));
   const student2025Rows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&Number(r.Year)===2025);
   const student2026Rows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&Number(r.Year)===2026);
   const teacherContentAllRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&!/^S[123]$/i.test(norm(r.ThemeID)));

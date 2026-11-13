@@ -5922,6 +5922,28 @@ function syncKoboToAPPRecords() {
 
   if (!mappings.length) throw new Error('No usable indicator mappings found.');
 
+  // The only permitted original data sources for assessment ingestion.
+  // APP_Records is a destination/normalized store, never a source tab.
+  const allowedSourceSheets = new Set([
+    'students pre assessment',
+    'students post assessment',
+    'teachers assessment',
+    'app_student_surveys',
+    'app_teacher_surveys',
+    'app_teacher_surveys_cycle2'
+  ]);
+  const unexpectedSources = [...new Set(
+    mappings.map(m => clean(m.sourceSheet))
+      .filter(name => !allowedSourceSheets.has(norm(name)))
+  )];
+  if (unexpectedSources.length) {
+    throw new Error(
+      'APP_Indicators contains SourceSheet values outside the six approved original source sheets: ' +
+      unexpectedSources.join(', ') +
+      '. Correct APP_Indicators SourceSheet values before running sync.'
+    );
+  }
+
   // Process only rows added since the last successful sync for each Kobo source tab.
   // A missing watermark triggers one safe full-history catch-up pass.
   const scriptProperties = PropertiesService.getScriptProperties();
@@ -7684,6 +7706,7 @@ function auditTeacherGeography() {
   let rowsWithGeography = 0;
   let rowsMissingBoard = 0;
   let rowsMissingREC = 0;
+  let rowsWithBothGeographyFields = 0;
   const samples = [];
 
   for (let i = 1; i < values.length; i++) {
@@ -7699,6 +7722,7 @@ function auditTeacherGeography() {
     else rowsMissingBoard++;
 
     if (!rec) rowsMissingREC++;
+    if (board && rec) rowsWithBothGeographyFields++;
 
     if ((!board || !rec) && samples.length < 20) {
       samples.push({
@@ -7721,7 +7745,7 @@ function auditTeacherGeography() {
     rowsMissingLocalBoard: rowsMissingBoard,
     rowsWithREC: totalRows - rowsMissingREC,
     rowsMissingREC: rowsMissingREC,
-    rowsWithBothGeographyFields: totalRows - samples.filter(s => !s.LocalBoard || !s.REC).length,
+    rowsWithBothGeographyFields: rowsWithBothGeographyFields,
     samplesMissingGeography: samples,
     appRecordsRead: false
   };

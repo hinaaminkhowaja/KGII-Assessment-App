@@ -8071,6 +8071,40 @@ function getDashboardData(email) {
       e.assessment=n===0?'Pre':n===1?'Post':'Post '+n;
     });
   });
+  // Persist REC-level stage labels on the three student source sheets.
+  // These are script-maintained values (not fragile row-by-row formulas).
+  loaded.filter(x=>x.source.kind==='student-kobo'||x.source.kind==='student-app').forEach(x=>{
+    const sh=ss.getSheetByName(x.source.name);
+    let stageCol=idx(x.headers,['AssessmentStage']);
+    if(stageCol<0){
+      stageCol=x.headers.length;
+      sh.getRange(1,stageCol+1).setValue('AssessmentStage');
+      x.headers.push('AssessmentStage');
+      x.rows.forEach(r=>r.push(''));
+    }
+    let sequenceCol=idx(x.headers,['AssessmentSequence']);
+    if(sequenceCol<0){
+      sequenceCol=x.headers.length;
+      sh.getRange(1,sequenceCol+1).setValue('AssessmentSequence');
+      x.headers.push('AssessmentSequence');
+      x.rows.forEach(r=>r.push(''));
+    }
+    const stageValues=[],sequenceValues=[];
+    x.rows.forEach((r,i)=>{
+      const key=[geoKey(val(r,x.headers,['1. Select your region','Select your region','Region'])),
+        geoKey(val(r,x.headers,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board'])),
+        geoKey(val(r,x.headers,['REC','REC (Standardized)','Name of RECs','Name of REC']))].join('|');
+      const event=(events[key]||[]).find(e=>e.source===x.source.name&&e.row===i+2);
+      const stage=event?event.assessment:'';
+      const sequence=event?event.sequence:'';
+      r[stageCol]=stage;r[sequenceCol]=sequence;
+      stageValues.push([stage]);sequenceValues.push([sequence]);
+    });
+    if(stageValues.length){
+      sh.getRange(2,stageCol+1,stageValues.length,1).setValues(stageValues);
+      sh.getRange(2,sequenceCol+1,sequenceValues.length,1).setValues(sequenceValues);
+    }
+  });
   const headers=['RecordID','CycleID','Year','CohortYear','ParticipantType','Assessment','Region','LocalBoard','REC','ParticipantCount','Phase','ThemeID','DimensionID','IndicatorID','Score','MaxScore','SourceSheet','SourceRow','SourceRecordID','ChildName','TeacherName'];
   const records=[];
   loaded.forEach(x=>{

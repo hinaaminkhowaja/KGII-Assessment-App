@@ -468,120 +468,52 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherSkillPostTotals=aggregate(teacherSkillPostRows);
   const teacherPreRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre')&&!/^S[123]$/i.test(norm(r.ThemeID)));
   const teacherPostRows=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post')&&!/^S[123]$/i.test(norm(r.ThemeID)));
-  const teacherPreTotals=aggregate(teacherPreRows);
-  const teacherPostTotals=aggregate(teacherPostRows);
-  const selectedRatingMax=(f.studentRating?87:0)+(f.teacherRating?16:0);
-  const preSelected=ratingSelected&&(!f.assessment||assessmentIs(f.assessment,'Pre'));
-  const postSelected=ratingSelected&&(!f.assessment||assessmentIs(f.assessment,'Post'));
-  const studentStageScore=(stageRows:Rec[])=>aggregate(stageRows.filter(r=>r.ParticipantType==='Student')).p*87/100;
-  const teacherStageScore=(stageRows:Rec[])=>scoreOutOf(stageRows,'Teacher',4);
-  const preScore=ratingSelected?(f.studentRating?studentStageScore(preRows):0)+(f.teacherRating?teacherStageScore(preRows):0):teacherOnly?scoreModel(preRows).total:prePct;
-  const postScore=ratingSelected?(f.studentRating?studentStageScore(postRows):0)+(f.teacherRating?teacherStageScore(postRows):0):teacherOnly?scoreModel(postRows).total:postPct;
-  const preMax=ratingSelected?(preSelected?selectedRatingMax:0):16;
-  const postMax=ratingSelected?(postSelected?selectedRatingMax:0):16;
-  const score=ratingSelected?preScore+postScore:overall.p*206/100;
-  const totalMax=ratingSelected?preMax+postMax:206;
-  const overallPerformance=ratingSelected?pct(score,totalMax):overall.p;
+  const teacherContentRows=teacherRows.filter(r=>!/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherSkillsRows=teacherRows.filter(r=>/^S[123]$/i.test(norm(r.ThemeID)));
+  const teacherContentPct=aggregate(teacherContentRows).p;
+  const teacherSkillsPct=aggregate(teacherSkillsRows).p;
+  const themePct=['T1','T2','T3','T4'].map(theme=>aggregate(metricRows.filter(r=>norm(r.ThemeID)===theme)).p).filter((p,i)=>metricRows.some(r=>norm(r.ThemeID)===['T1','T2','T3','T4'][i]));
+  const themeOverall=themePct.length?themePct.reduce((a,b)=>a+b,0)/themePct.length:0;
+  const dimensionPct=['UA','A'].map(dim=>aggregate(metricRows.filter(r=>norm(r.DimensionID)===dim)).p).filter((p,i)=>metricRows.some(r=>norm(r.DimensionID)===['UA','A'][i]));
+  const dimensionOverall=dimensionPct.length?dimensionPct.reduce((a,b)=>a+b,0)/dimensionPct.length:0;
 
-  // Keep the existing dashboard participant-count calculations and show them on
-  // the dashboard and all non-teacher analysis views.
-  const preStudents = (() => {
-    const groups = new Map<string, Set<string>>();
-    countPreRows.filter(r => r.ParticipantType.toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC)
-      .forEach(r => {
-        const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-        const identity=norm(r.SourceRecordID)||norm(r.ChildName);
-        if(!identity) return;
-        const set=groups.get(rec)||new Set<string>();
-        set.add(identity.toLocaleLowerCase());
-        groups.set(rec,set);
-      });
-    let total=0; groups.forEach(children=>total+=children.size); return total;
-  })();
-  const postStudents = (() => {
-    const childKey=(r:Rec)=>(norm(r.SourceRecordID)||norm(r.ChildName)).toLocaleLowerCase();
-    const byRecTheme=new Map<string,Set<string>>();
-    countPostRows.filter(r=>r.ParticipantType.toLowerCase()==='student'&&r.Region&&r.LocalBoard&&r.REC)
-      .forEach(r=>{
-        const child=childKey(r); if(!child)return;
-        const key=[norm(r.Region),norm(r.LocalBoard),norm(r.REC),norm(r.ThemeID)].join('||');
-        const set=byRecTheme.get(key)||new Set<string>(); set.add(child); byRecTheme.set(key,set);
-      });
-    const byRec=new Map<string,number>();
-    byRecTheme.forEach((children,key)=>{
-      const rec=key.split('||').slice(0,3).join('||');
-      byRec.set(rec,Math.max(byRec.get(rec)||0,children.size));
-    });
-    let total=0; byRec.forEach(n=>total+=n); return total;
-  })();
-  const teachers = (() => {
-    const groups=new Map<string,Set<string>>();
-    teacherCount.filter(r=>r.Region&&r.LocalBoard&&r.REC).forEach(r=>{
-      const rec=[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-      const name=norm(r.TeacherName); if(!name)return;
-      const names=groups.get(rec)||new Set<string>(); names.add(name.toLocaleLowerCase()); groups.set(rec,names);
-    });
-    let total=0; groups.forEach(names=>total+=names.size); return total;
-  })();
-  const recKey=(r:Rec)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
-  const preRecs=new Set(recPreRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
-  const postRecs=new Set(recPostRows.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
-
-  const uniqueStudentCount=(rows:Rec[])=>{
-    const byRec=new Map<string,Set<string>>();
-    rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&r.Region&&r.LocalBoard&&r.REC).forEach(r=>{
-      // Count a child once per REC, regardless of how many indicator rows
-      // or source-record IDs the survey generated.
-      const id=norm(r.ChildName).toLocaleLowerCase();
-      if(!id)return;
-      const key=recKey(r), set=byRec.get(key)||new Set<string>();
-      set.add(id);byRec.set(key,set);
-    });
-    let total=0;byRec.forEach(children=>total+=children.size);return total;
-  };
-  const teacherPreTotals=aggregate(teacherPreRows);
-  const teacherPostTotals=aggregate(teacherPostRows);
-  const countSourceRows=filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
-  const uniqueRecCount=(items:Rec[])=>new Set(items.filter(r=>r.Region&&r.LocalBoard&&r.REC).map(recKey)).size;
-  const uniqueTeacherCount=(items:Rec[])=>new Set(items.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&r.TeacherName&&r.Region&&r.LocalBoard&&r.REC).map(r=>[recKey(r),norm(r.TeacherName).toLocaleLowerCase()].join('||'))).size;
-  const stageRows=(participant:string,stage:string,skills?:boolean)=>countSourceRows.filter(r=>norm(r.ParticipantType).toLowerCase()===participant.toLowerCase()&&assessmentIs(r.Assessment,stage)&&(skills===undefined||(/^S[123]$/i.test(norm(r.ThemeID)))===skills));
-  const studentPreCount=uniqueStudentCount(stageRows('Student','Pre'));
-  const studentPostCount=uniqueStudentCount(stageRows('Student','Post'));
-  const studentPost2Count=uniqueStudentCount(stageRows('Student','Post 2'));
-  const studentPost3Count=uniqueStudentCount(stageRows('Student','Post 3'));
-  const teacherContentPreCount=uniqueTeacherCount(stageRows('Teacher','Pre',false));
-  const teacherContentPostCount=uniqueTeacherCount(stageRows('Teacher','Post',false));
-  const teacherSkillPreCount=uniqueTeacherCount(stageRows('Teacher','Pre',true));
-  const teacherSkillPostCount=uniqueTeacherCount(stageRows('Teacher','Post',true));
-  const recPreCount=uniqueRecCount(countSourceRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
-  const recPostCount=uniqueRecCount(countSourceRows.filter(r=>assessmentIs(r.Assessment,'Post')));
-  const recPost2Count=uniqueRecCount(countSourceRows.filter(r=>assessmentIsPost2(r.Assessment)));
-  const recPost3Count=uniqueRecCount(countSourceRows.filter(r=>/^post\\s*3$/i.test(norm(r.Assessment))));
+  // Year-wise participation counts use the assessment submission year.
+  // StartingYear is used only for REC cohort membership, never to infer a stage.
+  const rowsForYear=(year:number)=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:'',year:String(year)});
+  const stageRowsForYear=(year:number,participant:string,stage?:string)=>rowsForYear(year).filter(r=>
+    norm(r.ParticipantType).toLowerCase()===participant.toLowerCase()&&(!stage||assessmentIs(r.Assessment,stage as 'Pre'|'Post')||(stage==='Post 2'&&assessmentIsPost2(r.Assessment)))
+  );
+  const studentCountForYear=(year:number,stage:string)=>uniqueStudentCount(stageRowsForYear(year,'Student',stage));
+  const teacherCountForYear=(year:number,stage?:string)=>uniqueTeacherCount(stageRowsForYear(year,'Teacher',stage));
+  const recCountForYear=(year:number,stage:string)=>uniqueRecCount(rowsForYear(year).filter(r=>assessmentIs(r.Assessment,stage)));
+  const student2025Pre=studentCountForYear(2025,'Pre');
+  const student2025Post=studentCountForYear(2025,'Post');
+  const student2026Pre=studentCountForYear(2026,'Pre');
+  const student2026Post2=studentCountForYear(2026,'Post 2');
+  const teacher2025=teacherCountForYear(2025);
+  const teacher2026Pre=teacherCountForYear(2026,'Pre');
+  const teacher2026Post=teacherCountForYear(2026,'Post');
+  const rec2025Pre=recCountForYear(2025,'Pre');
+  const rec2025Post=recCountForYear(2025,'Post');
   const cards=[
     ['Overall Score',`${score.toFixed(1)} / ${totalMax.toFixed(1)}`],
     ['Performance',fmt(overallPerformance)],
     ['Status',statusFor(overallPerformance)],
-    ['No. of Students (Pre / Post / Post 2 / Post 3)',`${studentPreCount} / ${studentPostCount} / ${studentPost2Count} / ${studentPost3Count}`],
-    ['No. of Teachers – Content (Pre / Post)',`${teacherContentPreCount} / ${teacherContentPostCount}`],
-     ['No. of Teachers – Skills (Pre / Post)',`${teacherSkillPreCount} / ${teacherSkillPostCount}`],
-     ['No. of RECs (Pre / Post / Post 2 / Post 3)',`${recPreCount} / ${recPostCount} / ${recPost2Count} / ${recPost3Count}`],
-    
+    ['No. of Students (2025 Pre / Post)',`${student2025Pre} / ${student2025Post}`],
+    ['No. of Students (2026 Pre / Post 2)',`${student2026Pre} / ${student2026Post2}`],
+    ['No. of Teachers (2025)',String(teacher2025)],
+    ['No. of Teachers (2026 Pre / Post)',`${teacher2026Pre} / ${teacher2026Post}`],
+    ['No. of RECs (2025 Pre / Post)',`${rec2025Pre} / ${rec2025Post}`],
     ['Students Overall',fmt(studentPct)],
-    ['Teachers Overall',fmt(teacherPct)],
-    ['Theme Overall',fmt(overallPerformance)],
-    ['Dimension Overall',fmt(overallPerformance)],
-    ['Student Pre Overall',fmt(prePct)],
-    ['Student Post Overall',fmt(postPct)],
-    ['Student Post 2 Overall',fmt(studentPost2Totals.p)],
-    ['Teacher Content Pre Overall',fmt(teacherPreTotals.p)],
-    ['Teacher Content Post Overall',fmt(teacherPostTotals.p)],
-    ['Teacher Skill Pre Overall',fmt(teacherSkillPreTotals.p)],
-    ['Teacher Skill Post Overall',fmt(teacherSkillPostTotals.p)]
+    ['Teachers Content Overall',fmt(teacherContentPct)],
+    ['Teachers Skills Overall',fmt(teacherSkillsPct)],
+    ['Theme Overall',fmt(themeOverall)],
+    ['Dimension Overall',fmt(dimensionOverall)]
   ];
   const hiddenByRating=f.studentRating&&!f.teacherRating
-    ? ['No. of Teachers']
+    ? ['No. of Teachers (2025)','No. of Teachers (2026 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
     : f.teacherRating&&!f.studentRating
-      ? ['No. of Students']
+      ? ['No. of Students (2025 Pre / Post)','No. of Students (2026 Pre / Post 2)','Students Overall']
       : [];
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label)));
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));

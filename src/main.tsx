@@ -490,11 +490,25 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(stageRowsForYear(year,'Student',stage),r=>r.ChildName||r.SourceRecordID||r.RecordID);
   const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>distinctCount(stageRowsForYear(year,'Teacher',stage),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
-  // REC scorecards are grouped by the year the assessment was submitted.
-  // StartingYear remains the REC's cohort identity; it does not move a 2025 REC
-  // out of its cohort. A 2025 REC's Post 2 submitted in 2026 belongs in 2026 Post.
+  // REC counts follow the programme's assessment design for each year.
+  // 2025: student and teacher content Pre/Post. 2026: student Pre or Post 2,
+  // plus teacher skills Pre/Post (S1-S3). StartingYear only validates that the
+  // REC had joined by that programme year; it does not determine the stage.
   const recRowsForAssessmentYear=(year:number)=>rowsForYear(year).filter(r=>targetRecs.some((t:any)=>Number(t.StartingYear)>0&&Number(t.StartingYear)<=year&&['active','yes','true','1'].includes(norm(t.Status).toLowerCase())&&geoNorm(t.Region)===geoNorm(r.Region)&&geoNorm(t.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(t.REC)===geoNorm(r.REC)));
-  const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(recRowsForAssessmentYear(year).filter(r=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):assessmentIs(r.Assessment,'Post')&&!/^post\\s*3$/i.test(norm(r.Assessment))),r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
+  const isTeacherSkillRow=(r:Rec)=>norm(r.ParticipantType).toLowerCase()==='teacher'&&/^S[123]$/i.test(norm(r.ThemeID));
+  const recStageMatches=(r:Rec,year:number,stage:'Pre'|'Post')=>{
+    const participant=norm(r.ParticipantType).toLowerCase();
+    if(year===2025){
+      if(participant!=='student'&&participant!=='teacher')return false;
+      return stage==='Pre'?assessmentIs(r.Assessment,'Pre'):assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment));
+    }
+    if(year===2026){
+      if(stage==='Pre')return (participant==='student'&&assessmentIs(r.Assessment,'Pre'))||(isTeacherSkillRow(r)&&assessmentIs(r.Assessment,'Pre'));
+      return (participant==='student'&&assessmentIsPost2(r.Assessment))||(isTeacherSkillRow(r)&&assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)));
+    }
+    return false;
+  };
+  const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(recRowsForAssessmentYear(year).filter(r=>recStageMatches(r,year,stage)),r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
   const student2025Pre=studentCountForYear(2025,'Pre');
   const student2025Post=studentCountForYear(2025,'Post');
   const student2026Pre=studentCountForYear(2026,'Pre');

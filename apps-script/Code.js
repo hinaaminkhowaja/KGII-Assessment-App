@@ -8092,7 +8092,7 @@ function getDashboardData(email) {
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
       const numericCols=h.map((name,j)=>({name,j})).filter(c=>/^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name));
       if(s.kind==='student-kobo'||s.kind==='student-app'){
-        const themeNames=s.kind==='student-app'?[clean(val(r,h,['ThemeName']))]:[...new Set(numericCols.map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
+        const themeNames=s.kind==='student-app'?[directThemeId_(clean(val(r,h,['ThemeName'])))]:[...new Set(numericCols.map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
         themeNames.filter(Boolean).forEach(theme=>{
           const eventKey=[geoKey(region),geoKey(board),geoKey(rec),geoKey(theme)].join('|');
           const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);

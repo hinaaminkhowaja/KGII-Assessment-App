@@ -434,6 +434,7 @@ function teacherRatingLabel(score:string){return ({'4':'Exemplary (4)','3':'Prof
 function statusFor(p:number){return p>=80?'Excellent':p>=65?'Good':p>=50?'Satisfactory':'Need Attention'}
 
 function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRows,sourceRows=rows,targetRecs=[],hideTeacherBreakdown=false,hideAtGlance=false,f={},refs=[]}:{rows:Rec[];metricRows?:Rec[];phase3Rows?:Rec[];allCycleRows?:Rec[];sourceRows?:Rec[];targetRecs?:any[];hideTeacherBreakdown?:boolean;hideAtGlance?:boolean;f?:any;refs?:Ref[]}) {
+  const allStageRows=allCycleRows;
   const ratingSelected=!!(f.studentRating||f.teacherRating);
   const scoreRows=ratingSelected?metricRows.filter(r=>(!f.studentRating&&!f.teacherRating)||(!!f.studentRating&&norm(r.ParticipantType).toLowerCase()==='student')||(!!f.teacherRating&&norm(r.ParticipantType).toLowerCase()==='teacher')):metricRows;
   const overall=aggregate(scoreRows);

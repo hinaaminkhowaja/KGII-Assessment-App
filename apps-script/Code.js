@@ -948,7 +948,7 @@ function getDashboardData(email) {
         const isStudentPreBaseline =
           source.name === 'Students Pre Assessment' &&
           norm(m.participant).toLowerCase() === 'student' &&
-          (norm(m.assessment).replace(/[\\s_-]+/g, '') === 'pre' || stageKey_(m.assessment) === 'preassessment');
+          (norm(m.assessment).replace(/[\s_-]+/g, '') === 'pre' || norm(m.assessment).replace(/[\s_-]+/g, '') === 'preassessment');
         if (typeof rawScore === 'boolean') return;
         const isBlankScore = rawScore === '' || rawScore === null || rawScore === undefined;
         if (isBlankScore && !isStudentPreBaseline) return;

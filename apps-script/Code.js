@@ -8059,12 +8059,13 @@ function getDashboardData(email) {
       const themes=x.source.kind==='student-app'?[directThemeId_(clean(val(r,h,['ThemeName'])))]:[...new Set(themeCols.map(c=>'Theme '+c.m[1]))];
       themes.forEach(t=>{
         const key=[geoKey(region),geoKey(board),geoKey(rec),geoKey(t)].join('|');
-        (events[key]||(events[key]=[])).push({time:d.getTime(),source:x.source.name,row:i+2,stage:x.source.stage||clean(val(r,h,['Assessment']))});
+        const day=Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd');
+        (events[key]||(events[key]=[])).push({time:day,source:x.source.name,row:i+2,stage:x.source.stage||clean(val(r,h,['Assessment']))});
       });
     });
   });
   Object.keys(events).forEach(k=>{
-    const unique=[...new Set(events[k].map(e=>e.time))].sort((a,b)=>a-b);
+    const unique=[...new Set(events[k].map(e=>e.time))].sort();
     events[k].forEach(e=>{
       const n=unique.indexOf(e.time);
       e.sequence=n+1;
@@ -8082,9 +8083,10 @@ function getDashboardData(email) {
       const rec=clean(val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']));
       if(!region||!board||!rec||!allowed(region,board,rec))return;
       const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','end','End']);
-      const date=dateOf(submitted);const year=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
+      const date=dateOf(submitted);const submissionYear=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
       const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|'));
       const cohort=masterRec?masterRec.StartingYear:'';
+      const year=cohort||submissionYear;
       const id=clean(val(r,h,['_uuid','_id','SubmissionID','meta/rootUuid']))||s.name+'-'+(i+2);
       const child=clean(val(r,h,['Name of a child:','Name of a child','ChildName']));
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
@@ -8102,11 +8104,11 @@ function getDashboardData(email) {
             const score=Number(raw);if(!Number.isFinite(score))return;
             const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
             if(!mm)return;
-            records.push([id+'-'+mm[1]+'-'+mm[2]+'-'+mm[3],cycle,year,cohort,'Student',assessment,region,board,rec,1,'', 'Theme '+mm[1],mm[2].toUpperCase(), 'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,child,'']);
+            records.push([id+'-'+mm[1]+'-'+mm[2]+'-'+mm[3],cycle,year,cohort,'Student',assessment,region,board,rec,1,'', 'T'+mm[1],mm[2].toUpperCase(), 'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,child,'']);
           });
         });
       } else if(s.kind==='teacher-kobo'){
-        numericCols.forEach(c=>{const raw=r[c.j];if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);if(!mm)return;const assessment=clean(val(r,h,['Specify the phase','Assessment']))||'Pre';records.push([id+'-'+c.name,'C1',year,cohort,'Teacher',assessment,region,board,rec,1,'','Theme '+mm[1],mm[2].toUpperCase(),'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,'',teacher]);});
+        numericCols.forEach(c=>{const raw=r[c.j];if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);if(!mm)return;const assessment=clean(val(r,h,['Specify the phase','Assessment']))||'Pre';records.push([id+'-'+c.name,'C1',year,cohort,'Teacher',assessment,region,board,rec,1,'','T'+mm[1],mm[2].toUpperCase(),'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,'',teacher]);});
       } else if(s.kind==='teacher-app'){
         const theme=clean(val(r,h,['ThemeName']))||'Authority and Leadership';
         ['PreRating','PostRating'].forEach(k=>{const raw=val(r,h,[k]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+k,'C1',year,cohort,'Teacher',k==='PreRating'?'Pre':'Post',region,board,rec,1,'',theme,'Overall',theme+':'+k,score,5,s.name,i+2,id,'',teacher]);});

@@ -449,12 +449,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);
-  const student2025Rows=studentRowsAll.filter(r=>recStartingYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||(assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment))));
-  const student2026Rows=studentRowsAll.filter(r=>(recStartingYear(r)===2026&&assessmentIs(r.Assessment,'Pre'))||(recStartingYear(r)===2025&&assessmentIsPost2(r.Assessment)));
+  const student2025Rows=studentRowsAll.filter(r=>recStartingYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
+  const student2026Rows=studentRowsAll.filter(r=>recStartingYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
   const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(recStartingYear(r)===2025||recStartingYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);
-  const student2026Pct=stageAverage(student2026Rows,['Pre','Post 2']);
+  const student2025Pct=stageAverage(student2025Rows,['Pre','Post','Post 2']);
+  const student2026Pct=stageAverage(student2026Rows,['Pre','Post','Post 2']);
   const studentPct=averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
   const teacherContentPct=stageAverage(teacherContentAllRows,['Pre','Post']);
   const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
@@ -524,7 +524,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const isTeacherSkillRow=(r:Rec)=>isTeacherSkillRec(r);
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
-  const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recCohortForStage(r,year,stage)===(stage==='Post 2'?2025:year)&&stageMatches(r,stage)),studentIdentity);
+  const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recStartingYearForRow(r)===year&&stageMatches(r,stage)),studentIdentity);
   // Teacher content belongs to its own REC StartingYear cohort. Existing 2025
   // RECs' Skills Pre/Post are counted in the 2026 teacher stage totals.
   const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>distinctCount(rowsForCounts().filter(r=>{
@@ -537,30 +537,34 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const recCountForYear=(year:number,stage:'Pre'|'Post')=>distinctCount(rowsForCounts().filter(r=>{
     const cohort=recStartingYearForRow(r),participant=norm(r.ParticipantType).toLowerCase(),skill=isTeacherSkillRow(r);
     if(year===2025)return (cohort===2025||(!cohort&&Number(r.Year)===2025))&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
-    if(year===2026)return ((cohort===2026&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage))||(cohort===2025&&((participant==='student'&&stage==='Post'&&assessmentIsPost2(r.Assessment))||(skill&&stageMatches(r,stage)))));
+    if(year===2026)return cohort===2026&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
     return false;
   }),r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
   const student2025Pre=studentCountForYear(2025,'Pre');
   const student2025Post=studentCountForYear(2025,'Post');
+  const student2025Post2=studentCountForYear(2025,'Post 2');
   const student2026Pre=studentCountForYear(2026,'Pre');
+  const student2026Post=studentCountForYear(2026,'Post');
   const student2026Post2=studentCountForYear(2026,'Post 2');
   const teacher2025=teacherCountForYear(2025);
   const teacher2026Pre=teacherCountForYear(2026,'Pre');
   const teacher2026Post=teacherCountForYear(2026,'Post');
   const rec2025Pre=recCountForYear(2025,'Pre');
   const rec2025Post=recCountForYear(2025,'Post');
+  const rec2025Post2=recCountForYear(2025,'Post 2');
   const rec2026Pre=recCountForYear(2026,'Pre');
   const rec2026Post=recCountForYear(2026,'Post');
+  const rec2026Post2=recCountForYear(2026,'Post 2');
   const cards=[
     ['Overall Score',`${overall.score.toFixed(1)} / ${overall.max.toFixed(1)}`],
     ['Performance',fmt(overall.p)],
     ['Status',statusFor(overall.p)],
-    ['No. of Students (2025 Pre / Post)',`${student2025Pre} / ${student2025Post}`],
-    ['No. of Students (2026 Pre / Post 2)',`${student2026Pre} / ${student2026Post2}`],
+    ['No. of Students (2025 Pre / Post / Post 2)',`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
+    ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
     ['No. of Teachers (2025)',String(teacher2025)],
     ['No. of Teachers (2026 Pre / Post)',`${teacher2026Pre} / ${teacher2026Post}`],
-    ['No. of RECs (2025 Pre / Post)',`${rec2025Pre} / ${rec2025Post}`],
-    ['No. of RECs (2026 Pre / Post)',`${rec2026Pre} / ${rec2026Post}`],
+    ['No. of RECs (2025 Pre / Post / Post 2)',`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
+    ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
     ['Students Overall',fmt(studentPct)],
     ['Teachers Content Overall',fmt(teacherContentPct)],
     ['Teachers Skills Overall',fmt(teacherSkillsPct)],
@@ -570,7 +574,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const hiddenByRating=f.studentRating&&!f.teacherRating
     ? ['No. of Teachers (2025)','No. of Teachers (2026 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
     : f.teacherRating&&!f.studentRating
-      ? ['No. of Students (2025 Pre / Post)','No. of Students (2026 Pre / Post 2)','Students Overall']
+      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
       : [];
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label)));
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));

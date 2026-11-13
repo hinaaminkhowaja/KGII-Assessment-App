@@ -807,9 +807,17 @@ function getDashboardData(email) {
         const score = Number(raw);
         if (!Number.isFinite(score) || score < 0 || score > m.maxScore) return;
         const key = post2GeoThemeKey(region, localBoard, rec, m.theme);
-        const bucket = observedPost2[key] || (observedPost2[key] = { pre: new Set(), post: new Set() });
+        const bucket = observedPost2[key] || (observedPost2[key] = { pre: new Set(), post: new Set(), postLatestTime: 0 });
         const stage = stageKey(m.assessment);
-        (stage === 'pre' || stage === 'preassessment' ? bucket.pre : bucket.post).add(m.indicator);
+        if (stage === 'pre' || stage === 'preassessment') {
+          bucket.pre.add(m.indicator);
+        } else {
+          bucket.post.add(m.indicator);
+          const rawStart = getRowValue(row, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt']) ||
+            getRowValue(row, ['end', 'End']);
+          const submittedAt = rawStart instanceof Date ? rawStart.getTime() : Date.parse(cleanValue(rawStart));
+          if (Number.isFinite(submittedAt)) bucket.postLatestTime = Math.max(bucket.postLatestTime, submittedAt);
+        }
       });
     });
   });
@@ -821,7 +829,11 @@ function getDashboardData(email) {
     const expected = expectedPost2[theme];
     if (!expected || !expected.pre.size || !expected.post.size) return;
     const complete = (needed, found) => Array.from(needed).every(id => found.has(id));
-    post2CompletedByTheme[key] = complete(expected.pre, bucket.pre) && complete(expected.post, bucket.post);
+    if (complete(expected.pre, bucket.pre) && complete(expected.post, bucket.post) && bucket.postLatestTime > 0) {
+      // Store the timestamp when the original theme-level Post was completed.
+      // A later submission is Post 2 only if it occurs strictly after this point.
+      post2CompletedByTheme[key] = bucket.postLatestTime;
+    }
   });
 
   sourceDefinitions.forEach(source => {
@@ -847,8 +859,11 @@ function getDashboardData(email) {
       if (!region || !localBoard || !rec) return;
 
       const explicitYear = cleanValue(getValue(row, headers, ['Year', 'Assessment Year']));
+      const submissionValue = getValue(row, headers, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt']) ||
+        getValue(row, headers, ['end', 'End']);
+      const submissionTime = submissionValue instanceof Date ? submissionValue.getTime() : Date.parse(cleanValue(submissionValue));
       const year = explicitYear ||
-        yearFrom(getValue(row, headers, ['start', 'Start', 'SubmissionDate', 'SubmittedAt', 'CreatedAt'])) ||
+        yearFrom(submissionValue) ||
         yearFrom(getValue(row, headers, ['end', 'End']));
       const phase = cleanValue(getValue(row, headers, ['Specify the phase', 'Phase']));
       const childName = cleanValue(getValue(row, headers, ['Name of a child:', 'Name of a child', 'ChildName']));
@@ -884,7 +899,7 @@ function getDashboardData(email) {
             const startingYear = Number(recStartingYears[cohortKey]);
             if (!startingYear || Number(year) <= startingYear) return m;
             const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-            if (!post2CompletedByTheme[historyKey]) return m;
+            if (!post2CompletedByTheme[historyKey] || !Number.isFinite(submissionTime) || submissionTime <= post2CompletedByTheme[historyKey]) return m;
             // A later-year Kobo submission becomes the next follow-up stage
             // only after the REC/theme's baseline Pre and Post are complete.
             return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
@@ -899,7 +914,7 @@ function getDashboardData(email) {
               const startingYear = Number(recStartingYears[cohortKey]);
               if (!startingYear || Number(year) <= startingYear) return m;
               const historyKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-              if (!post2CompletedByTheme[historyKey]) return Object.assign({}, m, {cycle:'C2', phase:''});
+              if (!post2CompletedByTheme[historyKey] || !Number.isFinite(submissionTime) || submissionTime <= post2CompletedByTheme[historyKey]) return Object.assign({}, m, {cycle:'C2', phase:''});
               // A later-year repeat for a completed REC/theme advances to Post 2.
               return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
             })

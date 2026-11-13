@@ -925,7 +925,7 @@ function getDashboardData(email) {
             if (!startingYear || Number(year) <= startingYear) return m;
             const recKey = recKeyForPost2(region, localBoard, rec);
             const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-            const startingYear = Number(recStartingYears[[region, localBoard, rec].map(phaseGeoKey).join('|')]);
+
             if (startingYear !== 2025 || !Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
             // Promote only this REC/theme when its own original Pre AND Post
             // were both complete before November 2026. Other themes remain Post.

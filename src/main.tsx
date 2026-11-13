@@ -1321,7 +1321,7 @@ const save = async (finishAssessment: boolean) => {
           ))}
         </div>
 
-        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={update} cycle={cycle} /></div>
+        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={update} /></div>
         <div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>{showRecSummary&&<RecSurveySummary records={records} participantType="Student" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}
         {entryStarted && <>
@@ -1868,7 +1868,7 @@ const save = async (finishAssessment: boolean) => {
           </>}
         </div>
 
-        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} cycle={v.cycle || 'Cycle 1'} afterRec={<div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>} /></div>
+        <div className="survey-live-location"><GeoFields refs={refs} value={v} onChange={(x:any) => { if (x.region !== v.region || x.board !== v.board || x.rec !== v.rec) setEntryStarted(false); setV(x); }} afterRec={<div className="summary-action-row"><button type="button" className="primary" disabled={!v.region||!v.board||!v.rec} onClick={()=>{setShowRecSummary(true);onRefresh?.();}}>View REC Summary</button></div>} /></div>
 
         {showRecSummary&&<RecSurveySummary records={records} participantType="Teacher" region={v.region} board={v.board} rec={v.rec} onRefresh={onRefresh} />}
         {v.rec && !entryStarted && <div className="form-actions"><button type="button" className="primary" onClick={() => setEntryStarted(true)}>Continue Data Entry</button></div>}

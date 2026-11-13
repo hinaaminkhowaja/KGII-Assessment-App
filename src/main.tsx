@@ -469,9 +469,11 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     {weight:87,p:studentPost2Pct,has:studentRowsAll.some(r=>assessmentIsPost2(r.Assessment))},
     {weight:16,p:teacherContentPct,has:teacherContentAllRows.length>0},
     {weight:48,p:teacherSkillsPct,has:teacherSkills2026Rows.length>0}
-  ].filter(x=>x.has);
-  const overallMax=weightedComponents.reduce((n,x)=>n+x.weight,0);
-  const overallScore=weightedComponents.reduce((n,x)=>n+x.weight*x.p/100,0);
+  ];
+  // The published framework maximum is fixed at 238; unavailable components
+  // contribute zero until source assessments are received.
+  const overallMax=238;
+  const overallScore=weightedComponents.reduce((n,x)=>n+x.weight*(x.has?x.p:0)/100,0);
   const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));

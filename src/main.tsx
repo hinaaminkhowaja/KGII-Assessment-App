@@ -559,21 +559,13 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   }),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
   const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const eligible=rowsForCounts().filter(r=>{
-      const participant=norm(r.ParticipantType).toLowerCase();
-      if(stage==='Pre'){
-        // Baseline REC coverage is authoritative from the original student
-        // pre-assessment sheet. Do not require a REC master-list match and do
-        // not mix teacher content records into this count.
-        const source=norm(r.SourceSheet).toLowerCase();
-        return year===2025&&participant==='student'&&stageMatches(r,stage)&&
-          (!source||source.includes('students pre assessment'))&&
-          (Number(r.Year)===2025||source.includes('students pre assessment'));
-      }
-      const cohort=recStartingYearForRow(r),skill=isTeacherSkillRow(r);
-      if(year===2025)return (cohort===2025||(!cohort&&Number(r.Year)===2025))&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
-      if(year===2026)return cohort===2026&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
-      return false;
+      // Student REC coverage must follow the student assessment source only.
+      // Teacher content/skills submissions must never increase student REC KPIs.
+      if(norm(r.ParticipantType).toLowerCase()!=='student'||!stageMatches(r,stage))return false;
+      const cohort=recCohortForStage(r,year,stage);
+      return cohort===year;
     });
+    // Standardized Region + LocalBoard + REC; one REC per assessment stage.
     return distinctCount(eligible,r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
   };
   const student2025Pre=studentCountForYear(2025,'Pre');

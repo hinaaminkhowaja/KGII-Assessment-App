@@ -557,12 +557,25 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     if(year===2026)return ((cohort===2026&&!skill)||(cohort===2025&&skill))&&(!stage||stageMatches(r,stage));
     return false;
   }),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
-  const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(rowsForCounts().filter(r=>{
-    const cohort=recStartingYearForRow(r),participant=norm(r.ParticipantType).toLowerCase(),skill=isTeacherSkillRow(r);
-    if(year===2025)return (cohort===2025||(!cohort&&Number(r.Year)===2025))&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
-    if(year===2026)return cohort===2026&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
-    return false;
-  }),r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
+  const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
+    const eligible=rowsForCounts().filter(r=>{
+      const participant=norm(r.ParticipantType).toLowerCase();
+      if(stage==='Pre'){
+        // Baseline REC coverage is authoritative from the original student
+        // pre-assessment sheet. Do not require a REC master-list match and do
+        // not mix teacher content records into this count.
+        const source=norm(r.SourceSheet).toLowerCase();
+        return year===2025&&participant==='student'&&stageMatches(r,stage)&&
+          (!source||source.includes('students pre assessment'))&&
+          (Number(r.Year)===2025||source.includes('students pre assessment'));
+      }
+      const cohort=recStartingYearForRow(r),skill=isTeacherSkillRow(r);
+      if(year===2025)return (cohort===2025||(!cohort&&Number(r.Year)===2025))&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
+      if(year===2026)return cohort===2026&&(participant==='student'||(participant==='teacher'&&!skill))&&stageMatches(r,stage);
+      return false;
+    });
+    return distinctCount(eligible,r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
+  };
   const student2025Pre=studentCountForYear(2025,'Pre');
   const student2025Post=studentCountForYear(2025,'Post');
   const student2025Post2=studentCountForYear(2025,'Post 2');

@@ -574,7 +574,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const student2026Pre=studentCountForYear(2026,'Pre');
   const student2026Post=studentCountForYear(2026,'Post');
   const student2026Post2=studentCountForYear(2026,'Post 2');
-  const teacher2025=teacherCountForYear(2025);
+  const teacher2025Pre=teacherCountForYear(2025,'Pre');
+  const teacher2025Post=teacherCountForYear(2025,'Post');
   const teacher2026Pre=teacherCountForYear(2026,'Pre');
   const teacher2026Post=teacherCountForYear(2026,'Post');
   const rec2025Pre=recCountForYear(2025,'Pre');
@@ -589,8 +590,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Status',statusFor(overall.p)],
     ['No. of Students (2025 Pre / Post / Post 2)',`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
     ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
-    ['No. of Teachers (2025)',String(teacher2025)],
-    ['No. of Teachers (2026 Pre / Post)',`${teacher2026Pre} / ${teacher2026Post}`],
+    ['No. of Teachers Content (2025 Pre / Post)',`${teacher2025Pre} / ${teacher2025Post}`],
+    ['No. of Teachers Content (2026 Pre / Post)',`${teacher2026Pre} / ${teacher2026Post}`],
     ['No. of RECs (2025 Pre / Post / Post 2)',`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
     ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
     ['Students Overall',fmt(studentPct)],
@@ -600,7 +601,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Dimension Overall',fmt(dimensionOverall)]
   ];
   const hiddenByRating=f.studentRating&&!f.teacherRating
-    ? ['No. of Teachers (2025)','No. of Teachers (2026 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
+    ? ['No. of Teachers Content (2025 Pre / Post)','No. of Teachers Content (2026 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
     : f.teacherRating&&!f.studentRating
       ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
       : [];

@@ -2648,6 +2648,53 @@ function handleSurveyLookup(body) {
 if (values.length < 2) {
   const matches = [];
 
+  // Include historical Kobo submissions so the survey can display records
+  // collected before the app survey sheets were introduced.
+  const legacySources = participantType === 'student'
+    ? ['Students Pre Assessment','Students Post Assessment']
+    : ['Teachers Assessment'];
+  legacySources.forEach(sourceName => {
+    const legacy = ss.getSheetByName(sourceName);
+    if (!legacy || legacy.getLastRow() < 2) return;
+    const data = legacy.getDataRange().getValues();
+    const hh = data[0].map(h => clean(h));
+    const findCol = names => hh.findIndex(h => names.some(n => h.toLowerCase() === n.toLowerCase()));
+    const r=findCol(['Region','1. Select your region','Select your region']);
+    const b=findCol(['LocalBoard','Local Board (Standardized)','Name of Local Board']);
+    const rc=findCol(['REC','REC (Standardized)','Name of RECs']);
+    const n=findCol(participantType==='student'?['ChildName','Name of a child:']:['TeacherName','Name of participant']);
+    if([r,b,rc,n].some(x=>x<0)) return;
+    const themeMap={'authority and leadership':'1','intellectual traditions':'2','ismaili muslim traditions':'2','role in family, community and society':'3','two aspects of life':'4'};
+    data.slice(1).forEach((row,index)=>{
+      if(clean(row[r]).replace(/_\\d+$/,'').toLowerCase()!==region.toLowerCase().replace(/_\\d+$/,'')||
+         clean(row[b]).toLowerCase()!==localBoard.toLowerCase()||
+         clean(row[rc]).toLowerCase()!==rec.toLowerCase()||
+         clean(row[n]).toLowerCase()!==name.toLowerCase()) return;
+      const themeCol=findCol(['ThemeName','Select the themes']);
+      const themeName=themeCol>=0?clean(row[themeCol]):'';
+      const item={submissionId:clean(row[findCol(['_uuid','_id'])])||sourceName+'-'+(index+2),
+        name:clean(row[n]),region:clean(row[r]),localBoard:clean(row[b]),rec:clean(row[rc]),
+        themeName,assessment:sourceName==='Students Pre Assessment'?'Pre':(clean(row[findCol(['Assessment','Select when this assessment conducted'])])||'Post'),
+        submittedAt:clean(row[findCol(['SubmittedAt','_submission_time','end','start'])])};
+      if(participantType==='student'){
+        item.ratings={};
+        const tn=themeMap[themeName.toLowerCase()]||'';
+        hh.forEach((header,j)=>{
+          if(/^Theme[1-4]:(UA|A)\\d+$/i.test(header)&&(!tn||header.startsWith('Theme'+tn+':'))&&row[j]!==''&&row[j]!=null)item.ratings[header]=row[j];
+        });
+        item.childGender=clean(row[findCol(["ChildGender","Child's gender"])]);
+        item.assessorDesignation=clean(row[findCol(['AssessorDesignation','Designation of a person assess a child'])]);
+      } else {
+        item.teacherPosition=clean(row[findCol(['TeacherPosition','Position of participant'])]);
+        const pre=findCol(['PreRating','Pre Theme 1 Score']);
+        const post=findCol(['PostRating','Post Theme 1 Score']);
+        item.preRating=pre>=0?row[pre]:'';
+        item.postRating=post>=0?row[post]:'';
+      }
+      matches.push(item);
+    });
+  });
+
   if (typeof appendAPPRecordLookupMatches_ === 'function') {
     appendAPPRecordLookupMatches_(
       matches,

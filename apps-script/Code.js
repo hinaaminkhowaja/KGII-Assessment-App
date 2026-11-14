@@ -1682,23 +1682,60 @@ function getRecStartingYear_(region, localBoard, rec) {
 function handleSurveyClassification_(e) {
   const p = e && e.parameter ? e.parameter : {};
   const participantType = clean(p.participantType || 'Student');
+  const themeID = clean(p.themeID);
   if (!clean(p.region) || !clean(p.localBoard) || !clean(p.rec)) {
     throw new Error('Region, Local Board and REC are required for classification.');
   }
   const startingYear = getRecStartingYear_(p.region, p.localBoard, p.rec);
-  if (participantType.toLowerCase()==='student' && startingYear===2025) {
-    return {success:true, assessment:'Post 2', cycleID:'C2', isPost2:true, startingYear, classificationBasis:'REC StartingYear'};
+  if (!startingYear) throw new Error('REC StartingYear was not found in RECs_list_Phase_Wise.');
+
+  if (participantType.toLowerCase() === 'student') {
+    if (startingYear >= 2026) {
+      return {success:true, assessment:'Pre', startingYear, classificationBasis:'REC StartingYear'};
+    }
+    if (startingYear === 2025) {
+      const alreadyPosted = themeID && recThemeHasPostSubmission_(p.region, p.localBoard, p.rec, themeID);
+      return {success:true, assessment:alreadyPosted ? 'Post 2' : 'Post', startingYear,
+        classificationBasis:'REC StartingYear + prior theme submissions'};
+    }
   }
-  if (participantType.toLowerCase()==='student' && startingYear===2026) {
-    return {success:true, assessment:'Pre', cycleID:'C2', isPost2:false, startingYear, classificationBasis:'REC StartingYear'};
+
+  if (participantType.toLowerCase() === 'teacher') {
+    return {success:true, startingYear, availableAssessments: startingYear === 2025
+      ? ['Content Assessment', 'Teacher Skills Assessment']
+      : ['Content Assessment'], classificationBasis:'REC StartingYear'};
   }
-  const assessment = surveyAssessment_(p.assessment || 'Pre');
-  const themeID = clean(p.themeID);
-  const post2 = !!themeID && assessment !== 'Post 2' &&
-    recThemeHasPreAndPost_(participantType, p.region, p.localBoard, p.rec, themeID);
-  return {success:true, assessment:post2?'Post 2':assessment, cycleID:post2?'C2':surveyCycleId_(p.cycleID||'Cycle 1'), isPost2:post2, startingYear, classificationBasis:'REC + participant type + theme fallback'};
+  return {success:true, startingYear, classificationBasis:'REC StartingYear'};
 }
 
+function recThemeHasPostSubmission_(region, localBoard, rec, themeID) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sourceNames = ['Students Post Assessment', 'APP_Student_Surveys'];
+  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
+  const regionKey = value => key(value).replace(/\\s+\\d+$/,'');
+  for (const name of sourceNames) {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet || sheet.getLastRow() < 2) continue;
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0].map(h => clean(h));
+    const col = (...names) => headers.findIndex(h => names.some(n => key(h) === key(n)));
+    const ri=col('1. Select your region','Select your region','Region');
+    const bi=col('LocalBoard','Local Board','Local Board (Standardized)','Name of Local Board');
+    const ci=col('REC','REC (Standardized)','Name of RECs');
+    const ti=col('ThemeName','Theme Name','Select the themes','ThemeID','Theme');
+    const ai=col('Assessment','AssessmentStage','Select when this assessment conducted');
+    if ([ri,bi,ci,ti,ai].some(i=>i<0)) continue;
+    const found=values.slice(1).some(row => {
+      const assessment=key(row[ai]).replace(/\\s+/g,'');
+      const theme=key(row[ti]);
+      return regionKey(row[ri])===regionKey(region) && key(row[bi])===key(localBoard) &&
+        key(row[ci])===key(rec) && (theme===key(themeID) || theme.includes(key(themeID))) &&
+        (assessment==='post' || assessment==='postassessment');
+    });
+    if (found) return true;
+  }
+  return false;
+}
 
 function recThemeHasPreAndPost_(participantType, region, localBoard, rec, themeID) {
   // Read the six original assessment/survey source sheets directly.

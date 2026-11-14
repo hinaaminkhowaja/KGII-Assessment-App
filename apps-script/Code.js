@@ -1006,8 +1006,8 @@ function handlePublicSurveySummary_(e) {
   const sources = participant === 'Student'
     ? ['Students Pre Assessment','Students Post Assessment','APP_Student_Surveys']
     : ['Teachers Assessment','APP_Teacher_Surveys','APP_Teacher_Surveys_Cycle2'];
-  const norm = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
-  const regionNorm = v => norm(v).replace(/\\s+\\d+$/,'');
+  const norm = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const regionNorm = v => norm(v).replace(/\s+\d+$/,'');
   const themeNum = v => {
     const s=norm(v);
     if (/^(t)?1$/.test(s)||s.includes('authority and leadership')) return '1';
@@ -1037,7 +1037,7 @@ function handlePublicSurveySummary_(e) {
     const ai=find('Assessment','Select when this assessment conducted','AssessmentStage');
     const ti=find('ThemeName','Select the themes','Theme Name','ThemeID','Theme');
     const ratingCols=[];
-    h.forEach((header,j)=>{const m=header.match(/^Theme([1-4]):(UA|A)\\d+$/i);if(m)ratingCols.push({j,id:'T'+m[1]});});
+    h.forEach((header,j)=>{const m=header.match(/^Theme([1-4]):(UA|A)\d+$/i);if(m)ratingCols.push({j,id:'T'+m[1]});});
     data.slice(1).forEach(row=>{
       if(ri<0||bi<0||ci<0||regionNorm(row[ri])!==regionNorm(region)||norm(row[bi])!==norm(board)||norm(row[ci])!==norm(rec)) return;
       let stage=ai>=0?clean(row[ai]):'';

@@ -2,7 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 
-type Rec={RecordID:string;SourceRecordID?:string;ChildName?:string;TeacherName?:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
+type Rec={RecordID:string;SourceRecordID?:string;SourceSheet?:string;SourceRow?:number|string;ChildName?:string;TeacherName?:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
 type Ref={Region:string;LocalBoard:string;REC:string;StartingYear?:number|string;Status?:string};
 type Indicator={CycleID:string;ParticipantType:string;Assessment:string;ThemeID:string;ThemeName:string;DimensionID:string|null;IndicatorID:string;MaxScore:number;SourceSheet:string;SourceColumn:number};
 const pct=(n:number,d:number)=>d?100*n/d:0;
@@ -238,7 +238,7 @@ function App(){
       }
       return '';
     };
-    return {RecordID:norm(field('RecordID','recordId','ID')),SourceRecordID:norm(field('SourceRecordID','Source Record ID')),ChildName:norm(field('ChildName','Child Name','StudentName','Student Name','ParticipantName','Participant Name','Name')),StudentID:norm(field('StudentID','Student ID','ChildID','Child ID','ParticipantID','Participant ID','StudentCode','Student Code')),TeacherName:norm(field('TeacherName','Teacher Name','Name of Teacher','TeacherID','Teacher ID')),CycleID:norm(field('CycleID')),Year:Number(field('Year'))||0,ParticipantType:norm(field('ParticipantType','Participant Type')),Assessment:norm(field('Assessment','Assessment Stage')),Region:norm(field('Region')),LocalBoard:norm(field('LocalBoard','Local Board')),REC:norm(field('REC')),ParticipantCount:Number(field('ParticipantCount','Participant Count','No. of Participants','Number of Participants','Participants Count','No of Students','Student Count'))||0,Phase:norm(field('Phase')),ThemeID:norm(field('ThemeID','Theme ID')),DimensionID:norm(field('DimensionID','Dimension ID')),IndicatorID:norm(field('IndicatorID','Indicator ID')),Score:Number(field('Score'))||0,MaxScore:Number(field('MaxScore','Max Score'))||0} as Rec;
+    return {RecordID:norm(field('RecordID','recordId','ID')),SourceRecordID:norm(field('SourceRecordID','Source Record ID')),SourceSheet:norm(field('SourceSheet','Source Sheet')),SourceRow:field('SourceRow','Source Row'),ChildName:norm(field('ChildName','Child Name','StudentName','Student Name','ParticipantName','Participant Name','Name')),StudentID:norm(field('StudentID','Student ID','ChildID','Child ID','ParticipantID','Participant ID','StudentCode','Student Code')),TeacherName:norm(field('TeacherName','Teacher Name','Name of Teacher','TeacherID','Teacher ID')),CycleID:norm(field('CycleID')),Year:Number(field('Year'))||0,ParticipantType:norm(field('ParticipantType','Participant Type')),Assessment:norm(field('Assessment','Assessment Stage')),Region:norm(field('Region')),LocalBoard:norm(field('LocalBoard','Local Board')),REC:norm(field('REC')),ParticipantCount:Number(field('ParticipantCount','Participant Count','No. of Participants','Number of Participants','Participants Count','No of Students','Student Count'))||0,Phase:norm(field('Phase')),ThemeID:norm(field('ThemeID','Theme ID')),DimensionID:norm(field('DimensionID','Dimension ID')),IndicatorID:norm(field('IndicatorID','Indicator ID')),Score:Number(field('Score'))||0,MaxScore:Number(field('MaxScore','Max Score'))||0} as Rec;
   });
   setRecords(normalized);
   try{localStorage.setItem('kgii_assessment_cached_records',JSON.stringify(normalized));}catch(e){console.warn('Could not cache assessment records',e)}
@@ -536,7 +536,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     const cohortRows=rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recStartingYearForRow(r)===year&&stageMatches(r,stage));
     // Baseline Pre counts each submitted child assessment, not distinct child names.
     // A child may legitimately have more than one source submission; count each submission once.
-    const submissionIdentity=(r:Rec)=>[r.Region,r.LocalBoard,r.REC,r.SourceRecordID||r.RecordID].map(geoNorm).join('||');
+    const submissionIdentity=(r:Rec)=>[r.SourceSheet||'Students Pre Assessment',r.SourceRow||r.SourceRecordID||r.RecordID||[r.Region,r.LocalBoard,r.REC,r.ChildName].join('|')].map(v=>norm(v).toLocaleLowerCase()).join('||');
     return distinctCount(cohortRows,stage==='Pre'?submissionIdentity:studentIdentity);
   };
   // Teacher content belongs to its own REC StartingYear cohort. Existing 2025

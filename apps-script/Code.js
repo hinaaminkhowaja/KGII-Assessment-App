@@ -3,8 +3,6 @@ const CONFIG = {
   ACCESS_SHEET: 'APP_Access',
   STUDENT_SURVEYS_SHEET: 'APP_Student_Surveys',
   TEACHER_SURVEYS_SHEET: 'APP_Teacher_Surveys',
-  RECORDS_SHEET: 'APP_Records',
-  INDICATORS_SHEET: 'APP_Indicators',
   CONFIG_SHEET: 'APP_Config',
   RESOURCES_SHEET: 'APP_Resources',
   RESOURCES_FOLDER_ID: '11C7JI6RQ5PGOT1nE1wy7snefEvdhuRGD'
@@ -2749,17 +2747,6 @@ if (values.length < 2) {
     });
   });
 
-  if (typeof appendAPPRecordLookupMatches_ === 'function') {
-    appendAPPRecordLookupMatches_(
-      matches,
-      participantType,
-      name,
-      region,
-      localBoard,
-      rec
-    );
-  }
-
   return { success: true, matches: matches };
 }
 
@@ -2849,17 +2836,6 @@ headers.forEach((h, j) => {
   }
 
   
-  if (typeof appendAPPRecordLookupMatches_ === 'function') {
-    appendAPPRecordLookupMatches_(
-      matches,
-      participantType,
-      name,
-      region,
-      localBoard,
-      rec
-    );
-  }
-
   return { success: true, matches: matches };
 }
 
@@ -8246,7 +8222,16 @@ function getDashboardData(email) {
         themeNames.filter(Boolean).forEach(theme=>{
           const eventKey=recThemeKey_(region,board,rec,theme);
           const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);
-          let assessment=s.name==='Students Pre Assessment'?'Pre':(event?event.assessment:clean(val(r,h,['Assessment','Specify the phase']))||'Post');
+          // The app student survey explicitly records its intended stage:
+          // 2025 cohort submissions are Post 2 (or later), while 2026 cohort
+          // submissions can be Pre. Never overwrite that value with a
+          // date-sequence inference. Kobo post rows continue to be sequenced
+          // independently for each REC + theme.
+          let assessment = s.name === 'Students Pre Assessment'
+            ? 'Pre'
+            : s.kind === 'student-app'
+              ? (clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted'])) || (event ? event.assessment : 'Post'))
+              : (event ? event.assessment : clean(val(r,h,['Assessment','Specify the phase'])) || 'Post');
           let cycle='C1';
           numericCols.forEach(c=>{
             if(s.kind==='student-app'&&!new RegExp('^'+theme.replace(' ','\\\\s*')+'\\\\s*:','i').test(c.name))return;

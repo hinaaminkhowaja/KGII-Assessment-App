@@ -922,7 +922,7 @@ function getDashboardData(email) {
               // If this theme's original Post was not yet complete, continue it.
               return Object.assign({}, m, {cycle:'C1', assessment:'Post', phase:''});
             })
-          : sourceMappings;
+          : rowMappings;
 
       effectiveMappings.forEach(m => {
         const configuredColumn = source.kind === 'kobo' ? m.koboColumn : m.appColumn;

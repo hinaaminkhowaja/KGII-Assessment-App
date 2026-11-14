@@ -515,7 +515,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Stage counts follow the REC's StartingYear cohort and assessment type,
   // not the calendar date on which a Kobo/app submission was uploaded.
   const rowsForCounts=()=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:'',year:''});
-  const recStartingYearForRow=(r:Rec)=>{const t=targetRecs.find((x:any)=>geoNorm(x.Region)===geoNorm(r.Region)&&geoNorm(x.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(x.REC)===geoNorm(r.REC));return Number(t?.StartingYear)||0;};
+  const recMasterKey=(v:any)=>norm(v).toLocaleLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const recStartingYearForRow=(r:Rec)=>{const t=targetRecs.find((x:any)=>recMasterKey(x.Region)===recMasterKey(r.Region)&&recMasterKey(x.LocalBoard)===recMasterKey(r.LocalBoard)&&recMasterKey(x.REC)===recMasterKey(r.REC));return Number(t?.StartingYear)||0;};
   // Count each child once within their REC and assessment stage; SourceRecordID
   // identifies Kobo submissions, not unique children, and can vary on repeat visits.
   const studentIdentity=(r:Rec)=>r.ChildName

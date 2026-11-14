@@ -894,9 +894,13 @@ function getDashboardData(email) {
         return match ? 'c' + match[1] : raw.toLowerCase();
       };
       const assessmentKey = value => norm(value).replace(/[\s_-]+/g, '').toLowerCase();
-      const rowMappings = source.kind === 'app' && rowCycle && rowAssessment
-        ? sourceMappings.filter(m => cycleKey(m.cycle) === cycleKey(rowCycle) &&
-            assessmentKey(m.assessment) === assessmentKey(rowAssessment))
+      // APP student survey rows may not carry CycleID. Always honour the
+      // Assessment value stored on the submission; only constrain CycleID
+      // when the source sheet actually supplies it.
+      const rowMappings = source.kind === 'app' && rowAssessment
+        ? sourceMappings.filter(m =>
+            assessmentKey(m.assessment) === assessmentKey(rowAssessment) &&
+            (!rowCycle || cycleKey(m.cycle) === cycleKey(rowCycle)))
         : sourceMappings;
 
       const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Post Assessment'

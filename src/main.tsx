@@ -1111,6 +1111,8 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
   const assignedAssessment = recYear===2025 ? 'Post 2' : recYear===2026 ? 'Pre' : (cycle==='Cycle 2'?'Post 2':(v.assessment||'Pre'));
   const phase = assignedAssessment;
   const [entryStarted, setEntryStarted] = useState(false);
+  useEffect(() => { setEntryStarted(Boolean(v.rec)); }, [v.rec]);
+  useEffect(() => { setEntryStarted(Boolean(v.rec)); }, [v.rec]);
   const [msg, setMsg] = useState('');
   const [saving, setSaving] = useState(false);
   
@@ -1678,7 +1680,6 @@ function TeacherCycle2Form({ value, onChange, user, onRefresh }: { value: any; o
 }
 
 function TeacherSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; user: AppUser | null; records?: Rec[]; onRefresh?:()=>void }) {
-  const [showRecSummary,setShowRecSummary]=useState(false);
   const initial: any = {
     region: '',
     board: '',

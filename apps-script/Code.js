@@ -6511,23 +6511,26 @@ function inspectKoboSyncWatermarks() {
 }
 
 
-function installAutomaticKoboSync() {
-  const handler = 'syncKoboToAPPRecords';
-
-  // Remove duplicate triggers for this function only.
+function removeLegacyKoboSyncTriggers() {
+  const legacyHandlers = new Set([
+    'syncKoboToAPPRecords',
+    'installAutomaticKoboSync'
+  ]);
+  let removed = 0;
   ScriptApp.getProjectTriggers().forEach(trigger => {
-    if (trigger.getHandlerFunction() === handler) {
+    if (legacyHandlers.has(trigger.getHandlerFunction())) {
       ScriptApp.deleteTrigger(trigger);
+      removed++;
     }
   });
+  Logger.log('Removed legacy APP_Records sync triggers: ' + removed);
+  return {success:true, removed:removed};
+}
 
-  // Run the Kobo sync every 5 minutes.
-  ScriptApp.newTrigger(handler)
-    .timeBased()
-    .everyMinutes(5)
-    .create();
-
-  Logger.log('Automatic Kobo sync installed: every 5 minutes.');
+// Kept as a compatibility entry point. It removes the old APP_Records
+// automation and deliberately does not create a replacement trigger.
+function installAutomaticKoboSync() {
+  return removeLegacyKoboSyncTriggers();
 }
 
 

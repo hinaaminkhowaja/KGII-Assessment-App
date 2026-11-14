@@ -660,11 +660,9 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
   sourceGroups.forEach((r:any)=>{const raw=norm(groupValue(r));if(!raw)return;const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
   const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
 
-  // Each assessment can contain several indicator rows for the same participant.
-  // Count a student/teacher once per REC, theme and assessment stage.
-  // Aggregate once in a single pass. The previous implementation decoded and
-  // scanned every participant bucket again for every table cell, which became
-  // increasingly expensive as the number of RECs grew.
+  // A submission expands into multiple indicator rows. Count students by child,
+  // but count teacher content submissions per REC + theme + stage. A teacher
+  // contributing to several themes is counted once in each submitted theme.
   const participants=new Map<string,Set<string>>();
   for(const r of scopedRecords){
     const group=groupKey(groupValue(r));
@@ -673,9 +671,9 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
     const stage=assessmentIs(r.Assessment,'Pre')?'Pre':assessmentIs(r.Assessment,'Post')?'Post':null;
     const participant=norm(r.ParticipantType);
     if(!stage||(participant!=='Student'&&participant!=='Teacher'))continue;
-    const personName=participant==='Student'?norm(r.ChildName):norm(r.TeacherName);
-    const participantId=participant==='Student'?norm((r as any).StudentID):norm(r.TeacherName);
-    const identity=geoNorm(participantId || personName || r.SourceRecordID || r.RecordID || '');
+    const identity=participant==='Teacher'
+      ? geoNorm(norm(r.SourceRecordID)||norm(r.RecordID))
+      : geoNorm(norm((r as any).StudentID)||norm(r.ChildName)||norm(r.SourceRecordID)||norm(r.RecordID));
     if(!identity)continue;
     const key=[group,theme,stage,participant].join('||');
     if(!participants.has(key))participants.set(key,new Set<string>());
@@ -684,7 +682,7 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
   const participantCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>
     participants.get([groupKey(group),theme,stage,participant].join('||'))?.size||0;
   return <section className={`card theme-rec-coverage theme-rec-coverage-${level}`}>
-    <div className="section-head"><div><h2>{title}</h2><p>Distinct students and teachers assessed in each theme, counted once per person for each REC and assessment stage.</p></div></div>
+    <div className="section-head"><div><h2>{title}</h2><p>Students are counted by child; teacher counts reflect submitted assessments per REC, theme and stage.</p></div></div>
     <div className="table-wrap"><table><thead>
       <tr><th rowSpan={3}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={4}>{labelTheme(theme)}</th>)}</tr>
       <tr>{themes.flatMap(theme=>[<th key={theme+'-students'} colSpan={2}>Students</th>,<th key={theme+'-teachers'} colSpan={2}>Teachers</th>])}</tr>

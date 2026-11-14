@@ -546,7 +546,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     // Pre is a submission count: do not deduplicate by child name. One source
     // row is one child assessment; the row may expand to many indicator records.
     const submissionIdentity=(r:Rec)=>[r.SourceSheet||'Students Pre Assessment',r.SourceRow||r.SourceRecordID||r.RecordID||[r.Region,r.LocalBoard,r.REC,r.ChildName].join('|')].map(v=>norm(v).toLocaleLowerCase()).join('||');
-    return distinctCount(cohortRows,stage==='Pre'?submissionIdentity:studentIdentity);
+    return distinctCount(cohortRows,submissionIdentity);
   };
   // Teacher content belongs to its own REC StartingYear cohort. Existing 2025
   // RECs' Skills Pre/Post are counted in the 2026 teacher stage totals.

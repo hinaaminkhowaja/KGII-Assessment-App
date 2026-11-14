@@ -532,7 +532,13 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const isTeacherSkillRow=(r:Rec)=>isTeacherSkillRec(r);
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
-  const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>distinctCount(rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recStartingYearForRow(r)===year&&stageMatches(r,stage)),studentIdentity);
+  const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
+    const cohortRows=rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recStartingYearForRow(r)===year&&stageMatches(r,stage));
+    // Baseline Pre counts each submitted child assessment, not distinct child names.
+    // A child may legitimately have more than one source submission; count each submission once.
+    const submissionIdentity=(r:Rec)=>[r.Region,r.LocalBoard,r.REC,r.SourceRecordID||r.RecordID].map(geoNorm).join('||');
+    return distinctCount(cohortRows,stage==='Pre'?submissionIdentity:studentIdentity);
+  };
   // Teacher content belongs to its own REC StartingYear cohort. Existing 2025
   // RECs' Skills Pre/Post are counted in the 2026 teacher stage totals.
   const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>distinctCount(rowsForCounts().filter(r=>{

@@ -452,11 +452,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const student2025Rows=studentRowsAll.filter(r=>recStartingYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
   const student2026Rows=studentRowsAll.filter(r=>recStartingYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
   const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(recStartingYear(r)===2025||recStartingYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const teacherContent2025Rows=teacherContentAllRows.filter(r=>recStartingYear(r)===2025);
   const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const student2025Pct=stageAverage(student2025Rows,['Pre','Post','Post 2']);
-  const student2026Pct=stageAverage(student2026Rows,['Pre','Post','Post 2']);
-  const studentPct=averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
-  const teacherContentPct=stageAverage(teacherContentAllRows,['Pre','Post']);
+  const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);
+  const student2026Pct=stageAverage(student2026Rows,['Pre','Post 2']);
+  const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
+  const teacherContentPct=stageAverage(teacherContent2025Rows,['Pre','Post']);
   const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
   // Overall framework: 87 student Pre/Post indicators, 87 student Post 2
   // indicators, 16 teacher content indicators (Pre + Post), and 48 teacher
@@ -594,8 +595,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const student2025Post=studentCountForYear(2025,'Post');
   const student2025Post2=studentCountForYear(2025,'Post 2');
   const student2026Pre=studentCountForYear(2026,'Pre');
-  const student2026Post=studentCountForYear(2026,'Post');
-  const student2026Post2=studentCountForYear(2026,'Post 2');
+  const student2026Post=studentCountForYear(2026,'Post 2');
+  const student2026Post2=0;
   const teacherContent2025Pre=teacherContentCountForYear(2025,'Pre');
   const teacherContent2025Post=teacherContentCountForYear(2025,'Post');
   const teacherSkills2026Pre=teacherSkillsCountForYear(2026,'Pre');
@@ -604,8 +605,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const rec2025Post=recCountForYear(2025,'Post');
   const rec2025Post2=recCountForYear(2025,'Post 2');
   const rec2026Pre=recCountForYear(2026,'Pre');
-  const rec2026Post=recCountForYear(2026,'Post');
-  const rec2026Post2=recCountForYear(2026,'Post 2');
+  const rec2026Post=recCountForYear(2026,'Post 2');
+  const rec2026Post2=0;
   const cards=[
     ['Overall Score',`${overall.score.toFixed(1)} / ${overall.max.toFixed(1)}`],
     ['Performance',fmt(overall.p)],
@@ -627,7 +628,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     : f.teacherRating&&!f.studentRating
       ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
       : [];
-  const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label)));
+  const hiddenByYear=f.year==='2025'
+    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)','Teachers Skills Overall']
+    : f.year==='2026'
+      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of RECs (2025 Pre / Post / Post 2)','Teachers Content Overall']
+      : [];
+  const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label)));
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
   const themeCoverage = ['T1','T2','T3','T4'].map(theme => {
     const themeRows = metricRows.filter(r => r.ThemeID === theme);

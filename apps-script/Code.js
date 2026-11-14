@@ -2410,7 +2410,6 @@ function handleTeacherSurveyCycle2_(body) {
       !clean(body.fillerDesignation)) {
     throw new Error('Enter the location, teacher name, survey filler name and designation.');
   }
-  const referenceRows = indicatorReferenceRows_();
   const submissionId = newSubmissionId('TCHC2');
   const sourceRow = sheet.getLastRow() + 1;
   const year = Number(surveyConfigValue_('AssessmentYear', 2026));

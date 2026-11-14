@@ -656,8 +656,8 @@ function getDashboardData(email) {
       getValue(row, headers, ['end', 'End']),
       getValue(row, headers, ['Name of a child:', 'Name of a child', 'ChildName', 'Name of participant', 'Your Name']),
       getValue(row, headers, ['1. Select your region', 'Select your region', 'Region']),
-      getValue(row, headers, ['LocalBoard', 'Local Board (Standardized)']),
-      getValue(row, headers, ['REC', 'REC (Standardized)'])
+      getValue(row, headers, ['Local Board (Standardized)', 'LocalBoard', 'Local Board']),
+      getValue(row, headers, ['REC (Standardized)', 'REC'])
     ].map(cleanValue).join('|');
     const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, identity, Utilities.Charset.UTF_8);
     return 'SRC-' + bytes.map(b => ('0' + ((b + 256) % 256).toString(16)).slice(-2)).join('').substring(0, 24);
@@ -794,8 +794,8 @@ function getDashboardData(email) {
       if (!row.some(v => v !== '' && v !== null && v !== undefined)) return;
       const region = getValue(row, headers, source.kind === 'kobo'
         ? ['1. Select your region','Select your region','Region'] : ['Region']);
-      const localBoard = getValue(row, headers, ['LocalBoard','Local Board (Standardized)','Local Board']);
-      const rec = getValue(row, headers, ['REC','REC (Standardized)']);
+      const localBoard = getValue(row, headers, ['Local Board (Standardized)','LocalBoard','Local Board']);
+      const rec = getValue(row, headers, ['REC (Standardized)','REC']);
       if (!region || !localBoard || !rec) return;
       const cycleIndex = findIndex(headers, ['CycleID','Cycle ID']);
       if (cycleIndex >= 0 && !isCycle1(row[cycleIndex])) return;
@@ -864,8 +864,8 @@ function getDashboardData(email) {
       const region = cleanValue(getValue(row, headers, source.kind === 'kobo'
         ? ['1. Select your region', 'Select your region', 'Region']
         : ['Region']));
-      const localBoard = cleanValue(getValue(row, headers, ['LocalBoard', 'Local Board (Standardized)']));
-      const rec = cleanValue(getValue(row, headers, ['REC', 'REC (Standardized)']));
+      const localBoard = cleanValue(getValue(row, headers, ['Local Board (Standardized)', 'LocalBoard', 'Local Board']));
+      const rec = cleanValue(getValue(row, headers, ['REC (Standardized)', 'REC']));
       if (!region || !localBoard || !rec) return;
 
       const explicitYear = cleanValue(getValue(row, headers, ['Year', 'Assessment Year']));

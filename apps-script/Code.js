@@ -8134,7 +8134,27 @@ function getDashboardData(email) {
           });
         });
       } else if(s.kind==='teacher-kobo'){
-        numericCols.forEach(c=>{const raw=r[c.j];if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);if(!mm)return;const assessment=clean(val(r,h,['Specify the phase','Assessment']))||'Pre';records.push([id+'-'+c.name,'C1',year,cohort,'Teacher',assessment,region,board,rec,1,'','T'+mm[1],mm[2].toUpperCase(),'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,'',teacher]);});
+        // Teacher content Kobo form stores one rubric response per theme and
+        // assessment stage in descriptive columns, not normalized indicator columns.
+        // Expand every received theme/stage response into its own dashboard record.
+        for(let themeNo=1;themeNo<=4;themeNo++){
+          for(const stage of ['Pre','Post']){
+            const col=h.findIndex(name=>{
+              const n=norm(name);
+              return n.includes(stage.toLowerCase()+'-assessment rubrics for theme '+themeNo) ||
+                n.includes(stage.toLowerCase()+' assessment rubrics for theme '+themeNo);
+            });
+            if(col<0)continue;
+            const raw=r[col];
+            if(raw===''||raw===null||raw===undefined)continue;
+            const textValue=clean(raw);
+            const rubricMatch=textValue.match(/\\(([1-4])\\)/);
+            const score=rubricMatch?Number(rubricMatch[1]):Number(textValue);
+            if(!Number.isFinite(score)||score<1||score>4)continue;
+            const themeId='T'+themeNo;
+            records.push([id+'-'+themeId+'-'+stage,'C1',year,cohort,'Teacher',stage,region,board,rec,1,'',themeId,'Overall',themeId+':'+stage,score,4,s.name,i+2,id,'',teacher]);
+          }
+        }
       } else if(s.kind==='teacher-app'){
         const theme=directThemeId_(clean(val(r,h,['ThemeName']))||'Authority and Leadership');
         ['PreRating','PostRating'].forEach(k=>{const raw=val(r,h,[k]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+k,'C1',year,cohort,'Teacher',k==='PreRating'?'Pre':'Post',region,board,rec,1,'',theme,'Overall',theme+':'+k,score,5,s.name,i+2,id,'',teacher]);});

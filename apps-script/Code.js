@@ -1660,23 +1660,43 @@ function surveyConfigValue_(settingName, fallback) {
 }
 
 
+function getRecStartingYear_(region, localBoard, rec) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('RECs_list_Phase_Wise');
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(h => clean(h).toLowerCase());
+  const col = name => headers.indexOf(name.toLowerCase());
+  const ri=col('Region'), bi=col('LocalBoard'), ci=col('REC'), yi=col('StartingYear'), si=col('Status');
+  if ([ri,bi,ci,yi].some(i=>i<0)) throw new Error('REC directory requires Region, LocalBoard, REC and StartingYear.');
+  const key = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
+  for (const row of values.slice(1)) {
+    const status=si>=0?clean(row[si]).toLowerCase():'active';
+    if (status && !['active','yes','true','1'].includes(status)) continue;
+    if (key(row[ri])===key(region) && key(row[bi])===key(localBoard) && key(row[ci])===key(rec)) {
+      return Number(row[yi])||0;
+    }
+  }
+  return 0;
+}
+
 function handleSurveyClassification_(e) {
   const p = e && e.parameter ? e.parameter : {};
-  const assessment = surveyAssessment_(p.assessment || 'Pre');
   const participantType = clean(p.participantType || 'Student');
-  const themeID = clean(p.themeID);
-  if (!clean(p.region) || !clean(p.localBoard) || !clean(p.rec) || !themeID) {
-    throw new Error('Region, Local Board, REC and Theme are required for classification.');
+  if (!clean(p.region) || !clean(p.localBoard) || !clean(p.rec)) {
+    throw new Error('Region, Local Board and REC are required for classification.');
   }
-  const post2 = assessment !== 'Post 2' &&
+  const startingYear = getRecStartingYear_(p.region, p.localBoard, p.rec);
+  if (participantType.toLowerCase()==='student' && startingYear===2025) {
+    return {success:true, assessment:'Post 2', cycleID:'C2', isPost2:true, startingYear, classificationBasis:'REC StartingYear'};
+  }
+  if (participantType.toLowerCase()==='student' && startingYear===2026) {
+    return {success:true, assessment:'Pre', cycleID:'C2', isPost2:false, startingYear, classificationBasis:'REC StartingYear'};
+  }
+  const assessment = surveyAssessment_(p.assessment || 'Pre');
+  const themeID = clean(p.themeID);
+  const post2 = !!themeID && assessment !== 'Post 2' &&
     recThemeHasPreAndPost_(participantType, p.region, p.localBoard, p.rec, themeID);
-  return {
-    success: true,
-    assessment: post2 ? 'Post 2' : assessment,
-    cycleID: post2 ? 'C2' : surveyCycleId_(p.cycleID || 'Cycle 1'),
-    isPost2: post2,
-    classificationBasis: 'REC + participant type + theme'
-  };
+  return {success:true, assessment:post2?'Post 2':assessment, cycleID:post2?'C2':surveyCycleId_(p.cycleID||'Cycle 1'), isPost2:post2, startingYear, classificationBasis:'REC + participant type + theme fallback'};
 }
 
 

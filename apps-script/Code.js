@@ -8114,7 +8114,14 @@ function getDashboardData(email) {
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
       const numericCols=h.map((name,j)=>({name,j})).filter(c=>/^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name));
       if(s.kind==='student-kobo'||s.kind==='student-app'){
-        const themeNames=s.kind==='student-app'?[directThemeId_(clean(val(r,h,['ThemeName'])))]:[...new Set(numericCols.filter(c=>r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined).map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
+        // Original student pre-assessment is the fixed four-theme baseline.
+        // Keep every indicator in its denominator, including unanswered indicators.
+        const isStudentPre = s.name === 'Students Pre Assessment';
+        const themeNames = isStudentPre
+          ? ['Theme 1','Theme 2','Theme 3','Theme 4']
+          : s.kind==='student-app'
+            ? [directThemeId_(clean(val(r,h,['ThemeName'])))]
+            : [...new Set(numericCols.filter(c=>r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined).map(c=>'Theme '+c.name.match(/^Theme\\s*([1-4])/i)[1]))];
         themeNames.filter(Boolean).forEach(theme=>{
           const eventKey=recThemeKey_(region,board,rec,theme);
           const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);
@@ -8122,8 +8129,10 @@ function getDashboardData(email) {
           let cycle='C1';
           numericCols.forEach(c=>{
             if(s.kind==='student-app'&&!new RegExp('^'+theme.replace(' ','\\\\s*')+'\\\\s*:','i').test(c.name))return;
-            const raw=r[c.j];if(raw===''||raw===null||raw===undefined)return;
-            const score=Number(raw);if(!Number.isFinite(score))return;
+            const raw=r[c.j];
+            const isBlank = raw===''||raw===null||raw===undefined;
+            if(isBlank && !isStudentPre)return;
+            const score=isBlank?0:Number(raw);if(!Number.isFinite(score))return;
             const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
             if(!mm)return;
             records.push([id+'-'+mm[1]+'-'+mm[2]+'-'+mm[3],cycle,year,cohort,'Student',assessment,region,board,rec,1,'', 'T'+mm[1],mm[2].toUpperCase(), 'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,child,'']);

@@ -534,9 +534,17 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const isTeacherSkillRow=(r:Rec)=>isTeacherSkillRec(r);
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
-    const cohortRows=rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&recStartingYearForRow(r)===year&&stageMatches(r,stage));
-    // Baseline Pre counts each submitted child assessment, not distinct child names.
-    // A child may legitimately have more than one source submission; count each submission once.
+    const cohortRows=rowsForCounts().filter(r=>{
+      if(norm(r.ParticipantType).toLowerCase()!=='student'||!stageMatches(r,stage))return false;
+      const masterYear=recStartingYearForRow(r);
+      // The original Students Pre Assessment sheet is the authoritative 2025
+      // baseline. If a valid source REC is absent from the master list, retain
+      // its source Year rather than silently dropping the child submission.
+      const cohort=masterYear||(stage==='Post 2'?0:Number(r.Year)||0);
+      return cohort===year;
+    });
+    // Pre is a submission count: do not deduplicate by child name. One source
+    // row is one child assessment; the row may expand to many indicator records.
     const submissionIdentity=(r:Rec)=>[r.SourceSheet||'Students Pre Assessment',r.SourceRow||r.SourceRecordID||r.RecordID||[r.Region,r.LocalBoard,r.REC,r.ChildName].join('|')].map(v=>norm(v).toLocaleLowerCase()).join('||');
     return distinctCount(cohortRows,stage==='Pre'?submissionIdentity:studentIdentity);
   };

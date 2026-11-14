@@ -1003,53 +1003,90 @@ function handlePublicSurveySummary_(e) {
     throw new Error('Region, Local Board, REC and participant type are required.');
   }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sourceNames = participant === 'Student'
+  const sources = participant === 'Student'
     ? ['Students Pre Assessment','Students Post Assessment','APP_Student_Surveys']
-    : ['Teachers Assessment','APP_Teacher_Surveys'];
+    : ['Teachers Assessment','APP_Teacher_Surveys','APP_Teacher_Surveys_Cycle2'];
   const norm = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
   const regionNorm = v => norm(v).replace(/\\s+\\d+$/,'');
-  const same = (a,b) => norm(a) === norm(b);
+  const themeNum = v => {
+    const s=norm(v);
+    if (/^(t)?1$/.test(s)||s.includes('authority and leadership')) return '1';
+    if (/^(t)?2$/.test(s)||s.includes('intellectual traditions')||s.includes('ismaili muslim traditions')) return '2';
+    if (/^(t)?3$/.test(s)||s.includes('role in family')) return '3';
+    if (/^(t)?4$/.test(s)||s.includes('two aspects of life')) return '4';
+    return '';
+  };
   const totals = {};
-  sourceNames.forEach(name => {
-    const sh = ss.getSheetByName(name);
-    if (!sh || sh.getLastRow() < 2) return;
-    const data = sh.getDataRange().getValues();
-    const h = data[0].map(clean);
-    const find = names => h.findIndex(x => names.some(n => norm(x) === norm(n)));
-    const ri=find(['Region','1. Select your region','Select your region']);
-    const bi=find(['LocalBoard','Local Board (Standardized)','Name of Local Board']);
-    const ci=find(['REC','REC (Standardized)','Name of RECs']);
-    const ai=find(['Assessment','Select when this assessment conducted']);
-    const ti=find(['ThemeName','Select the themes']);
+  const add = (id, assessment, score, max, count) => {
+    if (score === '' || score == null || !Number.isFinite(Number(score))) return;
+    const stage = clean(assessment) || 'Post';
+    const key=[id,stage].join('|');
+    if(!totals[key]) totals[key]={themeID:id,assessment:stage,score:0,maxScore:0,indicatorResponses:0};
+    totals[key].score+=Number(score);
+    totals[key].maxScore+=Number(max)||0;
+    totals[key].indicatorResponses+=Number(count)||1;
+  };
+  sources.forEach(sourceName => {
+    const sh=ss.getSheetByName(sourceName);
+    if(!sh||sh.getLastRow()<2) return;
+    const data=sh.getDataRange().getValues(), h=data[0].map(clean);
+    const find=(...names)=>h.findIndex(x=>names.some(n=>norm(x)===norm(n)));
+    const ri=find('Region','1. Select your region','Select your region');
+    const bi=find('LocalBoard','Local Board','Local Board (Standardized)','Name of Local Board');
+    const ci=find('REC','REC (Standardized)','Name of RECs');
+    const ai=find('Assessment','Select when this assessment conducted','AssessmentStage');
+    const ti=find('ThemeName','Select the themes','Theme Name','ThemeID','Theme');
     const ratingCols=[];
-    h.forEach((header,j)=>{
-      if (/^Theme[1-4]:(UA|A)\\d+$/i.test(header)) ratingCols.push(j);
-    });
+    h.forEach((header,j)=>{const m=header.match(/^Theme([1-4]):(UA|A)\\d+$/i);if(m)ratingCols.push({j,id:'T'+m[1]});});
     data.slice(1).forEach(row=>{
-      if (ri<0||bi<0||ci<0||regionNorm(row[ri])!==regionNorm(region)||!same(row[bi],board)||!same(row[ci],rec)) return;
-      const assessment=ai>=0?clean(row[ai]):(name==='Students Pre Assessment'?'Pre':'');
-      const theme=ti>=0?clean(row[ti]):'All themes';
-      const groupKey=[assessment,theme].join('|');
-      if(!totals[groupKey]) totals[groupKey]={assessment,theme,score:0,maxScore:0,indicatorResponses:0};
-      ratingCols.forEach(j=>{
-        const v=row[j];
-        if(v===''||v==null||typeof v==='boolean') return;
-        const n=Number(v); if(!Number.isFinite(n)||n<0||n>3) return;
-        totals[groupKey].score+=n; totals[groupKey].maxScore+=3; totals[groupKey].indicatorResponses++;
-      });
-      if(name==='Teachers Assessment'){
-        ['Pre Theme 1 Score','Post Theme 1 Score','Pre Theme 2 Score','Post Theme 2 Score','Pre Theme 3 Score','Post Theme 3 Score','Pre Theme 4 Score','Post Theme 4 Score'].forEach(header=>{
-          const j=h.indexOf(header); if(j<0||row[j]===''||row[j]==null)return;
-          const n=Number(row[j]); if(!Number.isFinite(n)||n<1||n>4)return;
-          const stage=header.startsWith('Pre')?'Pre':'Post';
-          const k=[stage,header.match(/Theme (\\d)/)[1]].join('|');
-          if(!totals[k])totals[k]={assessment:stage,theme:'Theme '+header.match(/Theme (\\d)/)[1],score:0,maxScore:0,indicatorResponses:0};
-          totals[k].score+=n;totals[k].maxScore+=4;totals[k].indicatorResponses++;
+      if(ri<0||bi<0||ci<0||regionNorm(row[ri])!==regionNorm(region)||norm(row[bi])!==norm(board)||norm(row[ci])!==norm(rec)) return;
+      let stage=ai>=0?clean(row[ai]):'';
+      if(sourceName==='Students Pre Assessment') stage='Pre';
+      if(sourceName==='Students Post Assessment'&&!stage) stage='Post';
+      if(sourceName==='APP_Student_Surveys'&&!stage) stage='Post 2';
+      if(participant==='Student'){
+        const selectedTheme=ti>=0?themeNum(row[ti]):'';
+        ratingCols.forEach(col=>{
+          if(selectedTheme&&selectedTheme!==col.id.slice(1))return;
+          const value=row[col.j];
+          if(value===''||value==null||typeof value==='boolean')return;
+          const n=Number(value);if(!Number.isFinite(n)||n<0||n>3)return;
+          add(col.id,stage,n,3,1);
+        });
+      } else if(sourceName==='Teachers Assessment'){
+        for(let n=1;n<=4;n++){
+          ['Pre','Post'].forEach(st=>{
+            const j=find(st+' Theme '+n+' Score');
+            if(j>=0&&row[j]!==''&&row[j]!=null){
+              const score=Number(row[j]);if(Number.isFinite(score)&&score>=1&&score<=4)add('T'+n,st,score,4,1);
+            }
+          });
+        }
+      } else if(sourceName==='APP_Teacher_Surveys'){
+        const n=themeNum(ti>=0?row[ti]:'');
+        if(n){
+          const pre=find('PreRating'),post=find('PostRating');
+          if(pre>=0)add('T'+n,'Pre',row[pre],4,1);
+          if(post>=0)add('T'+n,'Post',row[post],4,1);
+        }
+      } else {
+        // Teacher skills: each row contains three skill domains and their four indicator ratings.
+        const skills=[
+          {id:'S1',prefix:'Instructional'},
+          {id:'S2',prefix:'Questioning'},
+          {id:'S3',prefix:'Feedback'}
+        ];
+        skills.forEach(skill=>{
+          const cols=[1,2,3,4].map(k=>find(skill.prefix+'_Indicator'+k)).filter(j=>j>=0);
+          let score=0,count=0;
+          cols.forEach(j=>{const v=row[j];if(v!==''&&v!=null&&Number.isFinite(Number(v))){score+=Number(v);count++;}});
+          if(count)add(skill.id,stage,score,4*count,count);
         });
       }
     });
   });
-  return {success:true,region,board,rec,participantType:participant,groups:Object.values(totals).map(x=>Object.assign(x,{percent:x.maxScore?Math.round(x.score/x.maxScore*1000)/10:null}))};
+  const groups=Object.values(totals).map(x=>Object.assign(x,{percent:x.maxScore?Math.round(x.score/x.maxScore*1000)/10:null}));
+  return {success:true,region,board,rec,participantType:participant,groups};
 }
 
 function handleApiDashboard(e) {

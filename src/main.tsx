@@ -1104,8 +1104,13 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
   };
 
   const [v, setV] = useSurveyState('kgii_student_survey_draft', initial);
-  const cycle = v.cycle || 'Cycle 1';
-  const phase = cycle === 'Cycle 2' ? 'Post 2' : '';
+  const selectedRec = refs.find(r => geoNorm(r.Region)===geoNorm(v.region) && geoNorm(r.LocalBoard)===geoNorm(v.board) && geoNorm(r.REC)===geoNorm(v.rec));
+  const recYear = Number(selectedRec?.StartingYear) || 0;
+  // REC cohort determines the APP student survey stage:
+  // 2025 cohort submits Post 2; 2026 cohort submits Pre.
+  const cycle = recYear===2025 || recYear===2026 ? 'Cycle 2' : (v.cycle || 'Cycle 1');
+  const assignedAssessment = recYear===2025 ? 'Post 2' : recYear===2026 ? 'Pre' : (cycle==='Cycle 2'?'Post 2':(v.assessment||'Pre'));
+  const phase = assignedAssessment;
   const [entryStarted, setEntryStarted] = useState(false);
   const [msg, setMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1156,7 +1161,7 @@ const lookupChild = async () => {
 
   
 const save = async (finishAssessment: boolean) => {
-  let assessment = cycle === 'Cycle 2' ? 'Post 2' : (v.assessment || 'Pre');
+  let assessment = assignedAssessment;
   let effectiveCycle = cycle;
   const themeState = v.themes[v.theme] || {
     activities: [],
@@ -1216,7 +1221,13 @@ const save = async (finishAssessment: boolean) => {
       assessment,
       cycleID: cycle
     });
-    if (classification?.isPost2) {
+    if (recYear===2025) {
+      assessment = 'Post 2';
+      effectiveCycle = 'Cycle 2';
+    } else if (recYear===2026) {
+      assessment = 'Pre';
+      effectiveCycle = 'Cycle 2';
+    } else if (classification?.isPost2) {
       assessment = 'Post 2';
       effectiveCycle = 'Cycle 2';
     }
@@ -1480,13 +1491,12 @@ const save = async (finishAssessment: boolean) => {
             <input value={v.otherDesignation || ''} onChange={e => update({ ...v, otherDesignation: e.target.value })} />
           </Field>}
 
-          <Field label="Cycle" required>
-            <select value={v.cycle || 'Cycle 1'} onChange={e => update({ ...v, cycle: e.target.value })}>
-              <option value="Cycle 1">Cycle 1</option>
-              <option value="Cycle 2">Cycle 2</option>
-            </select>
+          <Field label="Assessment Stage" required>
+            <input value={assignedAssessment} readOnly />
           </Field>
-          {cycle === 'Cycle 2' && <Field label="Assessment Round"><input value={phase} readOnly /></Field>}
+          <Field label="REC Cohort" >
+            <input value={recYear ? String(recYear) : 'Select REC to determine cohort'} readOnly />
+          </Field>
 
           <Field label="Select Theme" required>
             <select
@@ -1502,17 +1512,7 @@ const save = async (finishAssessment: boolean) => {
             </select>
           </Field>
 
-          {cycle !== 'Cycle 2' && <Field label="Assessment Stage" required>
-            <select
-              value={v.assessment || 'Pre'}
-              onChange={e =>
-                update({ ...v, assessment: e.target.value })
-              }
-            >
-              <option value="Pre">Pre</option>
-              <option value="Post">Post</option>
-            </select>
-          </Field>}
+
         </div>
       
 

@@ -8148,7 +8148,7 @@ function getDashboardData(email) {
             const raw=r[col];
             if(raw===''||raw===null||raw===undefined)continue;
             const textValue=clean(raw);
-            const rubricMatch=textValue.match(/\\(([1-4])\\)/);
+            const rubricMatch=textValue.match(/\(([1-4])\)/);
             const score=rubricMatch?Number(rubricMatch[1]):Number(textValue);
             if(!Number.isFinite(score)||score<1||score>4)continue;
             const themeId='T'+themeNo;

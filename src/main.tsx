@@ -1105,14 +1105,29 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
   const [v, setV] = useSurveyState('kgii_student_survey_draft', initial);
   const selectedRec = refs.find(r => geoNorm(r.Region)===geoNorm(v.region) && geoNorm(r.LocalBoard)===geoNorm(v.board) && geoNorm(r.REC)===geoNorm(v.rec));
   const recYear = Number(selectedRec?.StartingYear) || 0;
-  // REC cohort determines the APP student survey stage:
-  // 2025 cohort submits Post 2; 2026 cohort submits Pre.
+  // 2025 RECs can still have themes awaiting their first Post assessment.
+  // Resolve the stage separately for the selected theme using saved submissions.
   const cycle = recYear===2025 || recYear===2026 ? 'Cycle 2' : (v.cycle || 'Cycle 1');
-  const assignedAssessment = recYear===2025 ? 'Post 2' : recYear===2026 ? 'Pre' : (cycle==='Cycle 2'?'Post 2':(v.assessment||'Pre'));
+  const [themeAssessment, setThemeAssessment] = useState(recYear===2026 ? 'Pre' : 'Post');
+  const [classificationLoading, setClassificationLoading] = useState(false);
+  const assignedAssessment = recYear===2026 ? 'Pre' : recYear===2025 ? themeAssessment : (cycle==='Cycle 2'?'Post 2':(v.assessment||'Pre'));
   const phase = assignedAssessment;
   const [entryStarted, setEntryStarted] = useState(false);
   useEffect(() => { setEntryStarted(Boolean(v.rec)); }, [v.rec]);
-  useEffect(() => { setEntryStarted(Boolean(v.rec)); }, [v.rec]);
+  useEffect(() => {
+    let active = true;
+    if (!v.region || !v.board || !v.rec || !v.theme || ![2025,2026].includes(recYear)) {
+      setThemeAssessment(recYear===2026 ? 'Pre' : 'Post');
+      return;
+    }
+    if (recYear===2026) { setThemeAssessment('Pre'); return; }
+    setClassificationLoading(true);
+    apiGet('surveyclassification', { participantType:'Student', region:v.region, localBoard:v.board, rec:v.rec, themeID:v.theme, cycleID:'Cycle 2' })
+      .then((result:any) => { if(active && result?.assessment) setThemeAssessment(String(result.assessment)); })
+      .catch((error:any) => { if(active) setMsg('Could not determine this theme assessment stage: '+(error.message||'Please retry.')); })
+      .finally(() => { if(active) setClassificationLoading(false); });
+    return () => { active = false; };
+  }, [v.region,v.board,v.rec,v.theme,recYear]);
   const [msg, setMsg] = useState('');
   const [saving, setSaving] = useState(false);
   
@@ -1354,7 +1369,7 @@ const save = async (finishAssessment: boolean) => {
           <h3>Survey Details</h3>
           <p><strong>Region:</strong> {displayGeo(v.region)||'Not selected'}　<strong>Local Board:</strong> {v.board||'Not selected'}　<strong>REC:</strong> {v.rec||'Not selected'}</p>
           <p><strong>Child's Name:</strong> {v.childName||'Not entered'}　<strong>Gender:</strong> {v.gender||'Not selected'}</p>
-          <p><strong>Survey completed by:</strong> {v.assessorName||'Not entered'}　<strong>Designation:</strong> {v.designation==='Other'?(v.otherDesignation||'Other'):v.designation||'Not entered'}　<strong>Cycle:</strong> {v.cycle||'Cycle 1'}{phase?<>　<strong>Assessment Round:</strong> {phase}</>:null}</p>
+          <p><strong>Survey completed by:</strong> {v.assessorName||'Not entered'}　<strong>Designation:</strong> {v.designation==='Other'?(v.otherDesignation||'Other'):v.designation||'Not entered'}　<strong>Cycle:</strong> {v.cycle||'Cycle 1'}{phase?<>　<strong>Assessment Round:</strong> {classificationLoading?'Checking…':phase}</>:null}</p>
         </div>
         <div className="survey-print-complete">
           <h2>Complete Student Survey — All Themes and Indicators</h2>

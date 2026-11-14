@@ -1746,11 +1746,25 @@ function recThemeHasPostSubmission_(region, localBoard, rec, themeID) {
     const ti=col('ThemeName','Theme Name','Select the themes','ThemeID','Theme');
     const ai=col('Assessment','AssessmentStage','Select when this assessment conducted');
     if ([ri,bi,ci,ti,ai].some(i=>i<0)) continue;
+    const canonicalTheme = value => {
+      const raw=key(value);
+      const digits=(raw.match(/(?:theme\s*)?([1-4])/i)||[])[1];
+      if (digits) return 'theme'+digits;
+      const compact=raw.replace(/[^a-z]/g,'');
+      const aliases={
+        authorityandleadership:'theme1',authorityleadership:'theme1',
+        intellectualtraditions:'theme2',ismailimuslimtraditions:'theme2',
+        roleinfamilycommunityandsociety:'theme3',roleinfamilycommunityandsocietytheme:'theme3',
+        twoaspectsoflife:'theme4'
+      };
+      return aliases[compact] || compact;
+    };
+    const sameLocation = (a,b) => key(a)===key(b) ||
+      key(a).replace(/[^a-z0-9]/g,'')===key(b).replace(/[^a-z0-9]/g,'');
     const found=values.slice(1).some(row => {
       const assessment=key(row[ai]).replace(/\s+/g,'');
-      const theme=key(row[ti]);
-      return regionKey(row[ri])===regionKey(region) && key(row[bi])===key(localBoard) &&
-        key(row[ci])===key(rec) && (theme===key(themeID) || theme.includes(key(themeID))) &&
+      return regionKey(row[ri])===regionKey(region) && sameLocation(row[bi],localBoard) &&
+        sameLocation(row[ci],rec) && canonicalTheme(row[ti])===canonicalTheme(themeID) &&
         (assessment==='post' || assessment==='postassessment');
     });
     if (found) return true;

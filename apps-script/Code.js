@@ -2168,43 +2168,25 @@ function handleStudentSurvey(body) {
     throw new Error('Enter at least one student indicator rating.');
   }
 
-  const referenceRows = indicatorReferenceRows_();
-
-  // Map the app's UA/A field keys to APP_Indicators using the
-  // configured AppSourceSheet + AppSourceColumn. The indicator ID is
-  // a normalized reporting ID; it is not necessarily a survey header.
+  // Survey ratings are stored using their own fixed ThemeN:UA/A headers.
+  // Do not consult APP_Indicators: the survey schema is the source of truth.
+  const themeNumber = ({
+    'authority and leadership': '1',
+    'intellectual traditions': '2',
+    'ismaili muslim traditions': '2',
+    'role in family, community and society': '3',
+    'two aspects of life': '4'
+  })[themeName.toLowerCase()];
+  if (!themeNumber) throw new Error('Unrecognized student theme: ' + themeName);
   const indicatorEntries = ratingEntries.map(entry => {
     const sourceIndex = headers.indexOf(entry.indicatorId);
-
-    if (sourceIndex < 0) {
-      throw new Error(
-        'Student survey sheet has no rating column: ' +
-        entry.indicatorId
-      );
-    }
-
-    const sourceColumn = sourceIndex + 1;
-    const meta = referenceRows.find(item =>
-      clean(item.CycleID) === clean(cycleId) &&
-      clean(item.ParticipantType).toLowerCase() === 'student' &&
-      surveyAssessment_(item.Assessment) === assessment &&
-      clean(item.ThemeName).toLowerCase() === themeName.toLowerCase() &&
-      clean(item.AppSourceSheet) === sheet.getName() &&
-      Number(item.AppSourceColumn) === sourceColumn
-    );
-
-    if (!meta) {
-      throw new Error(
-        'No APP_Indicators App mapping for ' + cycleId + ', Student, ' +
-        assessment + ', ' + themeName + ', source column ' + sourceColumn +
-        ' (' + entry.indicatorId + ').'
-      );
-    }
-
+    if (sourceIndex < 0) throw new Error('Student survey sheet has no rating column: ' + entry.indicatorId);
+    const match = entry.indicatorId.match(/^Theme(\\d+):(UA|A)(\\d+)$/);
+    if (!match || match[1] !== themeNumber) throw new Error('Invalid indicator for ' + themeName + ': ' + entry.indicatorId);
     return {
-      meta: meta,
+      meta: {ThemeID:'T'+themeNumber,DimensionID:match[2],IndicatorID:entry.indicatorId,MaxScore:3},
       score: entry.score,
-      appSourceColumn: sourceColumn,
+      appSourceColumn: sourceIndex + 1,
       appSourceHeader: headers[sourceIndex]
     };
   });
@@ -2314,24 +2296,26 @@ function handleTeacherSurvey(body) {
   }
 
   const cycleId = clean(surveyConfigValue_('CycleID', 'C1'));
-  const referenceRows = indicatorReferenceRows_();
+  // Teacher content survey has one rubric score per theme and assessment.
+  // Keep this fixed mapping local to the survey; APP_Indicators is not required.
+  const teacherThemeMap = {
+    'authority and leadership':'T1',
+    'intellectual traditions':'T2',
+    'ismaili muslim traditions':'T2',
+    'role in family, community and society':'T3',
+    'two aspects of life':'T4'
+  };
+  const teacherThemeID = teacherThemeMap[themeName.toLowerCase()];
+  if (!teacherThemeID) throw new Error('Unrecognized teacher theme: ' + themeName);
   const indicatorEntries = [];
-
-  if (preScore !== null) {
-    const meta = findTeacherThemeIndicator_(
-      referenceRows, cycleId, 'Pre', themeName
-    );
-
-    indicatorEntries.push({ meta: meta, score: preScore, assessment: 'Pre' });
-  }
-
-  if (postScore !== null) {
-    const meta = findTeacherThemeIndicator_(
-      referenceRows, cycleId, 'Post', themeName
-    );
-
-    indicatorEntries.push({ meta: meta, score: postScore, assessment: 'Post' });
-  }
+  if (preScore !== null) indicatorEntries.push({
+    meta:{ThemeID:teacherThemeID,DimensionID:'Content',IndicatorID:teacherThemeID+'_PRE',MaxScore:4},
+    score:preScore,assessment:'Pre'
+  });
+  if (postScore !== null) indicatorEntries.push({
+    meta:{ThemeID:teacherThemeID,DimensionID:'Content',IndicatorID:teacherThemeID+'_POST',MaxScore:4},
+    score:postScore,assessment:'Post'
+  });
 
   const submissionId = newSubmissionId('TCH');
   const values = {

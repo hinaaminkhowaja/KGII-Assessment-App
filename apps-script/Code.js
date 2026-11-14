@@ -8121,7 +8121,7 @@ function getDashboardData(email) {
           ? ['Theme 1','Theme 2','Theme 3','Theme 4']
           : s.kind==='student-app'
             ? [directThemeId_(clean(val(r,h,['ThemeName'])))]
-            : [...new Set(numericCols.filter(c=>r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined).map(c=>'Theme '+c.name.match(/^Theme\\s*([1-4])/i)[1]))];
+            : [...new Set(numericCols.map(c=>{const m=c.name.match(/^Theme\s*([1-4])/i);return m&&r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined?'Theme '+m[1]:'';}).filter(Boolean))];
         themeNames.filter(Boolean).forEach(theme=>{
           const eventKey=recThemeKey_(region,board,rec,theme);
           const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);

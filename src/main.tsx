@@ -466,8 +466,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const studentPrePostPct=stageAverage(studentRowsAll,['Pre','Post']);
   const studentPost2Pct=stageAverage(studentRowsAll,['Post 2']);
   const weightedComponents=[
-    {key:'student-pre-post',year:2025,weight:87,p:studentPrePostPct,has:studentRowsAll.some(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'))},
-    {key:'student-post2',year:2026,weight:87,p:studentPost2Pct,has:studentRowsAll.some(r=>assessmentIsPost2(r.Assessment))},
+    {key:'student-pre-post',year:2025,weight:87,p:student2025Pct,has:student2025Rows.some(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'))},
+    {key:'student-post2',year:2026,weight:87,p:student2026Pct,has:student2026Rows.some(r=>assessmentIsPost2(r.Assessment))},
     {key:'teacher-content',year:2025,weight:16,p:teacherContentPct,has:teacherContentAllRows.length>0},
     {key:'teacher-skills',year:2026,weight:48,p:teacherSkillsPct,has:teacherSkills2026Rows.length>0}
   ];

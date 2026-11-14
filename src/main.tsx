@@ -1221,16 +1221,11 @@ const save = async (finishAssessment: boolean) => {
       assessment,
       cycleID: cycle
     });
-    if (recYear===2025) {
-      assessment = 'Post 2';
-      effectiveCycle = 'Cycle 2';
-    } else if (recYear===2026) {
-      assessment = 'Pre';
-      effectiveCycle = 'Cycle 2';
-    } else if (classification?.isPost2) {
-      assessment = 'Post 2';
-      effectiveCycle = 'Cycle 2';
+    if (classification?.assessment) {
+      assessment = String(classification.assessment);
     }
+    // Cycle/Phase are legacy storage fields only; assessment classification
+    // is determined by REC StartingYear and prior submissions, never by Cycle.
   } catch (error: any) {
     setMsg('Could not verify the REC assessment stage: ' + (error.message || 'Please try again.'));
     return;

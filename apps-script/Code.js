@@ -1003,66 +1003,50 @@ function handlePublicSurveySummary_(e) {
     throw new Error('Region, Local Board, REC and participant type are required.');
   }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const mapSheet = ss.getSheetByName(CONFIG.INDICATORS_SHEET);
-  if (!mapSheet || mapSheet.getLastRow() < 2) throw new Error('APP_Indicators mappings are unavailable.');
-  const map = mapSheet.getDataRange().getValues();
-  const mh = map[0].map(clean);
-  const ix = name => mh.indexOf(name);
-  const required = ['CycleID','ParticipantType','Assessment','ThemeID','DimensionID','IndicatorID','MaxScore','SourceSheet','SourceColumn','AppSourceSheet','AppSourceColumn'];
-  const missing = required.filter(name => ix(name) < 0);
-  if (missing.length) throw new Error('APP_Indicators missing: ' + missing.join(', '));
-  const mappings = map.slice(1).filter(row =>
-    clean(row[ix('IndicatorID')]) &&
-    clean(row[ix('ParticipantType')]).toLowerCase() === participant.toLowerCase()
-  );
-  const sources = [
-    {name:'Students Pre Assessment',kind:'kobo'},
-    {name:'Students Post Assessment',kind:'kobo'},
-    {name:'Teachers Assessment',kind:'kobo'},
-    {name:'APP_Student_Surveys',kind:'app'},
-    {name:'APP_Teacher_Surveys',kind:'app'},
-    {name:'APP_Teacher_Surveys_Cycle2',kind:'app'}
-  ];
-  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
-  const regionKey = value => key(value).replace(/\s+\d+$/,'');
-  const same = (a,b) => key(a) === key(b);
+  const sourceNames = participant === 'Student'
+    ? ['Students Pre Assessment','Students Post Assessment','APP_Student_Surveys']
+    : ['Teachers Assessment','APP_Teacher_Surveys'];
+  const norm = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
+  const regionNorm = v => norm(v).replace(/\\s+\\d+$/,'');
+  const same = (a,b) => norm(a) === norm(b);
   const totals = {};
-  sources.forEach(source => {
-    const sh = ss.getSheetByName(source.name);
+  sourceNames.forEach(name => {
+    const sh = ss.getSheetByName(name);
     if (!sh || sh.getLastRow() < 2) return;
-    const values = sh.getDataRange().getValues();
-    const headers = values[0].map(clean);
-    const col = names => {
-      for (const name of names) {
-        const found = headers.findIndex(h => key(h) === key(name));
-        if (found >= 0) return found;
-      }
-      return -1;
-    };
-    const mappingsForSource = mappings.filter(m =>
-      same(m[ix(source.kind === 'kobo' ? 'SourceSheet' : 'AppSourceSheet')], source.name)
-    );
-    values.slice(1).forEach(row => {
-      const regionValue = row[col(source.kind === 'kobo' ? ['1. Select your region','Select your region','Region'] : ['Region'])];
-      const boardValue = row[col(['LocalBoard','Local Board (Standardized)','Local Board'])];
-      const recValue = row[col(['REC','REC (Standardized)'])];
-      if (regionKey(regionValue) !== regionKey(region) || !same(boardValue,board) || !same(recValue,rec)) return;
-      mappingsForSource.forEach(m => {
-        const sourceColumn = Number(m[ix(source.kind === 'kobo' ? 'SourceColumn' : 'AppSourceColumn')]);
-        if (!Number.isInteger(sourceColumn) || sourceColumn < 1 || sourceColumn > row.length) return;
-        const raw = row[sourceColumn - 1];
-        if (raw === '' || raw === null || raw === undefined || typeof raw === 'boolean') return;
-        const score = Number(raw), max = Number(m[ix('MaxScore')]);
-        if (!Number.isFinite(score) || !Number.isFinite(max) || max <= 0 || score < 0 || score > max) return;
-        const assessment = clean(m[ix('Assessment')]);
-        const theme = clean(m[ix('ThemeID')]);
-        const dimension = clean(m[ix('DimensionID')]);
-        const groupKey = [assessment,theme,dimension].join('|');
-        if (!totals[groupKey]) totals[groupKey] = {assessment,themeID:theme,dimensionID:dimension,score:0,maxScore:0,indicatorResponses:0};
-        totals[groupKey].score += score;
-        totals[groupKey].maxScore += max;
-        totals[groupKey].indicatorResponses++;
+    const data = sh.getDataRange().getValues();
+    const h = data[0].map(clean);
+    const find = names => h.findIndex(x => names.some(n => norm(x) === norm(n)));
+    const ri=find(['Region','1. Select your region','Select your region']);
+    const bi=find(['LocalBoard','Local Board (Standardized)','Name of Local Board']);
+    const ci=find(['REC','REC (Standardized)','Name of RECs']);
+    const ai=find(['Assessment','Select when this assessment conducted']);
+    const ti=find(['ThemeName','Select the themes']);
+    const ratingCols=[];
+    h.forEach((header,j)=>{
+      if (/^Theme[1-4]:(UA|A)\\d+$/i.test(header)) ratingCols.push(j);
+    });
+    data.slice(1).forEach(row=>{
+      if (ri<0||bi<0||ci<0||regionNorm(row[ri])!==regionNorm(region)||!same(row[bi],board)||!same(row[ci],rec)) return;
+      const assessment=ai>=0?clean(row[ai]):(name==='Students Pre Assessment'?'Pre':'');
+      const theme=ti>=0?clean(row[ti]):'All themes';
+      const groupKey=[assessment,theme].join('|');
+      if(!totals[groupKey]) totals[groupKey]={assessment,theme,score:0,maxScore:0,indicatorResponses:0};
+      ratingCols.forEach(j=>{
+        const v=row[j];
+        if(v===''||v==null||typeof v==='boolean') return;
+        const n=Number(v); if(!Number.isFinite(n)||n<0||n>3) return;
+        totals[groupKey].score+=n; totals[groupKey].maxScore+=3; totals[groupKey].indicatorResponses++;
       });
+      if(name==='Teachers Assessment'){
+        ['Pre Theme 1 Score','Post Theme 1 Score','Pre Theme 2 Score','Post Theme 2 Score','Pre Theme 3 Score','Post Theme 3 Score','Pre Theme 4 Score','Post Theme 4 Score'].forEach(header=>{
+          const j=h.indexOf(header); if(j<0||row[j]===''||row[j]==null)return;
+          const n=Number(row[j]); if(!Number.isFinite(n)||n<1||n>4)return;
+          const stage=header.startsWith('Pre')?'Pre':'Post';
+          const k=[stage,header.match(/Theme (\\d)/)[1]].join('|');
+          if(!totals[k])totals[k]={assessment:stage,theme:'Theme '+header.match(/Theme (\\d)/)[1],score:0,maxScore:0,indicatorResponses:0};
+          totals[k].score+=n;totals[k].maxScore+=4;totals[k].indicatorResponses++;
+        });
+      }
     });
   });
   return {success:true,region,board,rec,participantType:participant,groups:Object.values(totals).map(x=>Object.assign(x,{percent:x.maxScore?Math.round(x.score/x.maxScore*1000)/10:null}))};

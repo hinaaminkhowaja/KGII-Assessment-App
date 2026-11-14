@@ -2166,14 +2166,11 @@ function handleStudentSurvey(body) {
       (clean(body.assessorDesignation) === 'Other' && !clean(body.otherDesignation))) {
     throw new Error('Enter the location, child name, survey filler name and designation.');
   }
-  let assessment = surveyAssessment_(body.assessment);
-  let cycleId = surveyCycleId_(body.cycleID);
-  const themeID = clean(body.themeID);
-  if (cycleId === 'C1' && assessment !== 'Post 2' &&
-      recThemeHasPreAndPost_('Student', body.region, body.localBoard, body.rec, themeID)) {
-    assessment = 'Post 2';
-    cycleId = 'C2';
-  }
+  // Assessment is classified by the REC + theme survey lookup before
+  // submission. Trust that selected stage; do not infer it from CycleID or
+  // APP_Indicators. Cohort year is resolved from RECs_list_Phase_Wise.
+  const assessment = surveyAssessment_(body.assessment);
+  const cycleId = '';
   const themeName = clean(body.themeName);
 
   if (!themeName) {

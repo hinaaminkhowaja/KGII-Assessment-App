@@ -900,23 +900,9 @@ function getDashboardData(email) {
         : sourceMappings;
 
       const effectiveMappings = source.kind === 'kobo' && source.name === 'Students Post Assessment'
-        ? sourceMappings.map(m => {
-            const isStudentPost = norm(m.participant).toLowerCase() === 'student' &&
-              /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
-              /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment));
-            if (!isStudentPost || !year || Number(year) < 2026) return m;
-            // The source row's timestamp and the REC/theme's completed
-            // Cycle 1 baseline are the authoritative cohort test. Do not make
-            // Post 2 depend on a matching RECs_list_Phase_Wise row: older REC
-            // directory labels/status values can otherwise leave valid new
-            // submissions incorrectly classified as Cycle 1 Post.
-            const themeKey = post2GeoThemeKey(region, localBoard, rec, m.theme);
-            if (!Number.isFinite(submissionTime) || submissionTime < post2Cutoff) return m;
-            // Promote only this REC/theme when its own original Pre AND Post
-            // were both complete before November 2026. Other themes remain Post.
-            if (!post2CompletedByTheme[themeKey] || post2CompletedByTheme[themeKey] >= post2Cutoff) return m;
-            return Object.assign({}, m, {cycle:'C2', assessment:'Post 2', phase:''});
-          })
+        ? sourceMappings.filter(m => norm(m.participant).toLowerCase() === 'student' &&
+            /^c?ycle?\s*1$|^c1$|^1$/i.test(cleanValue(m.cycle)) &&
+            /^post(?:\s*assessment)?$/i.test(cleanValue(m.assessment)))
         : source.kind === 'kobo' && source.name === 'Students Pre Assessment'
           ? sourceMappings.map(m => {
               const isStudentPre = norm(m.participant).toLowerCase() === 'student' &&
@@ -959,7 +945,7 @@ function getDashboardData(email) {
         // Deduplicate repeated submissions by the same child for the same
         // REC/theme/stage/day/indicator. This prevents same-day repeats from
         // inflating normalized scores and participant counts.
-        if (norm(m.participant).toLowerCase() === 'student' && childName) {
+        if (source.name !== 'Students Post Assessment' && norm(m.participant).toLowerCase() === 'student' && childName) {
           const dayKey = Number.isFinite(submissionTime)
             ? Utilities.formatDate(new Date(submissionTime), Session.getScriptTimeZone(), 'yyyy-MM-dd')
             : '';

@@ -611,12 +611,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Overall Score',`${overall.score.toFixed(1)} / ${overall.max.toFixed(1)}`],
     ['Performance',fmt(overall.p)],
     ['Status',statusFor(overall.p)],
-    ['No. of Students (2025 Pre / Post / Post 2)',`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
-    ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
+    ['No. of Students (2025 Pre / Post)',`${student2025Pre} / ${student2025Post}`],
+    ['No. of Students (2026 Pre / Post)',`${student2026Pre} / ${student2026Post}`],
     ['No. of Teachers Content (2025 Pre / Post)',`${teacherContent2025Pre} / ${teacherContent2025Post}`],
     ['No. of Teachers Skills (2026 Pre / Post)',`${teacherSkills2026Pre} / ${teacherSkills2026Post}`],
-    ['No. of RECs (2025 Pre / Post / Post 2)',`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
-    ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
+    ['No. of RECs (2025 Pre / Post)',`${rec2025Pre} / ${rec2025Post}`],
+    ['No. of RECs (2026 Pre / Post)',`${rec2026Pre} / ${rec2026Post}`],
     ['Students Overall',fmt(studentPct)],
     ['Teachers Content Overall',fmt(teacherContentPct)],
     ['Teachers Skills Overall',fmt(teacherSkillsPct)],
@@ -626,12 +626,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const hiddenByRating=f.studentRating&&!f.teacherRating
     ? ['No. of Teachers Content (2025 Pre / Post)','No. of Teachers Skills (2026 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
     : f.teacherRating&&!f.studentRating
-      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
+      ? ['No. of Students (2025 Pre / Post)','No. of Students (2026 Pre / Post)','Students Overall']
       : [];
   const hiddenByYear=f.year==='2025'
-    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)','Teachers Skills Overall']
+    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','No. of RECs (2026 Pre / Post)','Teachers Skills Overall']
     : f.year==='2026'
-      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of RECs (2025 Pre / Post / Post 2)','Teachers Content Overall']
+      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of RECs (2025 Pre / Post)','Teachers Content Overall']
       : [];
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label)));
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));

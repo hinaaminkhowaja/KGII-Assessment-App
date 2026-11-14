@@ -1711,8 +1711,8 @@ function handleSurveyClassification_(e) {
 function recThemeHasPostSubmission_(region, localBoard, rec, themeID) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sourceNames = ['Students Post Assessment', 'APP_Student_Surveys'];
-  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
-  const regionKey = value => key(value).replace(/\\s+\\d+$/,'');
+  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const regionKey = value => key(value).replace(/\s+\\d+$/,'');
   for (const name of sourceNames) {
     const sheet = ss.getSheetByName(name);
     if (!sheet || sheet.getLastRow() < 2) continue;
@@ -1726,7 +1726,7 @@ function recThemeHasPostSubmission_(region, localBoard, rec, themeID) {
     const ai=col('Assessment','AssessmentStage','Select when this assessment conducted');
     if ([ri,bi,ci,ti,ai].some(i=>i<0)) continue;
     const found=values.slice(1).some(row => {
-      const assessment=key(row[ai]).replace(/\\s+/g,'');
+      const assessment=key(row[ai]).replace(/\s+/g,'');
       const theme=key(row[ti]);
       return regionKey(row[ri])===regionKey(region) && key(row[bi])===key(localBoard) &&
         key(row[ci])===key(rec) && (theme===key(themeID) || theme.includes(key(themeID))) &&

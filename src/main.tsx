@@ -514,7 +514,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
 
   // Stage counts follow the REC's StartingYear cohort and assessment type,
   // not the calendar date on which a Kobo/app submission was uploaded.
-  const rowsForCounts=()=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:'',year:''});
+  // Keep the selected Year filter for KPI source counts; do not silently reset it.
+  const rowsForCounts=()=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
   const recMasterKey=(v:any)=>norm(v).toLocaleLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
   const recStartingYearForRow=(r:Rec)=>{const t=targetRecs.find((x:any)=>recMasterKey(x.Region)===recMasterKey(r.Region)&&recMasterKey(x.LocalBoard)===recMasterKey(r.LocalBoard)&&recMasterKey(x.REC)===recMasterKey(r.REC));return Number(t?.StartingYear)||0;};
   // Count each child once within their REC and assessment stage; SourceRecordID
@@ -548,19 +549,29 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     const submissionIdentity=(r:Rec)=>[r.SourceSheet||'Students Pre Assessment',r.SourceRow||r.SourceRecordID||r.RecordID||[r.Region,r.LocalBoard,r.REC,r.ChildName].join('|')].map(v=>norm(v).toLocaleLowerCase()).join('||');
     return distinctCount(cohortRows,submissionIdentity);
   };
-  // Teacher content belongs to its own REC StartingYear cohort. Existing 2025
-  // RECs' Skills Pre/Post are counted in the 2026 teacher stage totals.
-  const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>{
-    const eligible=rowsForCounts().filter(r=>{
-      if(norm(r.ParticipantType).toLowerCase()!=='teacher')return false;
-      const cohort=recStartingYearForRow(r),skill=isTeacherSkillRow(r);
-      if(year===2025)return cohort===2025&&!skill&&(!stage||stageMatches(r,stage));
-      if(year===2026)return ((cohort===2026&&!skill)||(cohort===2025&&skill))&&(!stage||stageMatches(r,stage));
-      return false;
-    });
-    // Teacher content is submitted separately by theme. Count each
-    // standardized REC once for each theme-stage received, not once overall.
-    return distinctCount(eligible,r=>[r.Region,r.LocalBoard,r.REC,r.ThemeID].map(geoNorm).join('||'));
+  // Count source submissions, not expanded indicator rows. Content is counted
+  // separately for each teacher/theme submission; skills once per teacher submission.
+  const teacherSubmissionKey=(r:Rec,includeTheme:boolean)=>{
+    const sourceKey=[r.SourceSheet||'',r.SourceRow||r.SourceRecordID||r.RecordID||''].map(v=>norm(v).toLocaleLowerCase()).join('||');
+    return includeTheme?[sourceKey,norm(r.ThemeID).toLocaleLowerCase()].join('||'):sourceKey;
+  };
+  const teacherContentCountForYear=(year:number,stage:'Pre'|'Post')=>{
+    const eligible=rowsForCounts().filter(r=>
+      norm(r.ParticipantType).toLowerCase()==='teacher' &&
+      !isTeacherSkillRow(r) &&
+      Number(r.Year)===year &&
+      stageMatches(r,stage)
+    );
+    return distinctCount(eligible,r=>teacherSubmissionKey(r,true));
+  };
+  const teacherSkillsCountForYear=(year:number,stage:'Pre'|'Post')=>{
+    const eligible=rowsForCounts().filter(r=>
+      norm(r.ParticipantType).toLowerCase()==='teacher' &&
+      isTeacherSkillRow(r) &&
+      Number(r.Year)===year &&
+      stageMatches(r,stage)
+    );
+    return distinctCount(eligible,r=>teacherSubmissionKey(r,false));
   };
   const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const eligible=rowsForCounts().filter(r=>{
@@ -579,10 +590,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const student2026Pre=studentCountForYear(2026,'Pre');
   const student2026Post=studentCountForYear(2026,'Post');
   const student2026Post2=studentCountForYear(2026,'Post 2');
-  const teacher2025Pre=teacherCountForYear(2025,'Pre');
-  const teacher2025Post=teacherCountForYear(2025,'Post');
-  const teacher2026Pre=teacherCountForYear(2026,'Pre');
-  const teacher2026Post=teacherCountForYear(2026,'Post');
+  const teacherContent2025Pre=teacherContentCountForYear(2025,'Pre');
+  const teacherContent2025Post=teacherContentCountForYear(2025,'Post');
+  const teacherSkills2026Pre=teacherSkillsCountForYear(2026,'Pre');
+  const teacherSkills2026Post=teacherSkillsCountForYear(2026,'Post');
   const rec2025Pre=recCountForYear(2025,'Pre');
   const rec2025Post=recCountForYear(2025,'Post');
   const rec2025Post2=recCountForYear(2025,'Post 2');
@@ -595,8 +606,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Status',statusFor(overall.p)],
     ['No. of Students (2025 Pre / Post / Post 2)',`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
     ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
-    ['No. of REC-Theme Assessments (2025 Pre / Post)',`${teacher2025Pre} / ${teacher2025Post}`],
-    ['No. of REC-Theme Assessments (2026 Pre / Post)',`${teacher2026Pre} / ${teacher2026Post}`],
+    ['No. of Teachers Content (2025 Pre / Post)',`${teacherContent2025Pre} / ${teacherContent2025Post}`],
+    ['No. of Teachers Skills (2026 Pre / Post)',`${teacherSkills2026Pre} / ${teacherSkills2026Post}`],
     ['No. of RECs (2025 Pre / Post / Post 2)',`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
     ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
     ['Students Overall',fmt(studentPct)],

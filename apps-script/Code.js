@@ -8035,7 +8035,9 @@ function getDashboardData(email) {
   const active=directory.filter(x=>!x.Status||['active','yes','true','1'].includes(norm(x.Status)));
   const masterMap=new Map(active.map(x=>[[geoKey(x.Region),geoKey(x.LocalBoard),geoKey(x.REC)].join('|'),x]));
   const allowed=(region,board,rec)=>{
-    if(!masterMap.has([geoKey(region),geoKey(board),geoKey(rec)].join('|')))return false;
+    // Admin dashboard reads the source sheets as the system of record.
+    // Do not discard valid source submissions just because a REC is missing
+    // or inactive in the reference directory.
     if(isAdmin)return true;
     return access.some(a=>{
       const ar=geoKey(a.Region||a.region),ab=geoKey(a.LocalBoard||a.localBoard),ac=geoKey(a.REC||a.rec);

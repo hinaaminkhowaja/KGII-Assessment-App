@@ -714,7 +714,7 @@ function getDashboardData(email) {
 
   // REC cohort year is the permanent allocation source for year-wise progression.
   const phaseGeoKey = value => cleanValue(value).toLowerCase()
-    .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    .replace(/\s*\|\s*/g, '|').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   const recMasterSheet = ss.getSheetByName('RECs_list_Phase_Wise');
   const recStartingYears = Object.create(null);
   if (recMasterSheet && recMasterSheet.getLastRow() > 1) {

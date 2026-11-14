@@ -550,13 +550,18 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   };
   // Teacher content belongs to its own REC StartingYear cohort. Existing 2025
   // RECs' Skills Pre/Post are counted in the 2026 teacher stage totals.
-  const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>distinctCount(rowsForCounts().filter(r=>{
-    if(norm(r.ParticipantType).toLowerCase()!=='teacher')return false;
-    const cohort=recStartingYearForRow(r),skill=isTeacherSkillRow(r);
-    if(year===2025)return cohort===2025&&!skill&&(!stage||stageMatches(r,stage));
-    if(year===2026)return ((cohort===2026&&!skill)||(cohort===2025&&skill))&&(!stage||stageMatches(r,stage));
-    return false;
-  }),r=>r.TeacherName||r.SourceRecordID||r.RecordID);
+  const teacherCountForYear=(year:number,stage?:'Pre'|'Post')=>{
+    const eligible=rowsForCounts().filter(r=>{
+      if(norm(r.ParticipantType).toLowerCase()!=='teacher')return false;
+      const cohort=recStartingYearForRow(r),skill=isTeacherSkillRow(r);
+      if(year===2025)return cohort===2025&&!skill&&(!stage||stageMatches(r,stage));
+      if(year===2026)return ((cohort===2026&&!skill)||(cohort===2025&&skill))&&(!stage||stageMatches(r,stage));
+      return false;
+    });
+    // Teacher content is submitted separately by theme. Count each standardized
+    // REC once per stage, regardless of how many theme rows it contributes.
+    return distinctCount(eligible,r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
+  };
   const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const eligible=rowsForCounts().filter(r=>{
       // Student REC coverage must follow the student assessment source only.
@@ -590,8 +595,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Status',statusFor(overall.p)],
     ['No. of Students (2025 Pre / Post / Post 2)',`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
     ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
-    ['No. of Teachers Content (2025 Pre / Post)',`${teacher2025Pre} / ${teacher2025Post}`],
-    ['No. of Teachers Content (2026 Pre / Post)',`${teacher2026Pre} / ${teacher2026Post}`],
+    ['No. of RECs with Teacher Content (2025 Pre / Post)',`${teacher2025Pre} / ${teacher2025Post}`],
+    ['No. of RECs with Teacher Content (2026 Pre / Post)',`${teacher2026Pre} / ${teacher2026Post}`],
     ['No. of RECs (2025 Pre / Post / Post 2)',`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
     ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
     ['Students Overall',fmt(studentPct)],

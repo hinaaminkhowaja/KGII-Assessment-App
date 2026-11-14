@@ -437,8 +437,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const allStageRows=allCycleRows;
   const ratingSelected=!!(f.studentRating||f.teacherRating);
   const scoreRows=ratingSelected?metricRows.filter(r=>(!f.studentRating&&!f.teacherRating)||(!!f.studentRating&&norm(r.ParticipantType).toLowerCase()==='student')||(!!f.teacherRating&&norm(r.ParticipantType).toLowerCase()==='teacher')):metricRows;
-  // The dashboard uses the agreed 238-indicator framework. Each component
-  // is normalized within its own assessment stages before being weighted.
+  // The dashboard uses the agreed 206-point framework: student Pre/Post
+  // (87), student Post 2 (87), teacher content Pre/Post (16), teacher skills
+  // Pre/Post (16). Each component is normalized before weighting.
   const averagePresent=(values:number[])=>values.length?values.reduce((a,b)=>a+b,0)/values.length:0;
   type ScoreStage='Pre'|'Post'|'Post 2';
   const stageRows=(items:Rec[],stage:ScoreStage)=>items.filter(r=>stage==='Post 2'?assessmentIsPost2(r.Assessment):assessmentIs(r.Assessment,stage)&&(stage!=='Post'||!assessmentIsPost2(r.Assessment)));
@@ -469,10 +470,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     {key:'student-pre-post',year:2025,weight:87,p:student2025Pct,has:student2025Rows.some(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'))},
     {key:'student-post2',year:2026,weight:87,p:student2026Pct,has:student2026Rows.some(r=>assessmentIsPost2(r.Assessment))},
     {key:'teacher-content',year:2025,weight:16,p:teacherContentPct,has:teacherContentAllRows.length>0},
-    {key:'teacher-skills',year:2026,weight:48,p:teacherSkillsPct,has:teacherSkills2026Rows.length>0}
+    {key:'teacher-skills',year:2026,weight:16,p:teacherSkillsPct,has:teacherSkills2026Rows.length>0}
   ];
   // The denominator follows the selected programme cohort: 2025 = 87 + 16;
-  // 2026 = 87 + 48; All cohorts = the complete 238-point framework.
+  // 2026 = 87 + 16; All cohorts = the complete 206-point framework.
   const selectedYear=String(f.year||'');
   const activeComponents=selectedYear==='2025'
     ? weightedComponents.filter(x=>x.year===2025)
@@ -522,7 +523,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Stage counts follow the REC's StartingYear cohort and assessment type,
   // not the calendar date on which a Kobo/app submission was uploaded.
   // Keep the selected Year filter for KPI source counts; do not silently reset it.
-  const rowsForCounts=()=>filterRows(sourceRows,{...f,pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
+  const rowsForCounts=()=>filterRows(sourceRows,{...f,year:'',pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
   const recMasterKey=(v:any)=>norm(v).toLocaleLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
   const recStartingYearForRow=(r:Rec)=>{const t=targetRecs.find((x:any)=>recMasterKey(x.Region)===recMasterKey(r.Region)&&recMasterKey(x.LocalBoard)===recMasterKey(r.LocalBoard)&&recMasterKey(x.REC)===recMasterKey(r.REC));return Number(t?.StartingYear)||0;};
   // Count each child once within their REC and assessment stage; SourceRecordID

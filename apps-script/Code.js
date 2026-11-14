@@ -8116,11 +8116,11 @@ function getDashboardData(email) {
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
       const numericCols=h.map((name,j)=>({name,j})).filter(c=>
         /^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name) &&
-        // Theme 3 has a duplicated legacy UA3 column in the original Kobo
-        // export. The agreed framework has four Theme 3 indicators; UA3 is
-        // the duplicate Global Jamat rubric and must not inflate the 87-point
-        // student assessment denominator.
-        !(s.name==='Students Pre Assessment' && /^Theme\s*3\s*:\s*UA\s*3$/i.test(c.name))
+        // Theme 3 has a duplicated legacy UA3 column in both Kobo student
+        // exports. The agreed framework has four Theme 3 indicators; exclude
+        // this duplicate from both Pre and Post so each stage remains 87 points.
+        !(['Students Pre Assessment','Students Post Assessment'].includes(s.name) &&
+          /^Theme\s*3\s*:\s*UA\s*3$/i.test(c.name))
       );
       if(s.kind==='student-kobo'||s.kind==='student-app'){
         // Original student pre-assessment is the fixed four-theme baseline.

@@ -214,21 +214,7 @@ function App(){
  };
  const loadDashboard=async(email:string)=>{
   const d=await apiGet('dashboard',{email});
-  console.info('[KGII] Student survey source diagnostics:',d.studentSurveyDiagnostics||'Not available - deploy the latest Apps Script version.');
   const rows=arrayFrom(d,'records','rows','data');
-  const headers=Array.isArray(d.headers)?d.headers:[];
-  const rawSourceIndex=headers.findIndex((h:any)=>norm(h).toLowerCase().replace(/[^a-z0-9]/g,'')==='sourcesheet');
-  const rawAssessmentIndex=headers.findIndex((h:any)=>norm(h).toLowerCase().replace(/[^a-z0-9]/g,'')==='assessment');
-  console.info('[KGII] Dashboard response structure:',{
-    responseKeys:Object.keys(d||{}),
-    headerCount:headers.length,
-    headers,
-    rawRowCount:rows.length,
-    firstRowWidth:Array.isArray(rows[0])?rows[0].length:undefined,
-    rawPost2Rows:rows.filter((row:any)=>Array.isArray(row)&&rawAssessmentIndex>=0&&/post\s*2/i.test(norm(row[rawAssessmentIndex]))).length,
-    rawStudentAppRows:rows.filter((row:any)=>Array.isArray(row)&&rawSourceIndex>=0&&norm(row[rawSourceIndex])==='APP_Student_Surveys').length,
-    rawStudentAppPost2Rows:rows.filter((row:any)=>Array.isArray(row)&&rawSourceIndex>=0&&rawAssessmentIndex>=0&&norm(row[rawSourceIndex])==='APP_Student_Surveys'&&/post\s*2/i.test(norm(row[rawAssessmentIndex]))).length
-  });
   const headerIndex=new Map<string,number>();
   headers.forEach((h:string,i:number)=>headerIndex.set(norm(h).toLowerCase().replace(/[^a-z0-9]/g,''),i));
   const normalized=rows.map((row:any)=>{
@@ -255,17 +241,6 @@ function App(){
     return {RecordID:norm(field('RecordID','recordId','ID')),SourceRecordID:norm(field('SourceRecordID','Source Record ID')),SourceSheet:norm(field('SourceSheet','Source Sheet')),SourceRow:field('SourceRow','Source Row'),ChildName:norm(field('ChildName','Child Name','StudentName','Student Name','ParticipantName','Participant Name','Name')),StudentID:norm(field('StudentID','Student ID','ChildID','Child ID','ParticipantID','Participant ID','StudentCode','Student Code')),TeacherName:norm(field('TeacherName','Teacher Name','Name of Teacher','TeacherID','Teacher ID')),CycleID:norm(field('CycleID')),Year:Number(field('Year'))||0,CohortYear:Number(field('CohortYear','Cohort Year'))||0,ParticipantType:norm(field('ParticipantType','Participant Type')),Assessment:norm(field('Assessment','Assessment Stage')),Region:norm(field('Region')),LocalBoard:norm(field('LocalBoard','Local Board')),REC:norm(field('REC')),ParticipantCount:Number(field('ParticipantCount','Participant Count','No. of Participants','Number of Participants','Participants Count','No of Students','Student Count'))||0,Phase:norm(field('Phase')),ThemeID:norm(field('ThemeID','Theme ID')),DimensionID:norm(field('DimensionID','Dimension ID')),IndicatorID:norm(field('IndicatorID','Indicator ID')),Score:Number(field('Score'))||0,MaxScore:Number(field('MaxScore','Max Score'))||0} as Rec;
   });
   setRecords(normalized);
-  const post2Debug=normalized.filter((r:Rec)=>/post\s*2/i.test(r.Assessment)||/^post2(?:assessment)?$/i.test(norm(r.Assessment).replace(/[^a-z0-9]/g,'')));
-  console.info('[KGII] Frontend Post 2 normalization:',{
-    totalNormalizedRecords:normalized.length,
-    post2IndicatorRecords:post2Debug.length,
-    sourceSheets:[...new Set(post2Debug.map(r=>r.SourceSheet))],
-    participantTypes:[...new Set(post2Debug.map(r=>r.ParticipantType))],
-    years:[...new Set(post2Debug.map(r=>r.Year))],
-    cohortYears:[...new Set(post2Debug.map(r=>(r as any).CohortYear))],
-    sourceRows:[...new Set(post2Debug.map(r=>r.SourceRow))].length,
-    recs:[...new Set(post2Debug.map(r=>r.REC))]
-  });
   // Assessment datasets exceed browser localStorage quotas. Keep live records in memory;
   // remove any legacy oversized cache so it cannot block refreshes or serve stale data.
   try{localStorage.removeItem('kgii_assessment_cached_records');}catch(e){console.warn('Could not clear legacy assessment cache',e)}

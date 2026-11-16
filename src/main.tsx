@@ -529,14 +529,18 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Build the REC cohort index once. Repeated Array.find calls for every
   // expanded indicator row made dashboard recalculation slow on large datasets.
   const recYearIndex=new Map<string,number>();
+  const recCodeYearIndex=new Map<string,number>();
+  const recCode=(v:any)=>{const m=String(v||'').match(/^\s*(\d{3,})\s*\|/);return m?m[1]:'';};
   targetRecs.forEach((x:any)=>{
     const key=[x.Region,x.LocalBoard,x.REC].map(recMasterKey).join('||');
     const year=Number(x.StartingYear)||0;
     if(key&&year)recYearIndex.set(key,year);
+    const code=recCode(x.REC);
+    if(code&&year&&!recCodeYearIndex.has(code))recCodeYearIndex.set(code,year);
   });
   const recStartingYearForRow=(r:Rec)=>{
     const key=[r.Region,r.LocalBoard,r.REC].map(recMasterKey).join('||');
-    return recYearIndex.get(key)||Number((r as any).CohortYear)||0;
+    return recYearIndex.get(key)||recCodeYearIndex.get(recCode(r.REC))||Number((r as any).CohortYear)||0;
   };
   // Count each child once within their REC and assessment stage; SourceRecordID
   // identifies Kobo submissions, not unique children, and can vary on repeat visits.

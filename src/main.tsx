@@ -14,20 +14,8 @@ function aggregate(rows:Rec[]){let s=0,m=0;for(const r of rows){s+=Number(r.Scor
 function avgRating(rows:Rec[],participantType:string){const x=rows.filter(r=>r.ParticipantType===participantType);if(!x.length)return 0;return x.reduce((a,r)=>a+(Number(r.Score)||0),0)/x.length;}
 function scoreOutOf(rows:Rec[],participantType:string,unitMax:number){const x=rows.filter(r=>r.ParticipantType===participantType);return x.length?avgRating(rows,participantType)*unitMax:0;}
 function scoreModel(rows:Rec[]){const student=scoreOutOf(rows,'Student',29);const teacher=scoreOutOf(rows,'Teacher',4);return {student,teacher,total:student+teacher,max:103};}
-function combinedScore(rows:Rec[]){const pre=scoreModel(rows.filter(r=>assessmentIs(r.Assessment,'Pre'))),post=scoreModel(rows.filter(r=>assessmentIs(r.Assessment,'Post')));return {score:pre.total+post.total,max:32,percent:pct(pre.total+post.total,32),pre,post};}
 function unique(rows:Rec[],key:keyof Rec){return [...new Set(rows.map(r=>norm(r[key])) )].filter(Boolean).sort((a,b)=>a.localeCompare(b));}
 function labelTheme(id:string){const m:any={T1:'Theme 1 — Authority and Leadership',T2:'Theme 2 — Intellectual Traditions',T3:'Theme 3 — Role in Family, Community and Society',T4:'Theme 4 — Two Aspects of Life'};return m[id]||id}
-function cycleLabel(value:string){
-  const raw=norm(value);
-  const match=raw.match(/^cycle[\s_-]*0?([12])(?:\b|$)/i)||raw.match(/^c[\s_-]*0?([12])$/i)||raw.match(/^0?([12])$/);
-  return match?`Cycle ${match[1]}`:raw;
-}
-function phaseLabel(value:any){
-  const raw=norm(value).toLowerCase();
-  if(raw==='1'||/\bphase\s*[-_ ]?1\b/.test(raw))return 'Phase 1';
-  if(raw==='2'||/\bphase\s*[-_ ]?2\b/.test(raw))return 'Phase 2';
-  return '';
-}
 function displayGeo(value:string){
   const raw=String(value||'').trim();
   const cleaned=raw.replace(/[_-]+/g,' ').replace(/\s+\d+$/,'').replace(/\s+/g,' ').trim();
@@ -173,8 +161,6 @@ async function apiPostOnline(action:string,body:Record<string,any>){const respon
 
 function mapUser(x:any):AppUser{const role=String(x.role||'User').toLowerCase()==='admin'?'admin':'user';const rawStatus=String(x.status||'pending').toLowerCase();const status=(rawStatus==='approved'?'approved':rawStatus==='rejected'?'rejected':rawStatus==='suspended'?'suspended':'pending') as UserStatus;const email=norm(x.email).toLowerCase();return {id:norm(x.id)||email,name:norm(x.name)||email,email,role,status,createdAt:norm(x.createdAt||x.created_at)}}
 function mapAccess(x:any):AccessRule{const email=norm(x.email).toLowerCase();return {id:norm(x.id)||[email,x.region,x.localBoard||x.board,x.rec].join('|'),userId:norm(x.userId)||email,region:norm(x.region),board:norm(x.localBoard||x.board),rec:norm(x.rec),active:x.active===true||String(x.active).toLowerCase()==='true'||String(x.active)==='1'||String(x.active).toLowerCase()==='yes'}}
-function accessMatches(r:Rec,a:AccessRule){return a.active&&(!a.region||r.Region===a.region)&&(!a.board||r.LocalBoard===a.board)&&(!a.rec||r.REC===a.rec)}
-function userHasAccess(u:AppUser|null,access:AccessRule[]){return !!u&&(u.role==='admin'||access.some(a=>a.userId===u.id&&a.active))}
 function arrayFrom(d:any,...keys:string[]):any[]{for(const k of keys)if(Array.isArray(d?.[k]))return d[k];if(Array.isArray(d))return d;return []}
 function normalizeRefs(rows:any[]):Ref[]{return rows.map((x:any)=>({Region:norm(x?.Region??x?.region??x?.REGION??x?.RegionName),LocalBoard:norm(x?.LocalBoard??x?.localBoard??x?.localboard??x?.['Local Board']??x?.LOCALBOARD),REC:norm(x?.REC??x?.rec??x?.Rec??x?.RECName),StartingYear:norm(x?.StartingYear??x?.['Starting Year']),Status:norm(x?.Status??x?.status)})).filter((x:Ref)=>x.Region&&x.LocalBoard&&x.REC)}
 function App(){

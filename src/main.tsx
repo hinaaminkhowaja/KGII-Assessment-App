@@ -178,7 +178,7 @@ function userHasAccess(u:AppUser|null,access:AccessRule[]){return !!u&&(u.role==
 function arrayFrom(d:any,...keys:string[]):any[]{for(const k of keys)if(Array.isArray(d?.[k]))return d[k];if(Array.isArray(d))return d;return []}
 function normalizeRefs(rows:any[]):Ref[]{return rows.map((x:any)=>({Region:norm(x?.Region??x?.region??x?.REGION??x?.RegionName),LocalBoard:norm(x?.LocalBoard??x?.localBoard??x?.localboard??x?.['Local Board']??x?.LOCALBOARD),REC:norm(x?.REC??x?.rec??x?.Rec??x?.RECName),StartingYear:norm(x?.StartingYear??x?.['Starting Year']),Status:norm(x?.Status??x?.status)})).filter((x:Ref)=>x.Region&&x.LocalBoard&&x.REC)}
 function App(){
- const [records,setRecords]=useState<Rec[]>(()=>{try{const cachedUser=JSON.parse(localStorage.getItem(USER_CACHE_KEY)||'null');if(String(cachedUser?.role||'').toLowerCase()==='admin')return [];const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_records')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [refs,setRefs]=useState<Ref[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return normalizeRefs(Array.isArray(cached)?cached:[])}catch{return []}});const [targetRecs,setTargetRecs]=useState<any[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [indicators,setIndicators]=useState<Indicator[]>([]);const [directoryLoaded,setDirectoryLoaded]=useState(false);
+ const [records,setRecords]=useState<Rec[]>([]);const [refs,setRefs]=useState<Ref[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return normalizeRefs(Array.isArray(cached)?cached:[])}catch{return []}});const [targetRecs,setTargetRecs]=useState<any[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [indicators,setIndicators]=useState<Indicator[]>([]);const [directoryLoaded,setDirectoryLoaded]=useState(false);
  const [page,setPage]=useState('home');const [mobileNavOpen,setMobileNavOpen]=useState(false);const [printOpen,setPrintOpen]=useState(false);const [apiError,setApiError]=useState('');const [loading,setLoading]=useState(false);
  const [f,setF]=useState<any>({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:'2025'});
  const [user,setUser]=useState<AppUser|null>(null);const [users,setUsers]=useState<AppUser[]>([]);const [access,setAccess]=useState<AccessRule[]>([]);
@@ -186,13 +186,11 @@ function App(){
  const loadDirectory=async()=>{
   if(directoryLoaded)return;
   const cachedTargets=(()=>{try{return JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]')}catch{return []}})();
-  const cachedIndicators=(()=>{try{return JSON.parse(localStorage.getItem('kgii_assessment_cached_indicators')||'[]')}catch{return []}})();
   if(Array.isArray(cachedTargets)&&cachedTargets.length){
     setTargetRecs(cachedTargets);
     setRefs(normalizeRefs(cachedTargets));
     activeTargetRecs=cachedTargets;
   }
-  if(Array.isArray(cachedIndicators)&&cachedIndicators.length)setIndicators(cachedIndicators);
 
   const d=await apiGet('directory');
   const targets=arrayFrom(d,'targetRecs','targetRECs','target_recs').map((x:any)=>({
@@ -209,7 +207,6 @@ function App(){
   setRefs(normalizedRefs);
   if(ii.length)setIndicators(ii);
   localStorage.setItem('kgii_assessment_cached_target_recs',JSON.stringify(targets));
-  localStorage.removeItem('kgii_assessment_cached_indicators');
   setDirectoryLoaded(true);
  };
  const loadDashboard=async(email:string)=>{

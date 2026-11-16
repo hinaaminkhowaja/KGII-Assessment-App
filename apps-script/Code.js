@@ -605,9 +605,9 @@ function getRecDirectoryData() {
 
 
 /**
- * Dashboard data is normalized directly from the six live source sheets.
- * APP_Records is deliberately not read; APP_Indicators remains the
- * single source of truth for indicator order, cycle, assessment and scores.
+ * Legacy dashboard implementation retained for compatibility; the active
+ * getDashboardData implementation below reads the six live source sheets
+ * directly and does not depend on APP_Records or APP_Indicators.
  */
 function getDashboardData(email) {
   const userResult = getUserByEmail(email);
@@ -8268,7 +8268,7 @@ function getDashboardData(email) {
         }
       } else if(s.kind==='teacher-app'){
         const theme=directThemeId_(clean(val(r,h,['ThemeName']))||'Authority and Leadership');
-        ['PreRating','PostRating'].forEach(k=>{const raw=val(r,h,[k]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+k,'C1',year,cohort,'Teacher',k==='PreRating'?'Pre':'Post',region,board,rec,1,'',theme,'Overall',theme+':'+k,score,5,s.name,i+2,id,'',teacher]);});
+        ['PreRating','PostRating'].forEach(k=>{const raw=val(r,h,[k]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+k,'C1',year,cohort,'Teacher',k==='PreRating'?'Pre':'Post',region,board,rec,1,'',theme,'Overall',theme+':'+k,score,4,s.name,i+2,id,'',teacher]);});
       } else if(s.kind==='teacher-c2'){
         const assessment=clean(val(r,h,['Assessment']))||'Pre';
         ['Instructional','Questioning','Feedback'].forEach(dim=>{for(let n=1;n<=4;n++){const key=dim+'_Indicator'+n,raw=val(r,h,[key]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+key,'C2',year||clean(val(r,h,['Year'])),cohort,'Teacher',assessment,region,board,rec,1,'',clean(val(r,h,['AssessmentContext']))||'Teaching Practice',dim,dim+n,score,4,s.name,i+2,id,'',teacher]);}});

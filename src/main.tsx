@@ -274,7 +274,7 @@ const recs = useMemo(
   const allowedRecords=records;
   const isActiveTarget=(r:any)=>{const status=norm(r.Status??r.status).toLowerCase();return !status||['active','yes','true','1'].includes(status)};
   const targetRecMap=useMemo(()=>new Map(targetRecs.filter((r:any)=>isActiveTarget(r)).map((r:any)=>[[geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'),r])),[targetRecs]);
-  const cohortScopedRecords=useMemo(()=>allowedRecords.filter(r=>targetRecMap.has([geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('|'))),[allowedRecords,targetRecMap]);
+  const cohortScopedRecords=useMemo(()=>allowedRecords,[allowedRecords]);
   const pageRecords=useMemo(()=>page==='teacher'?cohortScopedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'):cohortScopedRecords,[cohortScopedRecords,page]);
   const filtered=useMemo(()=>filterRows(pageRecords,f),[pageRecords,f]);
   const metricRows=useMemo(()=>filterRows(pageRecords,{...f,studentRating:'',teacherRating:''}),[pageRecords,f]);

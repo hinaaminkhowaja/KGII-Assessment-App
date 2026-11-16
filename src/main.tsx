@@ -436,7 +436,14 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);
-  const cohortYear=(r:Rec)=>isTeacherSkillRecord(r)?(Number(r.Year)||recStartingYear(r)||0):(recStartingYear(r)||Number(r.Year)||0);
+  const cohortYear=(r:Rec)=>{
+    // Post 2 survey rows carry an explicit programme cohort from Apps Script.
+    // Keep it ahead of the REC directory and submission timestamp.
+    if(!isTeacherSkillRecord(r)&&assessmentIsPost2(r.Assessment)){
+      return Number((r as any).CohortYear)||recStartingYear(r)||Number(r.Year)||0;
+    }
+    return isTeacherSkillRecord(r)?(Number(r.Year)||recStartingYear(r)||0):(recStartingYear(r)||Number((r as any).CohortYear)||Number(r.Year)||0);
+  };
   const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
   const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
   const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(cohortYear(r)===2025||cohortYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));

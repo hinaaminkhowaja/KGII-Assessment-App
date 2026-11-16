@@ -564,10 +564,13 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   );
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const isTeacherSkillRow=(r:Rec)=>isTeacherSkillRec(r);
+  // SourceSheet is authoritative for participant category when older or custom
+  // API deployments omit ParticipantType from the normalized payload.
+  const isStudentAssessmentRow=(r:Rec)=>norm(r.ParticipantType).toLowerCase()==='student'||/^(students pre assessment|students post assessment|app_student_surveys)$/i.test(norm(r.SourceSheet));
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const cohortRows=countSourceRows().filter(r=>{
-      if(norm(r.ParticipantType).toLowerCase()!=='student'||!stageMatches(r,stage))return false;
+      if(!isStudentAssessmentRow(r)||!stageMatches(r,stage))return false;
       const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });

@@ -217,6 +217,18 @@ function App(){
   console.info('[KGII] Student survey source diagnostics:',d.studentSurveyDiagnostics||'Not available - deploy the latest Apps Script version.');
   const rows=arrayFrom(d,'records','rows','data');
   const headers=Array.isArray(d.headers)?d.headers:[];
+  const rawSourceIndex=headers.findIndex((h:any)=>norm(h).toLowerCase().replace(/[^a-z0-9]/g,'')==='sourcesheet');
+  const rawAssessmentIndex=headers.findIndex((h:any)=>norm(h).toLowerCase().replace(/[^a-z0-9]/g,'')==='assessment');
+  console.info('[KGII] Dashboard response structure:',{
+    responseKeys:Object.keys(d||{}),
+    headerCount:headers.length,
+    headers,
+    rawRowCount:rows.length,
+    firstRowWidth:Array.isArray(rows[0])?rows[0].length:undefined,
+    rawPost2Rows:rows.filter((row:any)=>Array.isArray(row)&&rawAssessmentIndex>=0&&/post\\s*2/i.test(norm(row[rawAssessmentIndex]))).length,
+    rawStudentAppRows:rows.filter((row:any)=>Array.isArray(row)&&rawSourceIndex>=0&&norm(row[rawSourceIndex])==='APP_Student_Surveys').length,
+    rawStudentAppPost2Rows:rows.filter((row:any)=>Array.isArray(row)&&rawSourceIndex>=0&&rawAssessmentIndex>=0&&norm(row[rawSourceIndex])==='APP_Student_Surveys'&&/post\\s*2/i.test(norm(row[rawAssessmentIndex]))).length
+  });
   const headerIndex=new Map<string,number>();
   headers.forEach((h:string,i:number)=>headerIndex.set(norm(h).toLowerCase().replace(/[^a-z0-9]/g,''),i));
   const normalized=rows.map((row:any)=>{

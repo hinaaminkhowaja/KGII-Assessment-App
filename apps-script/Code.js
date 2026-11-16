@@ -607,7 +607,7 @@ function getRecDirectoryData() {
 /**
  * Legacy dashboard implementation retained for compatibility; the active
  * getDashboardData implementation below reads the six live source sheets
- * directly and does not depend on APP_Records or APP_Indicators.
+ * directly and does not depend on normalized records store or indicator mapping sheet.
  */
 function handlePublicSurveySummary_(e) {
   const p = e && e.parameter ? e.parameter : {};
@@ -1510,7 +1510,7 @@ function findSurveyIndicator_(
 
   if (!match) {
     throw new Error(
-      'No matching APP_Indicators entry for ' +
+      'No matching built-in survey indicator mapping for ' +
       participantType + ', ' + assessment + ', ' +
       themeName + ', ' + indicatorId + '.'
     );
@@ -1541,7 +1541,7 @@ function handleStudentSurvey(body) {
   }
   // Assessment is classified by the REC + theme survey lookup before
   // submission. Trust that selected stage; do not infer it from CycleID or
-  // APP_Indicators. Cohort year is resolved from RECs_list_Phase_Wise.
+  // indicator mapping sheet. Cohort year is resolved from RECs_list_Phase_Wise.
   const assessment = surveyAssessment_(body.assessment);
   const cycleId = '';
   const themeName = clean(body.themeName);
@@ -1576,7 +1576,7 @@ function handleStudentSurvey(body) {
   }
 
   // Survey ratings are stored using their own fixed ThemeN:UA/A headers.
-  // Do not consult APP_Indicators: the survey schema is the source of truth.
+  // Do not consult indicator mapping sheet: the survey schema is the source of truth.
   const themeNumber = ({
     'authority and leadership': '1',
     'intellectual traditions': '2',
@@ -1704,7 +1704,7 @@ function handleTeacherSurvey(body) {
 
   const cycleId = clean(surveyConfigValue_('CycleID', 'C1'));
   // Teacher content survey has one rubric score per theme and assessment.
-  // Keep this fixed mapping local to the survey; APP_Indicators is not required.
+  // Keep this fixed mapping local to the survey; indicator mapping sheet is not required.
   const teacherThemeMap = {
     'authority and leadership':'T1',
     'intellectual traditions':'T2',
@@ -1752,7 +1752,7 @@ function handleTeacherSurvey(body) {
   sheet.getRange(sourceRow, 1, 1, headers.length).setValues([surveyRow]);
 
   // Pre and Post need separate normalized records because Assessment
-  // is stored per row in APP_Records.
+  // is stored per row in normalized records store.
   let recordCount = 0;
 
   indicatorEntries.forEach(entry => {
@@ -1884,8 +1884,8 @@ function handleTeacherSurveyCycle2_(body) {
   const surveyRow = surveyRowFromObject_(headers, values);
 
   // Save the original survey response only. The dashboard reads this source
-  // sheet directly and expands the 12 skill indicators in memory; no APP_Records
-  // or APP_Indicators dependency is required.
+  // sheet directly and expands the 12 skill indicators in memory; no normalized records store
+  // or indicator mapping sheet dependency is required.
   sheet.getRange(sourceRow, 1, 1, headers.length).setValues([surveyRow]);
 
   return {
@@ -1915,7 +1915,7 @@ function findTeacherThemeIndicator_(
 
   if (!matches.length) {
     throw new Error(
-      'No teacher APP_Indicators entry found for ' +
+      'No built-in teacher survey indicator mapping found for ' +
       themeName + ' (' + assessment + ').'
     );
   }
@@ -2129,31 +2129,10 @@ headers.forEach((h, j) => {
 
 
 
-/* Obsolete APP_Records import, matching, and synchronization utilities removed. The active dashboard reads the six original source sheets. */
+/* Obsolete normalized records store import, matching, and synchronization utilities removed. The active dashboard reads the six original source sheets. */
 
-function removeLegacyKoboSyncTriggers() {
-  const legacyHandlers = new Set([
-    'syncKoboToAPPRecords',
-    'installAutomaticKoboSync'
-  ]);
-  let removed = 0;
-  ScriptApp.getProjectTriggers().forEach(trigger => {
-    if (legacyHandlers.has(trigger.getHandlerFunction())) {
-      ScriptApp.deleteTrigger(trigger);
-      removed++;
-    }
-  });
-  Logger.log('Removed legacy APP_Records sync triggers: ' + removed);
-  return {success:true, removed:removed};
-}
-
-// Kept as a compatibility entry point. It removes the old APP_Records
+// Kept as a compatibility entry point. It removes the old normalized records store
 // automation and deliberately does not create a replacement trigger.
-function installAutomaticKoboSync() {
-  return removeLegacyKoboSyncTriggers();
-}
-
-
 function handleCreateLoginRequest(body) {
   const name = clean(body.name);
   const email = normalizeEmail(body.email);
@@ -2626,7 +2605,7 @@ function handleDeleteResource(body) {
 
 /**
  * Audits teacher geography directly in the agreed original source sheet.
- * APP_Records is a normalized destination and is intentionally not read here.
+ * normalized records store is a normalized destination and is intentionally not read here.
  * Read-only: no spreadsheet cells are changed.
  */
 function auditTeacherGeography() {
@@ -2963,7 +2942,7 @@ function notifyAdminsOfAccessRequest() {
 
 
 
-/* DIRECT-SOURCE DASHBOARD (no APP_Records / APP_Indicators dependency) */
+/* DIRECT-SOURCE DASHBOARD (no normalized records store / indicator mapping sheet dependency) */
 function getDashboardData(email) {
   const auth = getUserByEmail(email);
   if (!auth || !auth.success) return auth || {success:false,message:'User not found.'};

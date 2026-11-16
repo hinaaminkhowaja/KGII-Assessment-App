@@ -453,7 +453,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const cohortYear=(r:Rec)=>recStartingYear(r)||Number(r.Year)||0;
   const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
   const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
-  const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(recStartingYear(r)===2025||recStartingYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(cohortYear(r)===2025||cohortYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const teacherContent2025Rows=teacherContentAllRows.filter(r=>cohortYear(r)===2025);
   const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);

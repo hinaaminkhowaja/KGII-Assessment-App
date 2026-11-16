@@ -8116,7 +8116,7 @@ function getDashboardData(email) {
       const board=clean(val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']));
       const rec=clean(val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']));
       if(!region||!board||!rec||!allowed(region,board,rec))return;
-      const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','end','End']);
+      const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','AssessmentDate','CreatedAt','end','End']);
       const date=dateOf(submitted);const submissionYear=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
       const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|')) || masterByRecCode.get(recCode_(rec));
       const storedAssessment=clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted']));
@@ -8127,7 +8127,8 @@ function getDashboardData(email) {
         if(/^post\s*(?:2|3|4|5|6|7)$/i.test(storedAssessment))cohort=2025;
         else if(/^pre(?:\s*assessment)?$/i.test(storedAssessment))cohort=2026;
       }
-      const year=s.kind==='teacher-c2' ? (clean(val(r,h,['Year','Assessment Year']))||cohort||submissionYear) : (cohort||submissionYear);
+      // Year is the actual assessment/submission year. CohortYear separately stores the REC's programme intake year.
+      const year=submissionYear;
       const id=clean(val(r,h,['_uuid','_id','SubmissionID','meta/rootUuid']))||s.name+'-'+(i+2);
       const child=clean(val(r,h,['Name of a child:','Name of a child','ChildName']));
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
@@ -8161,7 +8162,8 @@ function getDashboardData(email) {
             : s.kind === 'student-app'
               ? (clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted'])) || (event ? event.assessment : 'Post'))
               : (event ? event.assessment : clean(val(r,h,['Assessment','Specify the phase'])) || 'Post');
-          let cycle='C1';
+          // Student Post 2 submissions belong to Cycle 2; keep their submission year independent of cohort year.
+          const cycle = s.kind==='student-app' && /^post\s*2$/i.test(assessment) ? 'C2' : 'C1';
           numericCols.forEach(c=>{
             if (s.kind === 'student-app') {
               const columnTheme = c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*\d+$/i);

@@ -214,6 +214,7 @@ function App(){
  };
  const loadDashboard=async(email:string)=>{
   const d=await apiGet('dashboard',{email});
+  console.info('[KGII] Student survey source diagnostics:',d.studentSurveyDiagnostics||'Not available - deploy the latest Apps Script version.');
   const rows=arrayFrom(d,'records','rows','data');
   const headers=Array.isArray(d.headers)?d.headers:[];
   const headerIndex=new Map<string,number>();

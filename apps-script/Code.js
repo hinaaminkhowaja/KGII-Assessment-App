@@ -8307,14 +8307,16 @@ function removeAssessmentHelperColumnsFromSheets() {
 
 function directThemeId_(name){
   const raw=String(name||'').trim();
-  const n=raw.toLowerCase().replace(/[^a-z]/g,'').replace(/^theme[1-4]/,'');
+  const numbered=raw.match(/^theme\s*([1-4])\b/i);
+  if(numbered)return 'Theme '+numbered[1];
+  const n=raw.toLowerCase().replace(/[^a-z]/g,'');
   const map={
     authorityandleadership:'Theme 1', authorityleadership:'Theme 1',
     intellectualtraditions:'Theme 2', ismailimuslimtraditions:'Theme 2',
     roleinfamilycommunityandsociety:'Theme 3', roleinfamilycommunity:'Theme 3',
     twoaspectsoflife:'Theme 4'
   };
-  return map[n] || (/^theme\s*[1-4]$/i.test(raw) ? raw.replace(/\s+/g,' ') : raw);
+  return map[n] || raw;
 }
 
 

@@ -436,21 +436,16 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);
-  const cohortYear=(r:Rec)=>{
-    // Post 2 survey rows carry an explicit programme cohort from Apps Script.
-    // Keep it ahead of the REC directory and submission timestamp.
-    if(!isTeacherSkillRecord(r)&&assessmentIsPost2(r.Assessment)){
-      return Number((r as any).CohortYear)||recStartingYear(r)||Number(r.Year)||0;
-    }
-    return isTeacherSkillRecord(r)?(Number(r.Year)||recStartingYear(r)||0):(recStartingYear(r)||Number((r as any).CohortYear)||Number(r.Year)||0);
-  };
+  // One cohort rule for every student assessment stage: the REC master
+  // StartingYear owns the cohort. Submission Year never changes the cohort.
+  const cohortYear=(r:Rec)=>recStartingYear(r)||Number((r as any).CohortYear)||0;
   const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
   const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
   const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(cohortYear(r)===2025||cohortYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const teacherContent2025Rows=teacherContentAllRows.filter(r=>cohortYear(r)===2025);
   const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);
-  const student2026Pct=stageAverage(student2026Rows,['Pre','Post 2']);
+  const student2025Pct=stageAverage(student2025Rows,['Pre','Post','Post 2']);
+  const student2026Pct=stageAverage(student2026Rows,['Pre','Post','Post 2']);
   const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
   const teacherContentPct=stageAverage(teacherContent2025Rows,['Pre','Post']);
   const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
@@ -540,13 +535,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const studentIdentity=(r:Rec)=>r.ChildName
     ? [r.Region,r.LocalBoard,r.REC,r.ChildName].map(v=>geoNorm(v)).join('||')
     : [r.Region,r.LocalBoard,r.REC,r.SourceRecordID||r.RecordID].map(v=>geoNorm(v)).join('||');
-  const recCohortForStage=(r:Rec,year:number,stage:'Pre'|'Post'|'Post 2')=>{
-    // The survey API explicitly supplies CohortYear. For Post 2 this must take
-    // precedence over the REC directory's StartingYear and the 2026 submission
-    // timestamp, otherwise a 2025 cohort can be misclassified or omitted.
-    if(stage==='Post 2')return Number((r as any).CohortYear)||recStartingYearForRow(r)||Number(r.Year)||0;
-    return recStartingYearForRow(r)||Number((r as any).CohortYear)||Number(r.Year)||0;
-  };
+  // Stage does not affect cohort membership. A REC stays in its original
+  // StartingYear cohort for Pre, Post, Post 2 and every later follow-up.
+  const recCohortForStage=(r:Rec,_year:number,_stage:'Pre'|'Post'|'Post 2')=>recStartingYearForRow(r)||Number((r as any).CohortYear)||0;
   const countSourceRows=()=>sourceRows.filter(r=>
     (!f.region||geoNorm(r.Region)===geoNorm(f.region))&&
     (!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&

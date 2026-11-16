@@ -8212,7 +8212,21 @@ function getDashboardData(email) {
       }
     });
   });
-  return {success:true,user,access:isAdmin?'ALL':access,headers,records,targetRecs:directory,refs:directory.map(x=>({Region:x.Region,LocalBoard:x.LocalBoard,REC:x.REC})),indicators:[]};
+  // Runtime visibility for the student-app source: makes an empty dashboard traceable
+  // without exposing child names or changing any source data.
+  const studentAppSource=loaded.find(x=>x.source.name==='APP_Student_Surveys');
+  const studentAppRecords=records.filter(r=>r[16]==='APP_Student_Surveys');
+  const studentSurveyDiagnostics={
+    sourceSheetFound:!!studentAppSource,
+    sourceRows:studentAppSource?studentAppSource.rows.filter(r=>r.some(v=>v!==''&&v!==null)).length:0,
+    emittedIndicatorRecords:studentAppRecords.length,
+    assessments:[...new Set(studentAppRecords.map(r=>String(r[5]||'')))],
+    submissionYears:[...new Set(studentAppRecords.map(r=>String(r[2]||'')))],
+    cohortYears:[...new Set(studentAppRecords.map(r=>String(r[3]||'')))],
+    themes:[...new Set(studentAppRecords.map(r=>String(r[11]||'')))],
+    recs:[...new Set(studentAppRecords.map(r=>String(r[8]||'')))]
+  };
+  return {success:true,user,access:isAdmin?'ALL':access,headers,records,targetRecs:directory,refs:directory.map(x=>({Region:x.Region,LocalBoard:x.LocalBoard,REC:x.REC})),indicators:[],studentSurveyDiagnostics};
 }
 
 /**

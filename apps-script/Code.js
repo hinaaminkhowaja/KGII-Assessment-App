@@ -2215,7 +2215,7 @@ function handleStudentSurvey(body) {
   const indicatorEntries = ratingEntries.map(entry => {
     const sourceIndex = headers.indexOf(entry.indicatorId);
     if (sourceIndex < 0) throw new Error('Student survey sheet has no rating column: ' + entry.indicatorId);
-    const match = entry.indicatorId.match(/^Theme(\\d+):(UA|A)(\\d+)$/);
+    const match = entry.indicatorId.match(/^Theme(\d+):(UA|A)(\d+)$/);
     if (!match || match[1] !== themeNumber) throw new Error('Invalid indicator for ' + themeName + ': ' + entry.indicatorId);
     return {
       meta: {ThemeID:'T'+themeNumber,DimensionID:match[2],IndicatorID:entry.indicatorId,MaxScore:3},

@@ -121,7 +121,7 @@ function ratingFilterMatch(r:Rec,f:any){
  return (type==='student'&&!!studentRating&&score===Number(studentRating))||(type==='teacher'&&!!teacherRating&&score===Number(teacherRating));
 }
 function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\s_-]+/g,'');}
-function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(r.Year)===String(f.year)||String((r as any).CohortYear||'')===String(f.year))&&ratingFilterMatch(r,f))}
+function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String((r as any).CohortYear||r.Year||'')===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[

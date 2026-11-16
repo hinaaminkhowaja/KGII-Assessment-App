@@ -8119,8 +8119,15 @@ function getDashboardData(email) {
       const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','end','End']);
       const date=dateOf(submitted);const submissionYear=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
       const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|')) || masterByRecCode.get(recCode_(rec));
-      const cohort=masterRec?masterRec.StartingYear:'';
-      const year=s.kind==='teacher-c2' ? (clean(val(r,h,['Year','Assessment Year']))||submissionYear||cohort) : (cohort||submissionYear);
+      const storedAssessment=clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted']));
+      let cohort=masterRec?masterRec.StartingYear:'';
+      // Stage is the reliable fallback for APP cohort classification:
+      // Post 2+ belongs to the 2025 follow-up cohort; Pre belongs to 2026 intake.
+      if(!cohort && (s.kind==='student-app'||s.kind==='teacher-app'||s.kind==='teacher-c2')){
+        if(/^post\s*(?:2|3|4|5|6|7)$/i.test(storedAssessment))cohort=2025;
+        else if(/^pre(?:\s*assessment)?$/i.test(storedAssessment))cohort=2026;
+      }
+      const year=s.kind==='teacher-c2' ? (clean(val(r,h,['Year','Assessment Year']))||cohort||submissionYear) : (cohort||submissionYear);
       const id=clean(val(r,h,['_uuid','_id','SubmissionID','meta/rootUuid']))||s.name+'-'+(i+2);
       const child=clean(val(r,h,['Name of a child:','Name of a child','ChildName']));
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));

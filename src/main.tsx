@@ -551,24 +551,24 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ? [r.Region,r.LocalBoard,r.REC,r.ChildName].map(v=>geoNorm(v)).join('||')
     : [r.Region,r.LocalBoard,r.REC,r.SourceRecordID||r.RecordID].map(v=>geoNorm(v)).join('||');
   const recCohortForStage=(r:Rec,year:number,stage:'Pre'|'Post'|'Post 2')=>{
-    const masterYear=recStartingYearForRow(r);
-    if(masterYear)return masterYear;
-    // Fallback only for first-cycle submissions when a REC has no master-list match.
-    // Never infer Post 2 cohort from the submission year.
-    if(stage!=='Post 2')return Number(r.Year)||0;
-    return 0;
+    // The survey API explicitly supplies CohortYear. For Post 2 this must take
+    // precedence over the REC directory's StartingYear and the 2026 submission
+    // timestamp, otherwise a 2025 cohort can be misclassified or omitted.
+    if(stage==='Post 2')return Number((r as any).CohortYear)||recStartingYearForRow(r)||Number(r.Year)||0;
+    return recStartingYearForRow(r)||Number((r as any).CohortYear)||Number(r.Year)||0;
   };
+  const countSourceRows=()=>sourceRows.filter(r=>
+    (!f.region||geoNorm(r.Region)===geoNorm(f.region))&&
+    (!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&
+    (!f.rec||geoNorm(r.REC)===geoNorm(f.rec))
+  );
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const isTeacherSkillRow=(r:Rec)=>isTeacherSkillRec(r);
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
-    const cohortRows=rowsForCounts().filter(r=>{
+    const cohortRows=countSourceRows().filter(r=>{
       if(norm(r.ParticipantType).toLowerCase()!=='student'||!stageMatches(r,stage))return false;
-      const masterYear=recStartingYearForRow(r);
-      // The original Students Pre Assessment sheet is the authoritative 2025
-      // baseline. If a valid source REC is absent from the master list, retain
-      // its source Year rather than silently dropping the child submission.
-      const cohort=masterYear||Number((r as any).CohortYear)||Number(r.Year)||0;
+      const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });
     // Pre is a submission count: do not deduplicate by child name. One source
@@ -601,7 +601,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     return distinctCount(eligible,r=>teacherSubmissionKey(r,false));
   };
   const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
-    const eligible=rowsForCounts().filter(r=>{
+    const eligible=countSourceRows().filter(r=>{
       // Student REC coverage must follow the student assessment source only.
       // Teacher content/skills submissions must never increase student REC KPIs.
       if(norm(r.ParticipantType).toLowerCase()!=='student'||!stageMatches(r,stage))return false;

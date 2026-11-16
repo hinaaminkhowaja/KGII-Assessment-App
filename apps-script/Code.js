@@ -8038,7 +8038,12 @@ function getDashboardData(email) {
     if(Region&&LocalBoard&&REC)directory.push({Region,LocalBoard,REC,StartingYear,Status});
   });
   const active=directory.filter(x=>!x.Status||['active','yes','true','1'].includes(norm(x.Status)));
+  const recCode_=v=>{const m=clean(v).match(/^\s*(\d{3,})\s*\|/);return m?m[1]:'';};
   const masterMap=new Map(active.map(x=>[[geoKey(x.Region),geoKey(x.LocalBoard),geoKey(x.REC)].join('|'),x]));
+  // Kobo and app exports sometimes vary in board/REC display punctuation.
+  // Use the stable numeric REC code as a guarded fallback when the full key differs.
+  const masterByRecCode=new Map();
+  active.forEach(x=>{const code=recCode_(x.REC);if(code&&!masterByRecCode.has(code))masterByRecCode.set(code,x);});
   const allowed=(region,board,rec)=>{
     // Admin dashboard reads the source sheets as the system of record.
     // Do not discard valid source submissions just because a REC is missing
@@ -8113,7 +8118,7 @@ function getDashboardData(email) {
       if(!region||!board||!rec||!allowed(region,board,rec))return;
       const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','end','End']);
       const date=dateOf(submitted);const submissionYear=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
-      const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|'));
+      const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|')) || masterByRecCode.get(recCode_(rec));
       const cohort=masterRec?masterRec.StartingYear:'';
       const year=s.kind==='teacher-c2' ? (clean(val(r,h,['Year','Assessment Year']))||submissionYear||cohort) : (cohort||submissionYear);
       const id=clean(val(r,h,['_uuid','_id','SubmissionID','meta/rootUuid']))||s.name+'-'+(i+2);

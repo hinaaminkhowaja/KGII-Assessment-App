@@ -235,13 +235,14 @@ function App(){
     const objectRow=Array.isArray(row)?null:row;
     const objectIndex=new Map<string,string>();
     if(objectRow)Object.keys(objectRow).forEach((key:string)=>objectIndex.set(key.toLowerCase().replace(/[^a-z0-9]/g,''),key));
+    const positionalFields:Record<string,number>={recordid:0,cycleid:1,year:2,cohortyear:3,participanttype:4,assessment:5,region:6,localboard:7,rec:8,participantcount:9,phase:10,themeid:11,dimensionid:12,indicatorid:13,score:14,maxscore:15,sourcesheet:16,sourcerow:17,sourcerecordid:18,childname:19,teachername:20};
     const field=(...names:string[])=>{
       for(const name of names){
         const wanted=name.toLowerCase().replace(/[^a-z0-9]/g,'');
         const direct=objectRow?.[name];
         if(direct!==undefined&&direct!==null&&String(direct).trim()!=='')return direct;
         if(Array.isArray(row)){
-          const index=headerIndex.get(wanted);
+          const index=headerIndex.get(wanted)??positionalFields[wanted];
           if(index!==undefined&&row[index]!==undefined&&row[index]!==null&&String(row[index]).trim()!=='')return row[index];
         }else{
           const key=objectIndex.get(wanted);

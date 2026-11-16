@@ -238,7 +238,7 @@ function App(){
       }
       return '';
     };
-    return {RecordID:norm(field('RecordID','recordId','ID')),SourceRecordID:norm(field('SourceRecordID','Source Record ID')),SourceSheet:norm(field('SourceSheet','Source Sheet')),SourceRow:field('SourceRow','Source Row'),ChildName:norm(field('ChildName','Child Name','StudentName','Student Name','ParticipantName','Participant Name','Name')),StudentID:norm(field('StudentID','Student ID','ChildID','Child ID','ParticipantID','Participant ID','StudentCode','Student Code')),TeacherName:norm(field('TeacherName','Teacher Name','Name of Teacher','TeacherID','Teacher ID')),CycleID:norm(field('CycleID')),Year:Number(field('Year'))||0,ParticipantType:norm(field('ParticipantType','Participant Type')),Assessment:norm(field('Assessment','Assessment Stage')),Region:norm(field('Region')),LocalBoard:norm(field('LocalBoard','Local Board')),REC:norm(field('REC')),ParticipantCount:Number(field('ParticipantCount','Participant Count','No. of Participants','Number of Participants','Participants Count','No of Students','Student Count'))||0,Phase:norm(field('Phase')),ThemeID:norm(field('ThemeID','Theme ID')),DimensionID:norm(field('DimensionID','Dimension ID')),IndicatorID:norm(field('IndicatorID','Indicator ID')),Score:Number(field('Score'))||0,MaxScore:Number(field('MaxScore','Max Score'))||0} as Rec;
+    return {RecordID:norm(field('RecordID','recordId','ID')),SourceRecordID:norm(field('SourceRecordID','Source Record ID')),SourceSheet:norm(field('SourceSheet','Source Sheet')),SourceRow:field('SourceRow','Source Row'),ChildName:norm(field('ChildName','Child Name','StudentName','Student Name','ParticipantName','Participant Name','Name')),StudentID:norm(field('StudentID','Student ID','ChildID','Child ID','ParticipantID','Participant ID','StudentCode','Student Code')),TeacherName:norm(field('TeacherName','Teacher Name','Name of Teacher','TeacherID','Teacher ID')),CycleID:norm(field('CycleID')),Year:Number(field('Year'))||0,CohortYear:Number(field('CohortYear','Cohort Year'))||0,ParticipantType:norm(field('ParticipantType','Participant Type')),Assessment:norm(field('Assessment','Assessment Stage')),Region:norm(field('Region')),LocalBoard:norm(field('LocalBoard','Local Board')),REC:norm(field('REC')),ParticipantCount:Number(field('ParticipantCount','Participant Count','No. of Participants','Number of Participants','Participants Count','No of Students','Student Count'))||0,Phase:norm(field('Phase')),ThemeID:norm(field('ThemeID','Theme ID')),DimensionID:norm(field('DimensionID','Dimension ID')),IndicatorID:norm(field('IndicatorID','Indicator ID')),Score:Number(field('Score'))||0,MaxScore:Number(field('MaxScore','Max Score'))||0} as Rec;
   });
   setRecords(normalized);
   try{localStorage.setItem('kgii_assessment_cached_records',JSON.stringify(normalized));}catch(e){console.warn('Could not cache assessment records',e)}
@@ -444,7 +444,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const stageAverage=(items:Rec[],stages:ScoreStage[])=>stages.length?stages.reduce((total,stage)=>total+aggregate(stageRows(items,stage)).p,0)/stages.length:0;
   // Classify programme year by the REC's master StartingYear, not by the
   // submission timestamp. 2025-26 submissions may legitimately be dated 2026.
-  const recStartingYear=(r:Rec)=>{const match=targetRecs.find((t:any)=>geoNorm(t.Region)===geoNorm(r.Region)&&geoNorm(t.LocalBoard)===geoNorm(r.LocalBoard)&&geoNorm(t.REC)===geoNorm(r.REC));return Number(match?.StartingYear)||0;};
+  const kpiRecYearIndex=new Map<string,number>();
+  targetRecs.forEach((t:any)=>{const key=[t.Region,t.LocalBoard,t.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');const y=Number(t.StartingYear)||0;if(key&&y)kpiRecYearIndex.set(key,y);});
+  const recStartingYear=(r:Rec)=>{const key=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');return kpiRecYearIndex.get(key)||Number((r as any).CohortYear)||0;};
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);
@@ -524,7 +526,18 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Keep the selected Year filter for KPI source counts; do not silently reset it.
   const rowsForCounts=()=>filterRows(sourceRows,{...f,year:'',pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
   const recMasterKey=(v:any)=>norm(v).toLocaleLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
-  const recStartingYearForRow=(r:Rec)=>{const t=targetRecs.find((x:any)=>recMasterKey(x.Region)===recMasterKey(r.Region)&&recMasterKey(x.LocalBoard)===recMasterKey(r.LocalBoard)&&recMasterKey(x.REC)===recMasterKey(r.REC));return Number(t?.StartingYear)||0;};
+  // Build the REC cohort index once. Repeated Array.find calls for every
+  // expanded indicator row made dashboard recalculation slow on large datasets.
+  const recYearIndex=new Map<string,number>();
+  targetRecs.forEach((x:any)=>{
+    const key=[x.Region,x.LocalBoard,x.REC].map(recMasterKey).join('||');
+    const year=Number(x.StartingYear)||0;
+    if(key&&year)recYearIndex.set(key,year);
+  });
+  const recStartingYearForRow=(r:Rec)=>{
+    const key=[r.Region,r.LocalBoard,r.REC].map(recMasterKey).join('||');
+    return recYearIndex.get(key)||Number((r as any).CohortYear)||0;
+  };
   // Count each child once within their REC and assessment stage; SourceRecordID
   // identifies Kobo submissions, not unique children, and can vary on repeat visits.
   const studentIdentity=(r:Rec)=>r.ChildName
@@ -548,7 +561,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       // The original Students Pre Assessment sheet is the authoritative 2025
       // baseline. If a valid source REC is absent from the master list, retain
       // its source Year rather than silently dropping the child submission.
-      const cohort=masterYear||(stage==='Post 2'?0:Number(r.Year)||0);
+      const cohort=masterYear||Number((r as any).CohortYear)||Number(r.Year)||0;
       return cohort===year;
     });
     // Pre is a submission count: do not deduplicate by child name. One source

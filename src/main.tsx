@@ -595,8 +595,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const student2025Post=studentCountForYear(2025,'Post');
   const student2025Post2=studentCountForYear(2025,'Post 2');
   const student2026Pre=studentCountForYear(2026,'Pre');
-  const student2026Post=studentCountForYear(2026,'Post 2');
-  const student2026Post2=0;
+  const student2026Post=studentCountForYear(2026,'Post');
+  const student2026Post2=studentCountForYear(2026,'Post 2');
   const teacherContent2025Pre=teacherContentCountForYear(2025,'Pre');
   const teacherContent2025Post=teacherContentCountForYear(2025,'Post');
   const teacherSkills2026Pre=teacherSkillsCountForYear(2026,'Pre');
@@ -605,18 +605,18 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const rec2025Post=recCountForYear(2025,'Post');
   const rec2025Post2=recCountForYear(2025,'Post 2');
   const rec2026Pre=recCountForYear(2026,'Pre');
-  const rec2026Post=recCountForYear(2026,'Post 2');
-  const rec2026Post2=0;
+  const rec2026Post=recCountForYear(2026,'Post');
+  const rec2026Post2=recCountForYear(2026,'Post 2');
   const cards=[
     ['Overall Score',`${overall.score.toFixed(1)} / ${overall.max.toFixed(1)}`],
     ['Performance',fmt(overall.p)],
     ['Status',statusFor(overall.p)],
-    ['No. of Students (2025 Pre / Post)',`${student2025Pre} / ${student2025Post}`],
-    ['No. of Students (2026 Pre / Post)',`${student2026Pre} / ${student2026Post}`],
+    ['No. of Students (2025 Pre / Post / Post 2)',`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
+    ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
     ['No. of Teachers Content (2025 Pre / Post)',`${teacherContent2025Pre} / ${teacherContent2025Post}`],
     ['No. of Teachers Skills (2026 Pre / Post)',`${teacherSkills2026Pre} / ${teacherSkills2026Post}`],
-    ['No. of RECs (2025 Pre / Post)',`${rec2025Pre} / ${rec2025Post}`],
-    ['No. of RECs (2026 Pre / Post)',`${rec2026Pre} / ${rec2026Post}`],
+    ['No. of RECs (2025 Pre / Post / Post 2)',`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
+    ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
     ['Students Overall',fmt(studentPct)],
     ['Teachers Content Overall',fmt(teacherContentPct)],
     ['Teachers Skills Overall',fmt(teacherSkillsPct)],
@@ -629,9 +629,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       ? ['No. of Students (2025 Pre / Post)','No. of Students (2026 Pre / Post)','Students Overall']
       : [];
   const hiddenByYear=f.year==='2025'
-    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','No. of RECs (2026 Pre / Post)','Teachers Skills Overall']
+    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)','Teachers Skills Overall']
     : f.year==='2026'
-      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of RECs (2025 Pre / Post)','Teachers Content Overall']
+      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of RECs (2025 Pre / Post / Post 2)','Teachers Content Overall']
       : [];
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label)));
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));

@@ -8234,7 +8234,11 @@ function getDashboardData(email) {
               : (event ? event.assessment : clean(val(r,h,['Assessment','Specify the phase'])) || 'Post');
           let cycle='C1';
           numericCols.forEach(c=>{
-            if(s.kind==='student-app'&&!new RegExp('^'+theme.replace(' ','\\\\s*')+'\\\\s*:','i').test(c.name))return;
+            if (s.kind === 'student-app') {
+              const columnTheme = c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*\d+$/i);
+              const selectedThemeNumber = Number((theme.match(/[1-4]/) || [])[0]);
+              if (!columnTheme || Number(columnTheme[1]) !== selectedThemeNumber) return;
+            }
             const raw=r[c.j];
             const isBlank = raw===''||raw===null||raw===undefined;
             if(isBlank && !isStudentPre)return;
@@ -8301,7 +8305,17 @@ function removeAssessmentHelperColumnsFromSheets() {
   return {success: true, message: 'Temporary assessment helper columns removed.', sheets: report};
 }
 
-function directThemeId_(name){const n=String(name||'').toLowerCase().replace(/[^a-z]/g,'');const map={'authorityandleadership':'Theme 1','authorityleadership':'Theme 1','ismailimuslimtraditions':'Theme 2','roleinfamilycommunityandsociety':'Theme 3','twoaspectsoflife':'Theme 4'};return map[n]||name;}
+function directThemeId_(name){
+  const raw=String(name||'').trim();
+  const n=raw.toLowerCase().replace(/[^a-z]/g,'').replace(/^theme[1-4]/,'');
+  const map={
+    authorityandleadership:'Theme 1', authorityleadership:'Theme 1',
+    intellectualtraditions:'Theme 2', ismailimuslimtraditions:'Theme 2',
+    roleinfamilycommunityandsociety:'Theme 3', roleinfamilycommunity:'Theme 3',
+    twoaspectsoflife:'Theme 4'
+  };
+  return map[n] || (/^theme\s*[1-4]$/i.test(raw) ? raw.replace(/\s+/g,' ') : raw);
+}
 
 
 /* Runtime compatibility for legacy survey handlers: mappings are generated

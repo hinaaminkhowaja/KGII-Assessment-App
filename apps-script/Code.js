@@ -2510,99 +2510,16 @@ function handleTeacherSurveyCycle2_(body) {
 
   const surveyRow = surveyRowFromObject_(headers, values);
 
-  // Validate the normalized-record destination before saving the submission.
-  const recordsSheet = ss.getSheetByName(CONFIG.RECORDS_SHEET);
-
-  if (!recordsSheet) {
-    throw new Error('APP_Records sheet not found.');
-  }
-
-  const recordHeaders = surveyHeaders_(recordsSheet);
-  const required = [
-    'RecordID', 'CycleID', 'Year', 'ParticipantType', 'Assessment',
-    'Region', 'LocalBoard', 'REC', 'ParticipantCount', 'Phase',
-    'ThemeID', 'DimensionID', 'IndicatorID', 'Score', 'MaxScore',
-    'SourceSheet', 'SourceRow', 'SourceRecordID'
-  ];
-
-  required.forEach(name => {
-    if (recordHeaders.indexOf(name) < 0) {
-      throw new Error('APP_Records is missing column: ' + name);
-    }
-  });
-
-  const participantName = clean(body.teacherName);
-  const phase = assessment === 'Pre' ? 'Pre-assessment' : 'Post-assessment';
-  const recordId =
-    'C2-T' + assessment.toUpperCase() + '-R' + sourceRow;
-
-  const recordRows = [];
-
-  skills.forEach(skill => {
-    for (let i = 0; i < 4; i++) {
-      const indicatorNumber = i + 1;
-      const sourceHeader =
-        (skill.key === 'instructional' ? 'Instructional_Indicator' :
-         skill.key === 'questioning' ? 'Questioning_Indicator' :
-         'Feedback_Indicator') + indicatorNumber;
-      const sourceColumn = headers.indexOf(sourceHeader) + 1;
-
-      const meta = referenceRows.find(item =>
-        clean(item.CycleID) === 'C2' &&
-        clean(item.ParticipantType).toLowerCase() === 'teacher' &&
-        surveyAssessment_(item.Assessment) === assessment &&
-        clean(item.AppSourceSheet) === sheet.getName() &&
-        Number(item.AppSourceColumn) === sourceColumn
-      );
-
-      if (!meta || sourceColumn < 1) {
-        throw new Error(
-          'Missing C2 teacher App indicator mapping for ' +
-          sourceHeader + ' (column ' + sourceColumn + ').'
-        );
-      }
-
-      const record = {
-        RecordID: recordId,
-        CycleID: 'C2',
-        Year: year,
-        ParticipantType: 'Teacher',
-        Assessment: assessment,
-        Region: clean(body.region),
-        LocalBoard: clean(body.localBoard),
-        REC: clean(body.rec),
-        ParticipantCount: 1,
-        Phase: phase,
-        ThemeID: meta.ThemeID,
-        DimensionID: meta.DimensionID,
-        IndicatorID: meta.IndicatorID,
-        Score: Number(ratings[skill.key][i]),
-        MaxScore: Number(meta.MaxScore) || 4,
-        SourceSheet: sheet.getName(),
-        SourceRow: sourceRow,
-        SourceRecordID: submissionId,
-        TeacherName: participantName
-      };
-
-      recordRows.push(surveyRowFromObject_(recordHeaders, record));
-    }
-  });
-
-  // Write the submission, then its 12 normalized indicator records.
+  // Save the original survey response only. The dashboard reads this source
+  // sheet directly and expands the 12 skill indicators in memory; no APP_Records
+  // or APP_Indicators dependency is required.
   sheet.getRange(sourceRow, 1, 1, headers.length).setValues([surveyRow]);
-
-  recordsSheet.getRange(
-    recordsSheet.getLastRow() + 1,
-    1,
-    recordRows.length,
-    recordHeaders.length
-  ).setValues(recordRows);
 
   return {
     success: true,
     message: 'Cycle 2 teacher assessment submitted successfully.',
     submissionId: submissionId,
-    normalizedRecordsCreated: recordRows.length
+    normalizedRecordsCreated: 0
   };
 }
 
@@ -8198,7 +8115,7 @@ function getDashboardData(email) {
       const date=dateOf(submitted);const submissionYear=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
       const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|'));
       const cohort=masterRec?masterRec.StartingYear:'';
-      const year=cohort||submissionYear;
+      const year=s.kind==='teacher-c2' ? (clean(val(r,h,['Year','Assessment Year']))||submissionYear||cohort) : (cohort||submissionYear);
       const id=clean(val(r,h,['_uuid','_id','SubmissionID','meta/rootUuid']))||s.name+'-'+(i+2);
       const child=clean(val(r,h,['Name of a child:','Name of a child','ChildName']));
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
@@ -8271,11 +8188,13 @@ function getDashboardData(email) {
           }
         }
       } else if(s.kind==='teacher-app'){
-        const theme=directThemeId_(clean(val(r,h,['ThemeName']))||'Authority and Leadership');
+        const themeLabel=directThemeId_(clean(val(r,h,['ThemeName']))||'Authority and Leadership');
+        const themeMatch=String(themeLabel).match(/([1-4])/);
+        const theme=themeMatch?'T'+themeMatch[1]:themeLabel;
         ['PreRating','PostRating'].forEach(k=>{const raw=val(r,h,[k]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+k,'C1',year,cohort,'Teacher',k==='PreRating'?'Pre':'Post',region,board,rec,1,'',theme,'Overall',theme+':'+k,score,4,s.name,i+2,id,'',teacher]);});
       } else if(s.kind==='teacher-c2'){
         const assessment=clean(val(r,h,['Assessment']))||'Pre';
-        ['Instructional','Questioning','Feedback'].forEach(dim=>{for(let n=1;n<=4;n++){const key=dim+'_Indicator'+n,raw=val(r,h,[key]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+key,'C2',year||clean(val(r,h,['Year'])),cohort,'Teacher',assessment,region,board,rec,1,'',clean(val(r,h,['AssessmentContext']))||'Teaching Practice',dim,dim+n,score,4,s.name,i+2,id,'',teacher]);}});
+        ['Instructional','Questioning','Feedback'].forEach(dim=>{for(let n=1;n<=4;n++){const key=dim+'_Indicator'+n,raw=val(r,h,[key]);if(raw===''||raw===null)return;const score=Number(raw);if(!Number.isFinite(score))return;records.push([id+'-'+key,'C2',year||clean(val(r,h,['Year'])),cohort,'Teacher',assessment,region,board,rec,1,'',({Instructional:'S1',Questioning:'S2',Feedback:'S3'})[dim]||'S1',dim,dim+n,score,4,s.name,i+2,id,'',teacher]);}});
       }
     });
   });

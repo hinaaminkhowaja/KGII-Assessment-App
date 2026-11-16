@@ -626,7 +626,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const hiddenByRating=f.studentRating&&!f.teacherRating
     ? ['No. of Teachers Content (2025 Pre / Post)','No. of Teachers Skills (2026 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
     : f.teacherRating&&!f.studentRating
-      ? ['No. of Students (2025 Pre / Post)','No. of Students (2026 Pre / Post)','Students Overall']
+      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
       : [];
   const hiddenByYear=f.year==='2025'
     ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)','Teachers Skills Overall']

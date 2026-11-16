@@ -215,6 +215,7 @@ function App(){
  const loadDashboard=async(email:string)=>{
   const d=await apiGet('dashboard',{email});
   const rows=arrayFrom(d,'records','rows','data');
+  const headers=Array.isArray(d?.headers)?d.headers:[];
   const headerIndex=new Map<string,number>();
   headers.forEach((h:string,i:number)=>headerIndex.set(norm(h).toLowerCase().replace(/[^a-z0-9]/g,''),i));
   const normalized=rows.map((row:any)=>{

@@ -2956,8 +2956,35 @@ function getDashboardData(email) {
   const ss=SpreadsheetApp.getActiveSpreadsheet();
   const norm=v=>String(v==null?'':v).replace(/\u00a0/g,' ').trim().replace(/\s+/g,' ').toLowerCase();
   const clean=v=>String(v==null?'':v).replace(/\u00a0/g,' ').trim();
-  const idx=(h,names)=>{for(const n of names){const i=h.findIndex(x=>norm(x)===norm(n));if(i>=0)return i;}return -1;};
+  // Build each source sheet's normalized header index once; row processing reuses it.
+  const headerIndexCache=new WeakMap();
+  const headerIndex_=(h)=>{
+    let map=headerIndexCache.get(h);
+    if(!map){
+      map=new Map();
+      h.forEach((name,i)=>{const key=norm(name);if(key&&!map.has(key))map.set(key,i);});
+      headerIndexCache.set(h,map);
+    }
+    return map;
+  };
+  const idx=(h,names)=>{const map=headerIndex_(h);for(const n of names){const i=map.get(norm(n));if(i!==undefined)return i;}return -1;};
   const val=(r,h,names)=>{const i=idx(h,names);return i<0?'':r[i];};
+  // Teacher Kobo rubric columns are also resolved once per header set.
+  const teacherRubricCache=new WeakMap();
+  const teacherRubricCol_=(h,stage,themeNo)=>{
+    let map=teacherRubricCache.get(h);
+    if(!map){map=new Map();teacherRubricCache.set(h,map);}
+    const key=stage+'|'+themeNo;
+    if(!map.has(key)){
+      const column=h.findIndex(name=>{
+        const n=norm(name);
+        return n.includes(stage.toLowerCase()+'-assessment rubrics for theme '+themeNo) ||
+          n.includes(stage.toLowerCase()+' assessment rubrics for theme '+themeNo);
+      });
+      map.set(key,column);
+    }
+    return map.get(key);
+  };
   const yearOf=v=>{if(v instanceof Date&&!isNaN(v))return String(v.getFullYear());const m=clean(v).match(/(?:19|20)\d{2}/);return m?m[0]:'';};
   const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v;const d=new Date(v);return isNaN(d)?null:d;};
   const geoKey=v=>norm(v).replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
@@ -3121,11 +3148,7 @@ function getDashboardData(email) {
         // Expand every received theme/stage response into its own dashboard record.
         for(let themeNo=1;themeNo<=4;themeNo++){
           for(const stage of ['Pre','Post']){
-            const col=h.findIndex(name=>{
-              const n=norm(name);
-              return n.includes(stage.toLowerCase()+'-assessment rubrics for theme '+themeNo) ||
-                n.includes(stage.toLowerCase()+' assessment rubrics for theme '+themeNo);
-            });
+            const col=teacherRubricCol_(h,stage,themeNo);
             if(col<0)continue;
             const raw=r[col];
             if(raw===''||raw===null||raw===undefined)continue;

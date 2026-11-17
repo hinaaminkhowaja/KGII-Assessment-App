@@ -1303,11 +1303,13 @@ function getRecStartingYear_(region, localBoard, rec) {
   const col = name => headers.indexOf(name.toLowerCase());
   const ri=col('Region'), bi=col('LocalBoard'), ci=col('REC'), yi=col('StartingYear'), si=col('Status');
   if ([ri,bi,ci,yi].some(i=>i<0)) throw new Error('REC directory requires Region, LocalBoard, REC and StartingYear.');
-  const key = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
+  const key = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const compact = v => key(v).replace(/[^a-z0-9]/g,'');
+  const same = (a,b) => key(a)===key(b) || compact(a)===compact(b);
   for (const row of values.slice(1)) {
     const status=si>=0?clean(row[si]).toLowerCase():'active';
     if (status && !['active','yes','true','1'].includes(status)) continue;
-    if (key(row[ri])===key(region) && key(row[bi])===key(localBoard) && key(row[ci])===key(rec)) {
+    if (same(row[ri],region) && same(row[bi],localBoard) && same(row[ci],rec)) {
       return Number(row[yi])||0;
     }
   }
@@ -1347,39 +1349,53 @@ function recThemeHasPostSubmission_(region, localBoard, rec, themeID) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sourceNames = ['Students Post Assessment', 'APP_Student_Surveys'];
   const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
-  const regionKey = value => key(value).replace(/\s+\\d+$/,'');
+  const compact = value => key(value).replace(/[^a-z0-9]/g,'');
+  const same = (a,b) => key(a)===key(b) || compact(a)===compact(b);
+  const canonicalTheme = value => {
+    const raw=key(value);
+    const digits=(raw.match(/(?:theme\s*|^t)([1-4])\b/i)||raw.match(/([1-4])/))?.[1];
+    if (digits) return 'theme'+digits;
+    const normalized=raw.replace(/[^a-z]/g,'');
+    const aliases={
+      authorityandleadership:'theme1',authorityleadership:'theme1',
+      intellectualtraditions:'theme2',ismailimuslimtraditions:'theme2',
+      roleinfamilycommunityandsociety:'theme3',
+      twoaspectsoflife:'theme4'
+    };
+    return aliases[normalized] || normalized;
+  };
+  const wantedTheme=canonicalTheme(themeID);
+  const themeNumber=(wantedTheme.match(/theme([1-4])/)||[])[1];
+  if (!themeNumber) return false;
+
   for (const name of sourceNames) {
-    const sheet = ss.getSheetByName(name);
-    if (!sheet || sheet.getLastRow() < 2) continue;
-    const values = sheet.getDataRange().getValues();
-    const headers = values[0].map(h => clean(h));
-    const col = (...names) => headers.findIndex(h => names.some(n => key(h) === key(n)));
+    const sheet=ss.getSheetByName(name);
+    if (!sheet || sheet.getLastRow()<2) continue;
+    const values=sheet.getDataRange().getValues();
+    const headers=values[0].map(h=>clean(h));
+    const col=(...names)=>headers.findIndex(h=>names.some(n=>key(h)===key(n)));
     const ri=col('1. Select your region','Select your region','Region');
     const bi=col('LocalBoard','Local Board','Local Board (Standardized)','Name of Local Board');
     const ci=col('REC','REC (Standardized)','Name of RECs');
-    const ti=col('ThemeName','Theme Name','Select the themes','ThemeID','Theme');
     const ai=col('Assessment','AssessmentStage','Select when this assessment conducted');
-    if ([ri,bi,ci,ti,ai].some(i=>i<0)) continue;
-    const canonicalTheme = value => {
-      const raw=key(value);
-      const digits=(raw.match(/(?:theme\s*)?([1-4])/i)||[])[1];
-      if (digits) return 'theme'+digits;
-      const compact=raw.replace(/[^a-z]/g,'');
-      const aliases={
-        authorityandleadership:'theme1',authorityleadership:'theme1',
-        intellectualtraditions:'theme2',ismailimuslimtraditions:'theme2',
-        roleinfamilycommunityandsociety:'theme3',roleinfamilycommunityandsocietytheme:'theme3',
-        twoaspectsoflife:'theme4'
-      };
-      return aliases[compact] || compact;
-    };
-    const sameLocation = (a,b) => key(a)===key(b) ||
-      key(a).replace(/[^a-z0-9]/g,'')===key(b).replace(/[^a-z0-9]/g,'');
-    const found=values.slice(1).some(row => {
-      const assessment=key(row[ai]).replace(/\s+/g,'');
-      return regionKey(row[ri])===regionKey(region) && sameLocation(row[bi],localBoard) &&
-        sameLocation(row[ci],rec) && canonicalTheme(row[ti])===canonicalTheme(themeID) &&
-        (assessment==='post' || assessment==='postassessment');
+    if ([ri,bi,ci].some(i=>i<0)) continue;
+
+    let themeCol=col('ThemeName','Theme Name','Select the themes','ThemeID','Theme');
+    const ratingCols=headers.map((header,index)=>({
+      index,
+      matches:new RegExp('^theme\\s*'+themeNumber+'\\s*:', 'i').test(header)
+    })).filter(item=>item.matches).map(item=>item.index);
+
+    const found=values.slice(1).some(row=>{
+      if (!same(row[ri],region) || !same(row[bi],localBoard) || !same(row[ci],rec)) return false;
+      if (ai>=0) {
+        const assessment=key(row[ai]).replace(/\s+/g,'');
+        if (assessment!=='post' && assessment!=='postassessment') return false;
+      } else if (name!=='Students Post Assessment') {
+        return false;
+      }
+      if (themeCol>=0) return canonicalTheme(row[themeCol])===wantedTheme;
+      return ratingCols.length>0 && ratingCols.some(index=>row[index]!=='' && row[index]!==null && row[index]!==undefined);
     });
     if (found) return true;
   }

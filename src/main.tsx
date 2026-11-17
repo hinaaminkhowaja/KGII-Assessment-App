@@ -121,8 +121,17 @@ function ratingFilterMatch(r:Rec,f:any){
  return (type==='student'&&!!studentRating&&score===Number(studentRating))||(type==='teacher'&&!!teacherRating&&score===Number(teacherRating));
 }
 function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\s_-]+/g,'');}
-function cohortPlanIncludes(r:Rec){
- const year=Number((r as any).CohortYear)||Number(r.Year)||0;
+function cohortYearForRecord(r:Rec,targetRecs:any[]=[]){
+ const key=(v:any)=>norm(v).toLowerCase().replace(/\\s*\\|\\s*/g,'|').replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
+ const full=[r.Region,r.LocalBoard,r.REC].map(key).join('||');
+ const code=(v:any)=>{const m=String(v||'').match(/^\\s*(\\d{3,})\\s*\\|/);return m?m[1]:'';};
+ const recCode=code(r.REC);
+ const match=targetRecs.find((x:any)=>[x.Region,x.LocalBoard,x.REC].map(key).join('||')===full)
+   ||(recCode?targetRecs.find((x:any)=>code(x.REC)===recCode):undefined);
+ return Number(match?.StartingYear)||Number((r as any).CohortYear)||0;
+}
+function cohortPlanIncludes(r:Rec,targetRecs:any[]=[]){
+ const year=cohortYearForRecord(r,targetRecs);
  const participant=norm(r.ParticipantType).toLowerCase();
  const skill=isTeacherSkillRec(r);
  const isPre=assessmentIs(r.Assessment,'Pre');
@@ -140,7 +149,7 @@ function cohortPlanIncludes(r:Rec){
  }
  return false;
 }
-function filterRows(rows:Rec[],f:any){return rows.filter(r=>cohortPlanIncludes(r)&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String((r as any).CohortYear||r.Year||'')===String(f.year))&&ratingFilterMatch(r,f))}
+function filterRows(rows:Rec[],f:any,targetRecs:any[]=[]){return rows.filter(r=>cohortPlanIncludes(r,targetRecs)&&(!f.cycle||norm(r.CycleID).toUpperCase()===String(f.cycle).toUpperCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[
@@ -185,7 +194,7 @@ function normalizeRefs(rows:any[]):Ref[]{return rows.map((x:any)=>({Region:norm(
 function App(){
  const [records,setRecords]=useState<Rec[]>([]);const [refs,setRefs]=useState<Ref[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return normalizeRefs(Array.isArray(cached)?cached:[])}catch{return []}});const [targetRecs,setTargetRecs]=useState<any[]>(()=>{try{const cached=JSON.parse(localStorage.getItem('kgii_assessment_cached_target_recs')||'[]');return Array.isArray(cached)?cached:[]}catch{return []}});const [indicators,setIndicators]=useState<Indicator[]>([]);const [directoryLoaded,setDirectoryLoaded]=useState(false);
  const [page,setPage]=useState('home');const [mobileNavOpen,setMobileNavOpen]=useState(false);const [printOpen,setPrintOpen]=useState(false);const [apiError,setApiError]=useState('');const [loading,setLoading]=useState(false);
- const [f,setF]=useState<any>({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:'2025'});
+ const [f,setF]=useState<any>({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:'2025',cycle:'C1'});
  const [user,setUser]=useState<AppUser|null>(null);const [users,setUsers]=useState<AppUser[]>([]);const [access,setAccess]=useState<AccessRule[]>([]);
  useEffect(()=>{const sync=()=>{void syncOfflineSurveyQueue();};window.addEventListener('online',sync);if(navigator.onLine)sync();return()=>window.removeEventListener('online',sync);},[]);
  const loadDirectory=async()=>{
@@ -280,13 +289,13 @@ const recs = useMemo(
   const allowedRecords=records;
   const cohortScopedRecords=useMemo(()=>allowedRecords,[allowedRecords]);
   const pageRecords=useMemo(()=>page==='teacher'?cohortScopedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'):cohortScopedRecords,[cohortScopedRecords,page]);
-  const filtered=useMemo(()=>filterRows(pageRecords,f),[pageRecords,f]);
-  const metricRows=useMemo(()=>filterRows(pageRecords,{...f,studentRating:'',teacherRating:''}),[pageRecords,f]);
-  const allStageRows=useMemo(()=>filterRows(pageRecords,{...f,assessment:'',pt:'',theme:'',dim:'',focus:'',teacher:'',studentRating:'',teacherRating:''}),[pageRecords,f]);
+  const filtered=useMemo(()=>filterRows(pageRecords,f,targetRecs),[pageRecords,f]);
+  const metricRows=useMemo(()=>filterRows(pageRecords,{...f,studentRating:'',teacherRating:''},targetRecs),[pageRecords,f]);
+  const allStageRows=useMemo(()=>filterRows(pageRecords,{...f,assessment:'',pt:'',theme:'',dim:'',focus:'',teacher:'',studentRating:'',teacherRating:''},targetRecs),[pageRecords,f]);
   const post2Rows=useMemo(()=>allStageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment)),[allStageRows]);
-  const regionPerformanceRows=useMemo(()=>filterRows(cohortScopedRecords,f),[cohortScopedRecords,f]);
-  const highlightRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:''}),[cohortScopedRecords,f]);
-  const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''}),[cohortScopedRecords,f]);
+  const regionPerformanceRows=useMemo(()=>filterRows(cohortScopedRecords,f,targetRecs),[cohortScopedRecords,f]);
+  const highlightRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:''},targetRecs),[cohortScopedRecords,f]);
+  const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''},targetRecs),[cohortScopedRecords,f]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
  // Region options are sourced from the live six-source dashboard response.
@@ -431,7 +440,7 @@ function ResourceLibrary({user}:{user:AppUser|null}){
 
 function title(p:string){return ({dashboard:'KG II Assessment Dashboard',region:'Region-wise Analysis',board:'Local Board-wise Analysis',rec:'REC-wise Analysis',teacher:'Teacher-wise Analysis',theme:'Theme-wise Analysis',dimension:'Dimension-wise Analysis',prepost:'Pre / Post Analysis',crossanalysis:'Student–Teacher Cross-Analysis',admin:'Users & Access',resources:'Mentoring & Assessment Strategies','student-survey':'Student Survey Entry','teacher-survey':'Teacher Survey Entry'} as any)[p]}
 function subtitle(p:string){if(p==='student-survey')return 'Enter student survey responses using the master Region → Local Board → REC hierarchy.';if(p==='teacher-survey')return 'Enter teacher survey responses using the master Region → Local Board → REC hierarchy.';if(p==='resources')return 'View and download mentoring and assessment resources.';return p==='dashboard'?'Assessment Performance Overview':p==='teacher'?'Review individual teacher performance across themes, dimensions and pre/post assessments.':p==='crossanalysis'?'Explore teacher development alongside student understanding, articulation and application across REC, Local Board, Region and National levels.':'Drill down into performance using the selected filters.'}
-function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const teacherPage=page==='teacher';const assessmentOptions=(teacherPage||f.pt==='Teacher')?assessments.filter((a:string)=>a==='Pre'||a==='Post'||a==='Skill Pre'||a==='Skill Post'):f.pt==='Student'?assessments.filter((a:string)=>['Pre','Post','Post 2','Post 3'].includes(a)):assessments;const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='pt'?{focus:'',assessment:''}:k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):k==='studentRating'?studentRatingLabel(v):k==='teacherRating'?teacherRatingLabel(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/ >}{page==='crossanalysis'?null:page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/ >}{page!=='crossanalysis'&&<S k="assessment" lab="Assessment Type" vals={assessmentOptions}/ >}{(teacherPage||f.pt==='Teacher')&&page!=='crossanalysis'&&<S k="focus" lab="Assessment Focus" vals={['Content','Skills']}/ >}{!teacherPage&&page!=='crossanalysis'&&<S k="studentRating" lab="Student Rating" vals={['3','2','1']}/ >}{page!=='crossanalysis'&&<S k="teacherRating" lab="Teacher Rating" vals={['4','3','2','1']}/ >}<S k="theme" lab="Theme" vals={themes}/ >{!teacherPage&&page!=='crossanalysis'&&<S k="dim" lab="Dimension" vals={dims}/ >}<S k="year" lab="Year" vals={years.map(String)}/ ></section>}
+function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){const teacherPage=page==='teacher';const assessmentOptions=(teacherPage||f.pt==='Teacher')?assessments.filter((a:string)=>a==='Pre'||a==='Post'||a==='Skill Pre'||a==='Skill Post'):f.pt==='Student'?assessments.filter((a:string)=>['Pre','Post','Post 2','Post 3'].includes(a)):assessments;const geoLevel=page==='region'?1:page==='board'?2:page==='rec'?3:3;const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='pt'?{focus:'',assessment:''}:k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):k==='studentRating'?studentRatingLabel(v):k==='teacherRating'?teacherRatingLabel(v):v}</option>)}</select></label>;return <section className="filters"><S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/>}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/ >}{page==='crossanalysis'?null:page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/ >}{page!=='crossanalysis'&&<S k="assessment" lab="Assessment Type" vals={assessmentOptions}/ >}{(teacherPage||f.pt==='Teacher')&&page!=='crossanalysis'&&<S k="focus" lab="Assessment Focus" vals={['Content','Skills']}/ >}{!teacherPage&&page!=='crossanalysis'&&<S k="studentRating" lab="Student Rating" vals={['3','2','1']}/ >}{page!=='crossanalysis'&&<S k="teacherRating" lab="Teacher Rating" vals={['4','3','2','1']}/ >}<S k="theme" lab="Theme" vals={themes}/ >{!teacherPage&&page!=='crossanalysis'&&<S k="dim" lab="Dimension" vals={dims}/ >}<S k="year" lab="Year" vals={years.map(String)}/ ><S k="cycle" lab="Cycle" vals={["C1","C2"]}/ ></section>}
 function studentRatingLabel(score:string){return ({'3':'Very well (3)','2':'To some extent (2)','1':'Face difficulty (1)'} as Record<string,string>)[score]||score}
 function teacherRatingLabel(score:string){return ({'4':'Exemplary (4)','3':'Proficient (3)','2':'Developing (2)','1':'Emerging (1)'} as Record<string,string>)[score]||score}
 
@@ -525,7 +534,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Stage counts follow the REC's StartingYear cohort and assessment type,
   // not the calendar date on which a Kobo/app submission was uploaded.
   // Keep the selected Year filter for KPI source counts; do not silently reset it.
-  const rowsForCounts=()=>filterRows(sourceRows,{...f,year:'',pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''});
+  const rowsForCounts=()=>filterRows(sourceRows,{...f,year:'',pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''},targetRecs);
   const recMasterKey=(v:any)=>norm(v).toLocaleLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
   // Build the REC cohort index once. Repeated Array.find calls for every
   // expanded indicator row made dashboard recalculation slow on large datasets.

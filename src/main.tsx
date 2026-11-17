@@ -125,15 +125,17 @@ function cohortPlanIncludes(r:Rec){
  const year=Number((r as any).CohortYear)||Number(r.Year)||0;
  const participant=norm(r.ParticipantType).toLowerCase();
  const skill=isTeacherSkillRec(r);
- const stage=assessmentKey(r.Assessment);
+ const isPre=assessmentIs(r.Assessment,'Pre');
+ const isPost=assessmentIs(r.Assessment,'Post');
+ const isPost2=assessmentIsPost2(r.Assessment);
  if(year===2025){
-   if(participant==='student')return ['pre','post','post2'].includes(stage);
-   if(participant==='teacher')return skill?['pre','post','skillpre','skillpost'].includes(stage):['pre','post'].includes(stage);
+   if(participant==='student')return isPre||isPost||isPost2;
+   if(participant==='teacher')return isPre||isPost;
    return false;
  }
  if(year===2026){
-   if(participant==='student')return stage==='pre';
-   if(participant==='teacher')return !skill&&['pre','post'].includes(stage);
+   if(participant==='student')return isPre;
+   if(participant==='teacher')return !skill&&(isPre||isPost);
    return false;
  }
  return false;

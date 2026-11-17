@@ -9,6 +9,15 @@ const pct=(n:number,d:number)=>d?100*n/d:0;
 const fmt=(x:number)=>Number.isFinite(x)?x.toFixed(1)+'%':'—';
 const norm=(v:any)=>String(v??'').trim();
 const geoNorm=(v:any)=>norm(v).replace(/[_-]+/g,' ').replace(/\s+\d+$/,'').replace(/\s+/g,' ').trim().toLocaleLowerCase();
+ // Count one student source assessment submission once within its REC.
+ // ChildName is descriptive only and never merges separate submissions.
+ function studentSubmissionIdentity(r:Rec){
+   return [
+     geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC),
+     norm(r.SourceSheet||'Students Assessment'),
+     norm(r.SourceRow||r.SourceRecordID||r.RecordID)
+   ].map(v=>v.toLocaleLowerCase()).join('||');
+ }
 function uniqueGeoValues(values:any[]){const map=new Map<string,string>();for(const value of values){const raw=norm(value);const key=geoNorm(raw);if(key&&!map.has(key))map.set(key,raw.replace(/\s+/g,' '));}return [...map.values()].sort((a,b)=>a.localeCompare(b));}
 function aggregate(rows:Rec[]){let s=0,m=0;for(const r of rows){s+=Number(r.Score)||0;m+=Number(r.MaxScore)||0}return {score:s,max:m,p:pct(s,m)};}
 function avgRating(rows:Rec[],participantType:string){const x=rows.filter(r=>r.ParticipantType===participantType);if(!x.length)return 0;return x.reduce((a,r)=>a+(Number(r.Score)||0),0)/x.length;}
@@ -575,13 +584,6 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     const key=[r.Region,r.LocalBoard,r.REC].map(recMasterKey).join('||');
     return recYearIndex.get(key)||recCodeYearIndex.get(recCode(r.REC))||Number((r as any).CohortYear)||0;
   };
-  // Student counts follow source assessment submissions within each REC.
-  // ChildName is descriptive only and must never be used to merge submissions.
-  const studentSubmissionIdentity=(r:Rec)=>[
-    geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC),
-    norm(r.SourceSheet||'Students Assessment'),
-    norm(r.SourceRow||r.SourceRecordID||r.RecordID)
-  ].map(v=>v.toLocaleLowerCase()).join('||');
   // Stage does not affect cohort membership. A REC stays in its original
   // StartingYear cohort for Pre, Post, Post 2 and every later follow-up.
   const recCohortForStage=(r:Rec,_year:number,_stage:'Pre'|'Post'|'Post 2')=>recStartingYearForRow(r)||Number((r as any).CohortYear)||0;

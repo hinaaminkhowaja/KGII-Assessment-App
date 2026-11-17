@@ -121,7 +121,26 @@ function ratingFilterMatch(r:Rec,f:any){
  return (type==='student'&&!!studentRating&&score===Number(studentRating))||(type==='teacher'&&!!teacherRating&&score===Number(teacherRating));
 }
 function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\s_-]+/g,'');}
-function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String((r as any).CohortYear||r.Year||'')===String(f.year))&&ratingFilterMatch(r,f))}
+function cohortPlanIncludes(r:Rec){
+ const year=Number((r as any).CohortYear)||Number(r.Year)||0;
+ const participant=norm(r.ParticipantType).toLowerCase();
+ const skill=isTeacherSkillRec(r);
+ const isPre=assessmentIs(r.Assessment,'Pre');
+ const isPost=assessmentIs(r.Assessment,'Post');
+ const isPost2=assessmentIsPost2(r.Assessment);
+ if(year===2025){
+   if(participant==='student')return isPre||isPost||isPost2;
+   if(participant==='teacher')return isPre||isPost;
+   return false;
+ }
+ if(year===2026){
+   if(participant==='student')return isPre;
+   if(participant==='teacher')return !skill&&(isPre||isPost);
+   return false;
+ }
+ return false;
+}
+function filterRows(rows:Rec[],f:any){return rows.filter(r=>cohortPlanIncludes(r)&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String((r as any).CohortYear||r.Year||'')===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[
@@ -422,9 +441,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const allStageRows=allCycleRows;
   const ratingSelected=!!(f.studentRating||f.teacherRating);
   const scoreRows=ratingSelected?metricRows.filter(r=>(!f.studentRating&&!f.teacherRating)||(!!f.studentRating&&norm(r.ParticipantType).toLowerCase()==='student')||(!!f.teacherRating&&norm(r.ParticipantType).toLowerCase()==='teacher')):metricRows;
-  // The dashboard uses the agreed 206-point framework: student Pre/Post
-  // (87), student Post 2 (87), teacher content Pre/Post (16), teacher skills
-  // Pre/Post (16). Each component is normalized before weighting.
+  // Fixed cohort framework: 2025 = student Pre/Post/Post 2 (261) + teacher content Pre/Post (32) + teacher skills Pre/Post (96); 2026 = student Pre (87) + teacher content Pre/Post (32).
   const averagePresent=(values:number[])=>values.length?values.reduce((a,b)=>a+b,0)/values.length:0;
   type ScoreStage='Pre'|'Post'|'Post 2';
   const stageRows=(items:Rec[],stage:ScoreStage)=>items.filter(r=>stage==='Post 2'?assessmentIsPost2(r.Assessment):assessmentIs(r.Assessment,stage)&&(stage!=='Post'||!assessmentIsPost2(r.Assessment)));
@@ -440,30 +457,25 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // One cohort rule for every student assessment stage: the REC master
   // StartingYear owns the cohort. Submission Year never changes the cohort.
   const cohortYear=(r:Rec)=>recStartingYear(r)||Number((r as any).CohortYear)||0;
-  const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
-  const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
-  const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(cohortYear(r)===2025||cohortYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const teacherContent2025Rows=teacherContentAllRows.filter(r=>cohortYear(r)===2025);
-  const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&['pre','post','post2'].includes(assessmentKey(r.Assessment)));
+  const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&assessmentIs(r.Assessment,'Pre'));
+  const teacherContent2025Rows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const teacherContent2026Rows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const teacherSkills2025Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const student2025Pct=stageAverage(student2025Rows,['Pre','Post','Post 2']);
-  const student2026Pct=stageAverage(student2026Rows,['Pre','Post','Post 2']);
-  const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
-  const teacherContentPct=stageAverage(teacherContent2025Rows,['Pre','Post']);
-  const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
-  // Fixed framework maxima by cohort: 2025 has student Pre + Post (87 each)
-  // and teacher content Pre + Post (16 each) = 206. 2026 has student Pre +
-  // Post 2 (87 each) and teacher skills Pre + Post (48 each) = 270. All = 476.
-  // Missing stages remain zero-score stages; they never shrink the denominator.
-  const studentPrePostPct=stageAverage(studentRowsAll,['Pre','Post']);
-  const studentPost2Pct=stageAverage(studentRowsAll,['Post 2']);
+  const student2026Pct=aggregate(student2026Rows).p;
+  const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:pct(261*student2025Pct+87*student2026Pct,348);
+  const teacherContent2025Pct=stageAverage(teacherContent2025Rows,['Pre','Post']);
+  const teacherContent2026Pct=stageAverage(teacherContent2026Rows,['Pre','Post']);
+  const teacherContentPct=f.year==='2025'?teacherContent2025Pct:f.year==='2026'?teacherContent2026Pct:pct(32*teacherContent2025Pct+32*teacherContent2026Pct,64);
+  const teacherSkillsPct=stageAverage(teacherSkills2025Rows,['Pre','Post']);
   const weightedComponents=[
-    {key:'student-pre-post',year:2025,weight:174,p:student2025Pct,has:student2025Rows.some(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'))},
-    {key:'student-pre-post2',year:2026,weight:174,p:student2026Pct,has:student2026Rows.some(r=>assessmentIs(r.Assessment,'Pre')||assessmentIsPost2(r.Assessment))},
-    {key:'teacher-content',year:2025,weight:32,p:teacherContentPct,has:teacherContent2025Rows.length>0},
-    {key:'teacher-skills',year:2026,weight:96,p:teacherSkillsPct,has:teacherSkills2026Rows.length>0}
+    {key:'2025-students',year:2025,weight:261,p:student2025Pct},
+    {key:'2025-teacher-content',year:2025,weight:32,p:teacherContent2025Pct},
+    {key:'2025-teacher-skills',year:2025,weight:96,p:teacherSkillsPct},
+    {key:'2026-students',year:2026,weight:87,p:student2026Pct},
+    {key:'2026-teacher-content',year:2026,weight:32,p:teacherContent2026Pct}
   ];
-  // The denominator follows the selected programme cohort: 2025 = 206;
-  // 2026 = 270; All cohorts = 476.
   const selectedYear=String(f.year||'');
   const activeComponents=selectedYear==='2025'
     ? weightedComponents.filter(x=>x.year===2025)
@@ -471,7 +483,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       ? weightedComponents.filter(x=>x.year===2026)
       : weightedComponents;
   const overallMax=activeComponents.reduce((n,x)=>n+x.weight,0);
-  const overallScore=activeComponents.reduce((n,x)=>n+x.weight*(x.has?x.p:0)/100,0);
+  const overallScore=activeComponents.reduce((n,x)=>n+x.weight*x.p/100,0);
   const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
@@ -552,7 +564,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const cohortRows=countSourceRows().filter(r=>{
-      if(!isStudentAssessmentRow(r)||!stageMatches(r,stage))return false;
+      if(!isStudentAssessmentRow(r)||!cohortPlanIncludes(r)||!stageMatches(r,stage))return false;
       const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });
@@ -604,8 +616,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const student2026Post2=studentCountForYear(2026,'Post 2');
   const teacherContent2025Pre=teacherContentCountForYear(2025,'Pre');
   const teacherContent2025Post=teacherContentCountForYear(2025,'Post');
-  const teacherSkills2026Pre=teacherSkillsCountForYear(2026,'Pre');
-  const teacherSkills2026Post=teacherSkillsCountForYear(2026,'Post');
+  const teacherSkills2025Pre=teacherSkillsCountForYear(2025,'Pre');
+  const teacherSkills2025Post=teacherSkillsCountForYear(2025,'Post');
+  const teacherContent2026Pre=teacherContentCountForYear(2026,'Pre');
+  const teacherContent2026Post=teacherContentCountForYear(2026,'Post');
   const rec2025Pre=recCountForYear(2025,'Pre');
   const rec2025Post=recCountForYear(2025,'Post');
   const rec2025Post2=recCountForYear(2025,'Post 2');
@@ -619,7 +633,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['No. of Students (2025 Pre / Post / Post 2)',`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
     ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
     ['No. of Teachers Content (2025 Pre / Post)',`${teacherContent2025Pre} / ${teacherContent2025Post}`],
-    ['No. of Teachers Skills (2026 Pre / Post)',`${teacherSkills2026Pre} / ${teacherSkills2026Post}`],
+    ['No. of Teachers Content (2026 Pre / Post)',`${teacherContent2026Pre} / ${teacherContent2026Post}`],
+    ['No. of Teachers Skills (2025 Pre / Post)',`${teacherSkills2025Pre} / ${teacherSkills2025Post}`],
     ['No. of RECs (2025 Pre / Post / Post 2)',`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
     ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
     ['Students Overall',fmt(studentPct)],
@@ -629,17 +644,17 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Dimension Overall',fmt(dimensionOverall)]
   ];
   const hiddenByRating=f.studentRating&&!f.teacherRating
-    ? ['No. of Teachers Content (2025 Pre / Post)','No. of Teachers Skills (2026 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
+    ? ['No. of Teachers Content (2025 Pre / Post)','No. of Teachers Content (2026 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
     : f.teacherRating&&!f.studentRating
       ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
       : [];
   const hiddenByYear=f.year==='2025'
-    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)','Teachers Skills Overall']
+    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teachers Content (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)']
     : f.year==='2026'
-      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of RECs (2025 Pre / Post / Post 2)','Teachers Content Overall']
+      ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of RECs (2025 Pre / Post / Post 2)','Teachers Skills Overall']
       : [];
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label)));
-   const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
+   const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||Number(r.StartingYear)===Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
   const themeCoverage = ['T1','T2','T3','T4'].map(theme => {
     const themeRows = metricRows.filter(r => r.ThemeID === theme);
     const countStage = (stage:'Pre'|'Post') => {
@@ -672,12 +687,12 @@ function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a
 
 function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{records:Rec[];refs:Ref[];targetRecs:any[];f:any;level?:'region'|'board'|'rec'}) {
   const geoMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec));
-  const scopedRecords=records.filter(r=>geoMatches(r)&&(!f.year||String(r.Year)===String(f.year)));
+  const scopedRecords=records.filter(r=>geoMatches(r)&&(!f.year||String((r as any).CohortYear||r.Year||'')===String(f.year)));
   const activeTarget=(r:any)=>['active','yes','true','1'].includes(norm(r.Status??r.status).toLowerCase());
   const targetMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&activeTarget(r);
   // The year filter applies to assessment records; REC membership is
   // determined by the permanent StartingYear cohort in the master list.
-  const scopedTargets=targetRecs.filter(targetMatches).filter((r:any)=>!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year));
+  const scopedTargets=targetRecs.filter(targetMatches).filter((r:any)=>!f.year||Number(r.StartingYear)===Number(f.year));
   const themes=['T1','T2','T3','T4'];
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';
@@ -1115,7 +1130,8 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
   const cycle = recYear===2025 || recYear===2026 ? 'Cycle 2' : (v.cycle || 'Cycle 1');
   const [themeAssessment, setThemeAssessment] = useState(recYear===2026 ? 'Pre' : 'Post');
   const [classificationLoading, setClassificationLoading] = useState(false);
-  const assignedAssessment = recYear===2026 ? 'Pre' : recYear===2025 ? themeAssessment : (cycle==='Cycle 2'?'Post 2':(v.assessment||'Pre'));
+  const suggestedAssessment = recYear===2026 ? 'Pre' : recYear===2025 ? themeAssessment : (cycle==='Cycle 2'?'Post 2':'Pre');
+   const assignedAssessment = v.assessment || suggestedAssessment;
   const phase = assignedAssessment;
   const [entryStarted, setEntryStarted] = useState(false);
   useEffect(() => { setEntryStarted(Boolean(v.rec)); }, [v.rec]);
@@ -1508,7 +1524,7 @@ const save = async (finishAssessment: boolean) => {
           </Field>}
 
           <Field label="Assessment Stage" required>
-            <input value={assignedAssessment} readOnly />
+            <select value={assignedAssessment} onChange={e=>update({ ...v, assessment:e.target.value })}>{['Pre','Post','Post 2','Post 3','Post 4','Post 5'].map(stage=><option key={stage} value={stage}>{stage}</option>)}</select>
           </Field>
           <Field label="REC Cohort" >
             <input value={recYear ? String(recYear) : 'Select REC to determine cohort'} readOnly />
@@ -1947,11 +1963,11 @@ const save = async (finishAssessment: boolean) => {
           <Field label="No. of years of teaching in RECs" required><select value={v.years} onChange={e => setV({ ...v, years: e.target.value })}><option value="">Select</option>{['0-1 year', '2-3 years', '3-5 years', '5-10 years', 'more than 10 years'].map(x => <option key={x}>{x}</option>)}</select></Field>
           <Field label="Training attended by ITREB" required><select value={v.training} onChange={e => setV({ ...v, training: e.target.value })}><option value="">Select</option>{["Teacher's training", 'refresher', 'No', 'other'].map(x => <option key={x}>{x}</option>)}</select></Field>
           {v.training === 'other' && <Field label="If other, please mention about training" required><input value={v.otherTraining} onChange={e => setV({ ...v, otherTraining: e.target.value })} /></Field>}
-          <Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => setV({ ...v, cycle: e.target.value })}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>
-          {v.cycle === 'Cycle 2' && <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>}
+          <Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => setV({ ...v, cycle: e.target.value, assessmentStage: '' })}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>
+          <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>
         </div>}
-        {entryStarted && (v.cycle || 'Cycle 1') === 'Cycle 1' && <>{lookupMsg && <p className="form-message">{lookupMsg}</p>}{lookupMatches.length > 0 && <section className="card"><h3>Previous Teacher Submissions</h3>{lookupMatches.map((item, index) => <div key={`${item.submissionId || 'record'}-${index}`} style={{borderBottom:'1px solid #ddd',padding:'12px 0'}}><strong>{item.name || v.teacherName}</strong><p>Theme: {item.themeName || 'Not recorded'}</p><p>Pre rating: {item.preRating ?? 'Not recorded'} · Post rating: {item.postRating ?? 'Not recorded'}</p><p>Submitted: {item.submittedAt || 'Date unavailable'}</p><p>Submission ID: {item.submissionId || 'Not recorded'}</p></div>)}</section>}
-        {entryStarted && (v.cycle || 'Cycle 1') === 'Cycle 1' && <div className="survey-grid">
+        {(v.cycle || 'Cycle 1') === 'Cycle 1' && <>{lookupMsg && <p className="form-message">{lookupMsg}</p>}{lookupMatches.length > 0 && <section className="card"><h3>Previous Teacher Submissions</h3>{lookupMatches.map((item, index) => <div key={`${item.submissionId || 'record'}-${index}`} style={{borderBottom:'1px solid #ddd',padding:'12px 0'}}><strong>{item.name || v.teacherName}</strong><p>Theme: {item.themeName || 'Not recorded'}</p><p>Pre rating: {item.preRating ?? 'Not recorded'} · Post rating: {item.postRating ?? 'Not recorded'}</p><p>Submitted: {item.submittedAt || 'Date unavailable'}</p><p>Submission ID: {item.submissionId || 'Not recorded'}</p></div>)}</section>}
+        {(v.cycle || 'Cycle 1') === 'Cycle 1' && <div className="survey-grid">
           <Field label="Select the theme" required>
             <select
               value={v.theme}

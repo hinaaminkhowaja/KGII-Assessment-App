@@ -1303,11 +1303,13 @@ function getRecStartingYear_(region, localBoard, rec) {
   const col = name => headers.indexOf(name.toLowerCase());
   const ri=col('Region'), bi=col('LocalBoard'), ci=col('REC'), yi=col('StartingYear'), si=col('Status');
   if ([ri,bi,ci,yi].some(i=>i<0)) throw new Error('REC directory requires Region, LocalBoard, REC and StartingYear.');
-  const key = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
+  const key = v => clean(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const compact = v => key(v).replace(/[^a-z0-9]/g,'');
+  const same = (a,b) => key(a)===key(b) || compact(a)===compact(b);
   for (const row of values.slice(1)) {
     const status=si>=0?clean(row[si]).toLowerCase():'active';
     if (status && !['active','yes','true','1'].includes(status)) continue;
-    if (key(row[ri])===key(region) && key(row[bi])===key(localBoard) && key(row[ci])===key(rec)) {
+    if (same(row[ri],region) && same(row[bi],localBoard) && same(row[ci],rec)) {
       return Number(row[yi])||0;
     }
   }
@@ -1325,14 +1327,16 @@ function handleSurveyClassification_(e) {
   if (!startingYear) throw new Error('REC StartingYear was not found in RECs_list_Phase_Wise.');
 
   if (participantType.toLowerCase() === 'student') {
-    if (startingYear >= 2026) {
-      return {success:true, assessment:'Pre', startingYear, classificationBasis:'REC StartingYear'};
-    }
-    if (startingYear === 2025) {
-      const alreadyPosted = themeID && recThemeHasPostSubmission_(p.region, p.localBoard, p.rec, themeID);
-      return {success:true, assessment:alreadyPosted ? 'Post 2' : 'Post', startingYear,
-        classificationBasis:'REC StartingYear + prior theme submissions'};
-    }
+    if (!themeID) throw new Error('Theme is required for student assessment classification.');
+    const completed = {
+      Pre: recThemeHasAssessmentSubmission_(p.region,p.localBoard,p.rec,themeID,'Pre'),
+      Post: recThemeHasAssessmentSubmission_(p.region,p.localBoard,p.rec,themeID,'Post'),
+      'Post 2': recThemeHasAssessmentSubmission_(p.region,p.localBoard,p.rec,themeID,'Post 2')
+    };
+    const sequence = startingYear === 2025 ? ['Pre','Post','Post 2'] : ['Pre','Post','Post 2'];
+    const assessment = sequence.find(stage=>!completed[stage]) || 'Post 2';
+    return {success:true,assessment,startingYear,completedAssessments:completed,
+      classificationBasis:'REC StartingYear + received submissions for selected theme'};
   }
 
   if (participantType.toLowerCase() === 'teacher') {
@@ -1343,45 +1347,62 @@ function handleSurveyClassification_(e) {
   return {success:true, startingYear, classificationBasis:'REC StartingYear'};
 }
 
-function recThemeHasPostSubmission_(region, localBoard, rec, themeID) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sourceNames = ['Students Post Assessment', 'APP_Student_Surveys'];
-  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
-  const regionKey = value => key(value).replace(/\s+\\d+$/,'');
-  for (const name of sourceNames) {
-    const sheet = ss.getSheetByName(name);
-    if (!sheet || sheet.getLastRow() < 2) continue;
-    const values = sheet.getDataRange().getValues();
-    const headers = values[0].map(h => clean(h));
-    const col = (...names) => headers.findIndex(h => names.some(n => key(h) === key(n)));
+function recThemeHasAssessmentSubmission_(region, localBoard, rec, themeID, requestedStage) {
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  const sourceStages={
+    'Students Pre Assessment':'Pre',
+    'Students Post Assessment':'Post',
+    'APP_Student_Surveys':null
+  };
+  const key=value=>clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const compact=value=>key(value).replace(/[^a-z0-9]/g,'');
+  const same=(a,b)=>key(a)===key(b)||compact(a)===compact(b);
+  const canonicalTheme=value=>{
+    const raw=key(value);
+    const match=raw.match(/(?:theme\s*|^t)([1-4])\b/i)||raw.match(/([1-4])/);
+    if(match)return 'theme'+match[1];
+    const normalized=raw.replace(/[^a-z]/g,'');
+    const aliases={
+      authorityandleadership:'theme1',authorityleadership:'theme1',
+      intellectualtraditions:'theme2',ismailimuslimtraditions:'theme2',
+      roleinfamilycommunityandsociety:'theme3',twoaspectsoflife:'theme4'
+    };
+    return aliases[normalized]||normalized;
+  };
+  const wantedTheme=canonicalTheme(themeID);
+  const themeNumber=(wantedTheme.match(/theme([1-4])/)||[])[1];
+  if(!themeNumber)return false;
+
+  for(const name of Object.keys(sourceStages)){
+    const sheet=ss.getSheetByName(name);
+    if(!sheet||sheet.getLastRow()<2)continue;
+    const values=sheet.getDataRange().getValues();
+    const headers=values[0].map(h=>clean(h));
+    const col=(...names)=>headers.findIndex(h=>names.some(n=>key(h)===key(n)));
     const ri=col('1. Select your region','Select your region','Region');
     const bi=col('LocalBoard','Local Board','Local Board (Standardized)','Name of Local Board');
     const ci=col('REC','REC (Standardized)','Name of RECs');
     const ti=col('ThemeName','Theme Name','Select the themes','ThemeID','Theme');
     const ai=col('Assessment','AssessmentStage','Select when this assessment conducted');
-    if ([ri,bi,ci,ti,ai].some(i=>i<0)) continue;
-    const canonicalTheme = value => {
-      const raw=key(value);
-      const digits=(raw.match(/(?:theme\s*)?([1-4])/i)||[])[1];
-      if (digits) return 'theme'+digits;
-      const compact=raw.replace(/[^a-z]/g,'');
-      const aliases={
-        authorityandleadership:'theme1',authorityleadership:'theme1',
-        intellectualtraditions:'theme2',ismailimuslimtraditions:'theme2',
-        roleinfamilycommunityandsociety:'theme3',roleinfamilycommunityandsocietytheme:'theme3',
-        twoaspectsoflife:'theme4'
-      };
-      return aliases[compact] || compact;
-    };
-    const sameLocation = (a,b) => key(a)===key(b) ||
-      key(a).replace(/[^a-z0-9]/g,'')===key(b).replace(/[^a-z0-9]/g,'');
-    const found=values.slice(1).some(row => {
-      const assessment=key(row[ai]).replace(/\s+/g,'');
-      return regionKey(row[ri])===regionKey(region) && sameLocation(row[bi],localBoard) &&
-        sameLocation(row[ci],rec) && canonicalTheme(row[ti])===canonicalTheme(themeID) &&
-        (assessment==='post' || assessment==='postassessment');
+    if([ri,bi,ci].some(i=>i<0))continue;
+    const ratingCols=headers.map((header,index)=>({header,index}))
+      .filter(item=>new RegExp('^theme\\s*'+themeNumber+'\\s*:', 'i').test(item.header))
+      .map(item=>item.index);
+
+    const found=values.slice(1).some(row=>{
+      if(!same(row[ri],region)||!same(row[bi],localBoard)||!same(row[ci],rec))return false;
+      let rowStage=sourceStages[name];
+      if(ai>=0){
+        const raw=key(row[ai]).replace(/[\s_-]+/g,'');
+        rowStage=raw==='pre'||raw==='preassessment'?'Pre':
+          raw==='post'||raw==='postassessment'?'Post':
+          raw==='post2'||raw==='post2assessment'?'Post 2':null;
+      }
+      if(rowStage!==requestedStage)return false;
+      if(ti>=0)return canonicalTheme(row[ti])===wantedTheme;
+      return ratingCols.length>0&&ratingCols.some(index=>row[index]!==''&&row[index]!==null&&row[index]!==undefined);
     });
-    if (found) return true;
+    if(found)return true;
   }
   return false;
 }
@@ -2987,7 +3008,7 @@ function getDashboardData(email) {
   };
   const yearOf=v=>{if(v instanceof Date&&!isNaN(v))return String(v.getFullYear());const m=clean(v).match(/(?:19|20)\d{2}/);return m?m[0]:'';};
   const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v;const d=new Date(v);return isNaN(d)?null:d;};
-  const geoKey=v=>norm(v).replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const geoKey=v=>norm(v).replace(/[_-]+/g,' ').replace(/\s+\d+$/,'').replace(/\s+/g,' ').trim();
   const master=ss.getSheetByName('RECs_list_Phase_Wise');
   const masterRows=master&&master.getLastRow()>1?master.getDataRange().getValues():[];
   const mh=masterRows.length?masterRows[0].map(clean):[];
@@ -3006,7 +3027,13 @@ function getDashboardData(email) {
   // Kobo and app exports sometimes vary in board/REC display punctuation.
   // Use the stable numeric REC code as a guarded fallback when the full key differs.
   const masterByRecCode=new Map();
-  active.forEach(x=>{const code=recCode_(x.REC);if(code&&!masterByRecCode.has(code))masterByRecCode.set(code,x);});
+  const masterByRecName=new Map();
+  active.forEach(x=>{
+    const code=recCode_(x.REC);if(code&&!masterByRecCode.has(code))masterByRecCode.set(code,x);
+    const name=geoKey(clean(x.REC).replace(/^\s*\d+\s*\|\s*/,''));
+    const keys=[geoKey(x.Region)+'|'+geoKey(x.LocalBoard)+'|'+name,geoKey(x.Region)+'|'+name];
+    keys.forEach(key=>{if(name&&!masterByRecName.has(key))masterByRecName.set(key,x);});
+  });
   const allowed=(region,board,rec)=>{
     // Admin dashboard reads the source sheets as the system of record.
     // Do not discard valid source submissions just because a REC is missing
@@ -3081,7 +3108,11 @@ function getDashboardData(email) {
       if(!region||!board||!rec||!allowed(region,board,rec))return;
       const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','AssessmentDate','CreatedAt','end','End']);
       const date=dateOf(submitted);const submissionYear=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
-      const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|')) || masterByRecCode.get(recCode_(rec));
+      const recName=geoKey(rec.replace(/^\s*\d+\s*\|\s*/,''));
+      const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|')) ||
+        masterByRecCode.get(recCode_(rec)) ||
+        masterByRecName.get([geoKey(region),geoKey(board),recName].join('|')) ||
+        masterByRecName.get([geoKey(region),recName].join('|'));
       const storedAssessment=clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted']));
       let cohort=masterRec?masterRec.StartingYear:'';
       // Stage is the reliable fallback for APP cohort classification:
@@ -3186,10 +3217,12 @@ function getDashboardData(email) {
     sourceDiagnostics[source.name]={
       sourceSheetFound:!!ss.getSheetByName(source.name),
       sourceRows:loadedSource?loadedSource.rows.filter(row=>row.some(value=>value!==''&&value!==null&&value!==undefined)).length:0,
+      headers:loadedSource?loadedSource.headers:[],
       emittedIndicatorRecords:sourceRecords.length,
       assessments:[...new Set(sourceRecords.map(record=>String(record[5]||'')))],
       submissionYears:[...new Set(sourceRecords.map(record=>String(record[2]||'')))],
       cohortYears:[...new Set(sourceRecords.map(record=>String(record[3]||'')))],
+      stageCohortBreakdown:sourceRecords.reduce((out,record)=>{const key=String(record[3]||'Unclassified')+' / '+String(record[5]||'No stage');out[key]=(out[key]||0)+1;return out;},{}),
       themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))]
     };
   });

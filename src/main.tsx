@@ -605,23 +605,34 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });
-    // Count all student participation across themes within each REC.
-    // One source submission counts once within its REC + theme, even though
-    // it expands to multiple indicator rows. Do not deduplicate across themes
-    // or by ChildName/student ID.
-    const byRec=new Map<string,Map<string,Set<string>>>();
+    // Pre is a whole-student baseline: count each source submission once
+    // per REC, regardless of the four theme-expanded indicator groups.
+    // Post and Post 2 are collected theme by theme: count each source
+    // submission once per REC + theme, then add the theme totals.
+    // ChildName/student IDs are not used to merge separate submissions.
+    const byRec=new Map<string,Set<string>>();
+    const byRecTheme=new Map<string,Map<string,Set<string>>>();
     cohortRows.forEach(r=>{
-      const recKey=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLocaleLowerCase()).join('||');
-      const theme=norm(r.ThemeID).toLocaleLowerCase();
+      const recKey=[r.Region,r.LocalBoard,r.REC].map(v=>geoNorm(v)).join('||');
       const sourceRow=norm(r.SourceRow)||norm(r.SourceRecordID)||norm(r.RecordID);
-      if(!recKey.replace(/\|/g,'')||!theme||!sourceRow)return;
-      const themes=byRec.get(recKey)||new Map<string,Set<string>>();
-      const submissions=themes.get(theme)||new Set<string>();
-      submissions.add([r.SourceSheet||'Students Assessment',sourceRow].map(v=>norm(v).toLocaleLowerCase()).join('||'));
-      themes.set(theme,submissions);
-      byRec.set(recKey,themes);
+      if(!recKey.replace(/\|/g,'')||!sourceRow)return;
+      const sourceKey=[r.SourceSheet||'Students Assessment',sourceRow].map(v=>norm(v).toLocaleLowerCase()).join('||');
+      if(stage==='Pre'){
+        const submissions=byRec.get(recKey)||new Set<string>();
+        submissions.add(sourceKey);
+        byRec.set(recKey,submissions);
+      }else{
+        const theme=norm(r.ThemeID).toLocaleLowerCase();
+        if(!theme)return;
+        const themes=byRecTheme.get(recKey)||new Map<string,Set<string>>();
+        const submissions=themes.get(theme)||new Set<string>();
+        submissions.add(sourceKey);
+        themes.set(theme,submissions);
+        byRecTheme.set(recKey,themes);
+      }
     });
-    return [...byRec.values()].reduce((total,themes)=>
+    if(stage==='Pre')return [...byRec.values()].reduce((total,submissions)=>total+submissions.size,0);
+    return [...byRecTheme.values()].reduce((total,themes)=>
       total+[...themes.values()].reduce((themeTotal,submissions)=>themeTotal+submissions.size,0),0);
   };
   // Count source submissions, not expanded indicator rows. Content is counted

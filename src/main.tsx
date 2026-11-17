@@ -445,8 +445,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(cohortYear(r)===2025||cohortYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const teacherContent2025Rows=teacherContentAllRows.filter(r=>cohortYear(r)===2025);
   const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const student2025Pct=stageAverage(student2025Rows,['Pre','Post','Post 2']);
-  const student2026Pct=stageAverage(student2026Rows,['Pre','Post','Post 2']);
+  const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);
+  const student2026Pct=stageAverage(student2026Rows,['Pre','Post 2']);
   const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
   const teacherContentPct=stageAverage(teacherContent2025Rows,['Pre','Post']);
   const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
@@ -1115,7 +1115,8 @@ function StudentSurvey({ refs, user, records = [], onRefresh }: { refs: Ref[]; u
   const cycle = recYear===2025 || recYear===2026 ? 'Cycle 2' : (v.cycle || 'Cycle 1');
   const [themeAssessment, setThemeAssessment] = useState(recYear===2026 ? 'Pre' : 'Post');
   const [classificationLoading, setClassificationLoading] = useState(false);
-  const assignedAssessment = recYear===2026 ? 'Pre' : recYear===2025 ? themeAssessment : (cycle==='Cycle 2'?'Post 2':(v.assessment||'Pre'));
+  const suggestedAssessment = recYear===2026 ? 'Pre' : recYear===2025 ? themeAssessment : (cycle==='Cycle 2'?'Post 2':'Pre');
+   const assignedAssessment = v.assessment || suggestedAssessment;
   const phase = assignedAssessment;
   const [entryStarted, setEntryStarted] = useState(false);
   useEffect(() => { setEntryStarted(Boolean(v.rec)); }, [v.rec]);
@@ -1950,8 +1951,8 @@ const save = async (finishAssessment: boolean) => {
           <Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => setV({ ...v, cycle: e.target.value })}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>
           {v.cycle === 'Cycle 2' && <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>}
         </div>}
-        {entryStarted && (v.cycle || 'Cycle 1') === 'Cycle 1' && <>{lookupMsg && <p className="form-message">{lookupMsg}</p>}{lookupMatches.length > 0 && <section className="card"><h3>Previous Teacher Submissions</h3>{lookupMatches.map((item, index) => <div key={`${item.submissionId || 'record'}-${index}`} style={{borderBottom:'1px solid #ddd',padding:'12px 0'}}><strong>{item.name || v.teacherName}</strong><p>Theme: {item.themeName || 'Not recorded'}</p><p>Pre rating: {item.preRating ?? 'Not recorded'} · Post rating: {item.postRating ?? 'Not recorded'}</p><p>Submitted: {item.submittedAt || 'Date unavailable'}</p><p>Submission ID: {item.submissionId || 'Not recorded'}</p></div>)}</section>}
-        {entryStarted && (v.cycle || 'Cycle 1') === 'Cycle 1' && <div className="survey-grid">
+        {(v.cycle || 'Cycle 1') === 'Cycle 1' && <>{lookupMsg && <p className="form-message">{lookupMsg}</p>}{lookupMatches.length > 0 && <section className="card"><h3>Previous Teacher Submissions</h3>{lookupMatches.map((item, index) => <div key={`${item.submissionId || 'record'}-${index}`} style={{borderBottom:'1px solid #ddd',padding:'12px 0'}}><strong>{item.name || v.teacherName}</strong><p>Theme: {item.themeName || 'Not recorded'}</p><p>Pre rating: {item.preRating ?? 'Not recorded'} · Post rating: {item.postRating ?? 'Not recorded'}</p><p>Submitted: {item.submittedAt || 'Date unavailable'}</p><p>Submission ID: {item.submissionId || 'Not recorded'}</p></div>)}</section>}
+        {(v.cycle || 'Cycle 1') === 'Cycle 1' && <div className="survey-grid">
           <Field label="Select the theme" required>
             <select
               value={v.theme}

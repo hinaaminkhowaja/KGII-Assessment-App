@@ -652,7 +652,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of RECs (2025 Pre / Post / Post 2)','Teachers Skills Overall']
       : [];
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label)));
-   const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
+   const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||Number(r.StartingYear)===Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
   const themeCoverage = ['T1','T2','T3','T4'].map(theme => {
     const themeRows = metricRows.filter(r => r.ThemeID === theme);
     const countStage = (stage:'Pre'|'Post') => {
@@ -685,12 +685,12 @@ function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a
 
 function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{records:Rec[];refs:Ref[];targetRecs:any[];f:any;level?:'region'|'board'|'rec'}) {
   const geoMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec));
-  const scopedRecords=records.filter(r=>geoMatches(r)&&(!f.year||String(r.Year)===String(f.year)));
+  const scopedRecords=records.filter(r=>geoMatches(r)&&(!f.year||String((r as any).CohortYear||r.Year||'')===String(f.year)));
   const activeTarget=(r:any)=>['active','yes','true','1'].includes(norm(r.Status??r.status).toLowerCase());
   const targetMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&activeTarget(r);
   // The year filter applies to assessment records; REC membership is
   // determined by the permanent StartingYear cohort in the master list.
-  const scopedTargets=targetRecs.filter(targetMatches).filter((r:any)=>!f.year||!Number(r.StartingYear)||Number(r.StartingYear)<=Number(f.year));
+  const scopedTargets=targetRecs.filter(targetMatches).filter((r:any)=>!f.year||Number(r.StartingYear)===Number(f.year));
   const themes=['T1','T2','T3','T4'];
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';

@@ -197,6 +197,7 @@ function App(){
  };
  const loadDashboard=async(email:string)=>{
   const d=await apiGet('dashboard',{email});
+  if(d?.sourceDiagnostics) console.info('[KGII] Dashboard source diagnostics:',d.sourceDiagnostics);
   const rows=arrayFrom(d,'records','rows','data');
   const headers=Array.isArray(d?.headers)?d.headers:[];
   const headerIndex=new Map<string,number>();

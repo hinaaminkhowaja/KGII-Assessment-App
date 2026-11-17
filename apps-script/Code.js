@@ -3171,21 +3171,31 @@ function getDashboardData(email) {
       }
     });
   });
-  // Runtime visibility for the student-app source: makes an empty dashboard traceable
-  // without exposing child names or changing any source data.
-  const studentAppSource=loaded.find(x=>x.source.name==='APP_Student_Surveys');
-  const studentAppRecords=records.filter(r=>r[16]==='APP_Student_Surveys');
-  const studentSurveyDiagnostics={
-    sourceSheetFound:!!studentAppSource,
-    sourceRows:studentAppSource?studentAppSource.rows.filter(r=>r.some(v=>v!==''&&v!==null)).length:0,
-    emittedIndicatorRecords:studentAppRecords.length,
-    assessments:[...new Set(studentAppRecords.map(r=>String(r[5]||'')))],
-    submissionYears:[...new Set(studentAppRecords.map(r=>String(r[2]||'')))],
-    cohortYears:[...new Set(studentAppRecords.map(r=>String(r[3]||'')))],
-    themes:[...new Set(studentAppRecords.map(r=>String(r[11]||'')))],
-    recs:[...new Set(studentAppRecords.map(r=>String(r[8]||'')))]
-  };
-  return {success:true,user,access:isAdmin?'ALL':access,headers,records,targetRecs:directory,refs:directory.map(x=>({Region:x.Region,LocalBoard:x.LocalBoard,REC:x.REC})),indicators:[],studentSurveyDiagnostics};
+  // Per-source diagnostics make it possible to verify that each app survey
+  // sheet is read and expanded into dashboard rows without exposing names.
+  const sourceDiagnostics={};
+  sources.forEach(source=>{
+    const sheet=ss.getSheetByName(source.name);
+    const sourceRows=sheet&&sheet.getLastRow()>1
+      ? sheet.getRange(2,1,sheet.getLastRow()-1,sheet.getLastColumn()).getValues()
+          .filter(row=>row.some(value=>value!==''&&value!==null&&value!==undefined)).length
+      : 0;
+    const sourceRecords=records.filter(record=>record[16]===source.name);
+    sourceDiagnostics[source.name]={
+      sourceSheetFound:!!sheet,
+      sourceRows,
+      emittedIndicatorRecords:sourceRecords.length,
+      assessments:[...new Set(sourceRecords.map(record=>String(record[5]||'')))],
+      submissionYears:[...new Set(sourceRecords.map(record=>String(record[2]||'')))],
+      cohortYears:[...new Set(sourceRecords.map(record=>String(record[3]||'')))],
+      themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))],
+      regions:[...new Set(sourceRecords.map(record=>String(record[6]||'')))],
+      localBoards:[...new Set(sourceRecords.map(record=>String(record[7]||'')))],
+      recs:[...new Set(sourceRecords.map(record=>String(record[8]||'')))]
+    };
+  });
+  const studentSurveyDiagnostics=sourceDiagnostics['APP_Student_Surveys'];
+  return {success:true,user,access:isAdmin?'ALL':access,headers,records,targetRecs:directory,refs:directory.map(x=>({Region:x.Region,LocalBoard:x.LocalBoard,REC:x.REC})),indicators:[],studentSurveyDiagnostics,sourceDiagnostics};
 }
 
 /**

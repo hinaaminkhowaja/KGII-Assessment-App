@@ -575,11 +575,13 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     const key=[r.Region,r.LocalBoard,r.REC].map(recMasterKey).join('||');
     return recYearIndex.get(key)||recCodeYearIndex.get(recCode(r.REC))||Number((r as any).CohortYear)||0;
   };
-  // Count each child once within their REC and assessment stage; SourceRecordID
-  // identifies Kobo submissions, not unique children, and can vary on repeat visits.
-  const studentIdentity=(r:Rec)=>r.ChildName
-    ? [r.Region,r.LocalBoard,r.REC,r.ChildName].map(v=>geoNorm(v)).join('||')
-    : [r.Region,r.LocalBoard,r.REC,r.SourceRecordID||r.RecordID].map(v=>geoNorm(v)).join('||');
+  // Student counts follow source assessment submissions within each REC.
+  // ChildName is descriptive only and must never be used to merge submissions.
+  const studentSubmissionIdentity=(r:Rec)=>[
+    geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC),
+    norm(r.SourceSheet||'Students Assessment'),
+    norm(r.SourceRow||r.SourceRecordID||r.RecordID)
+  ].map(v=>v.toLocaleLowerCase()).join('||');
   // Stage does not affect cohort membership. A REC stays in its original
   // StartingYear cohort for Pre, Post, Post 2 and every later follow-up.
   const recCohortForStage=(r:Rec,_year:number,_stage:'Pre'|'Post'|'Post 2')=>recStartingYearForRow(r)||Number((r as any).CohortYear)||0;
@@ -749,7 +751,7 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
     if(!stage||(participant!=='Student'&&participant!=='Teacher'))continue;
     const identity=participant==='Teacher'
       ? geoNorm(norm(r.SourceRecordID)||norm(r.RecordID))
-      : geoNorm(norm((r as any).StudentID)||norm(r.ChildName)||norm(r.SourceRecordID)||norm(r.RecordID));
+      : studentSubmissionIdentity(r);
     if(!identity)continue;
     const key=[group,theme,stage,participant].join('||');
     if(!participants.has(key))participants.set(key,new Set<string>());
@@ -758,7 +760,7 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
   const participantCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>
     participants.get([groupKey(group),theme,stage,participant].join('||'))?.size||0;
   return <section className={`card theme-rec-coverage theme-rec-coverage-${level}`}>
-    <div className="section-head"><div><h2>{title}</h2><p>Students are counted by child; teacher counts reflect submitted assessments per REC, theme and stage.</p></div></div>
+    <div className="section-head"><div><h2>{title}</h2><p>Students are counted by source assessment submission within each REC, theme and stage; teacher counts reflect submitted assessments per REC, theme and stage.</p></div></div>
     <div className="table-wrap"><table><thead>
       <tr><th rowSpan={3}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={4}>{labelTheme(theme)}</th>)}</tr>
       <tr>{themes.flatMap(theme=>[<th key={theme+'-students'} colSpan={2}>Students</th>,<th key={theme+'-teachers'} colSpan={2}>Teachers</th>])}</tr>
@@ -1050,11 +1052,7 @@ function ChildPerformanceHighlights({rows,level}:{rows:Rec[];level:'Local Board'
 function count(rows:Rec[],item:string,pt:string,key:'Region'|'LocalBoard'|'REC'|'ThemeID'|'DimensionID'){
   const scoped=rows.filter(r=>r.ParticipantType===pt&&norm(r[key])===item);
   const identity=(r:Rec)=>{
-    if(pt==='Student'){
-      const name=norm(r.ChildName).toLocaleLowerCase();
-      const fallback=norm((r as any).StudentID||r.SourceRecordID||r.RecordID).toLocaleLowerCase();
-      return [geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC),name||fallback].join('||');
-    }
+    if(pt==='Student')return studentSubmissionIdentity(r);
     const name=norm(r.TeacherName).toLocaleLowerCase();
     return name||norm(r.SourceRecordID||r.RecordID).toLocaleLowerCase();
   };
@@ -1071,7 +1069,7 @@ function stageAggregate(rows:Rec[],stage:'Pre'|'Post'){return aggregate(rows.fil
 function post2Aggregate(rows:Rec[]){return aggregate(rows.filter(r=>assessmentIsPost2(r.Assessment)))}
 function RubricDetailTable({rows,title}:{rows:Rec[];title:string}){
  const ids=unique(rows,'IndicatorID');
- return <section className="card rubric-detail"><h3>{title}</h3><div className="table-wrap"><table><thead><tr><th>Rubric / Indicator</th><th>Participant Type</th><th>Overall</th><th>Pre</th><th>Post</th><th>Post 2</th><th>Records</th></tr></thead><tbody>{ids.flatMap(id=>['Student','Teacher'].map(pt=>{const subset=rows.filter(r=>norm(r.IndicatorID)===id&&r.ParticipantType===pt);if(!subset.length)return null;const pre=stageAggregate(subset,'Pre'),post=stageAggregate(subset,'Post'),post2=post2Aggregate(subset);return <tr key={id+'-'+pt}><td><strong>{id}</strong> — {rubricDescription(id)}</td><td>{pt}</td><td>{fmt(aggregate(subset).p)}</td><td>{pre.max?fmt(pre.p):'—'}</td><td>{post.max?fmt(post.p):'—'}</td><td>{post2.max?fmt(post2.p):'—'}</td><td>{pt==='Student'?new Set(subset.map(r=>{const name=norm(r.ChildName).toLocaleLowerCase();const fallback=norm((r as any).StudentID||r.SourceRecordID||r.RecordID).toLocaleLowerCase();return [geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC),name||fallback].join('||')})).size:new Set(subset.map(r=>norm(r.TeacherName).toLocaleLowerCase()||norm(r.SourceRecordID||r.RecordID).toLocaleLowerCase())).size}</td></tr>})).filter(Boolean)}</tbody></table></div></section>
+ return <section className="card rubric-detail"><h3>{title}</h3><div className="table-wrap"><table><thead><tr><th>Rubric / Indicator</th><th>Participant Type</th><th>Overall</th><th>Pre</th><th>Post</th><th>Post 2</th><th>Records</th></tr></thead><tbody>{ids.flatMap(id=>['Student','Teacher'].map(pt=>{const subset=rows.filter(r=>norm(r.IndicatorID)===id&&r.ParticipantType===pt);if(!subset.length)return null;const pre=stageAggregate(subset,'Pre'),post=stageAggregate(subset,'Post'),post2=post2Aggregate(subset);return <tr key={id+'-'+pt}><td><strong>{id}</strong> — {rubricDescription(id)}</td><td>{pt}</td><td>{fmt(aggregate(subset).p)}</td><td>{pre.max?fmt(pre.p):'—'}</td><td>{post.max?fmt(post.p):'—'}</td><td>{post2.max?fmt(post2.p):'—'}</td><td>{pt==='Student'?new Set(subset.map(studentSubmissionIdentity)).size:new Set(subset.map(r=>norm(r.TeacherName).toLocaleLowerCase()||norm(r.SourceRecordID||r.RecordID).toLocaleLowerCase())).size}</td></tr>})).filter(Boolean)}</tbody></table></div></section>
 }
 function ThemeAnalysis({rows}:{rows:Rec[]}){
  const themes=['T1','T2','T3','T4'];const studentRows=rows.filter(r=>r.ParticipantType==='Student');const teacherRows=rows.filter(r=>r.ParticipantType==='Teacher');

@@ -458,8 +458,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Classify programme year by the REC's master StartingYear, not by the
   // submission timestamp. 2025-26 submissions may legitimately be dated 2026.
   const kpiRecYearIndex=new Map<string,number>();
-  targetRecs.forEach((t:any)=>{const key=[t.Region,t.LocalBoard,t.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');const y=Number(t.StartingYear)||0;if(key&&y)kpiRecYearIndex.set(key,y);});
-  const recStartingYear=(r:Rec)=>{const key=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');return kpiRecYearIndex.get(key)||Number((r as any).CohortYear)||0;};
+  const kpiRecCodeYearIndex=new Map<string,number>();
+  const kpiRecCode=(v:any)=>{const m=String(v||'').match(/^\s*(\d{3,})\s*\|/);return m?m[1]:'';};
+  targetRecs.forEach((t:any)=>{const key=[t.Region,t.LocalBoard,t.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');const y=Number(t.StartingYear)||0;if(key&&y)kpiRecYearIndex.set(key,y);const code=kpiRecCode(t.REC);if(code&&y&&!kpiRecCodeYearIndex.has(code))kpiRecCodeYearIndex.set(code,y);});
+  const recStartingYear=(r:Rec)=>{const key=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');return kpiRecYearIndex.get(key)||kpiRecCodeYearIndex.get(kpiRecCode(r.REC))||Number((r as any).CohortYear)||0;};
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);

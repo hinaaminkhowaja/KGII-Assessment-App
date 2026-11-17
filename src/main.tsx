@@ -1509,7 +1509,7 @@ const save = async (finishAssessment: boolean) => {
           </Field>}
 
           <Field label="Assessment Stage" required>
-            <input value={assignedAssessment} readOnly />
+            <select value={assignedAssessment} onChange={e=>update({ ...v, assessment:e.target.value })}>{['Pre','Post','Post 2','Post 3','Post 4','Post 5'].map(stage=><option key={stage} value={stage}>{stage}</option>)}</select>
           </Field>
           <Field label="REC Cohort" >
             <input value={recYear ? String(recYear) : 'Select REC to determine cohort'} readOnly />
@@ -1948,8 +1948,8 @@ const save = async (finishAssessment: boolean) => {
           <Field label="No. of years of teaching in RECs" required><select value={v.years} onChange={e => setV({ ...v, years: e.target.value })}><option value="">Select</option>{['0-1 year', '2-3 years', '3-5 years', '5-10 years', 'more than 10 years'].map(x => <option key={x}>{x}</option>)}</select></Field>
           <Field label="Training attended by ITREB" required><select value={v.training} onChange={e => setV({ ...v, training: e.target.value })}><option value="">Select</option>{["Teacher's training", 'refresher', 'No', 'other'].map(x => <option key={x}>{x}</option>)}</select></Field>
           {v.training === 'other' && <Field label="If other, please mention about training" required><input value={v.otherTraining} onChange={e => setV({ ...v, otherTraining: e.target.value })} /></Field>}
-          <Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => setV({ ...v, cycle: e.target.value })}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>
-          {v.cycle === 'Cycle 2' && <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>}
+          <Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => setV({ ...v, cycle: e.target.value, assessmentStage: '' })}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>
+          <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>
         </div>}
         {(v.cycle || 'Cycle 1') === 'Cycle 1' && <>{lookupMsg && <p className="form-message">{lookupMsg}</p>}{lookupMatches.length > 0 && <section className="card"><h3>Previous Teacher Submissions</h3>{lookupMatches.map((item, index) => <div key={`${item.submissionId || 'record'}-${index}`} style={{borderBottom:'1px solid #ddd',padding:'12px 0'}}><strong>{item.name || v.teacherName}</strong><p>Theme: {item.themeName || 'Not recorded'}</p><p>Pre rating: {item.preRating ?? 'Not recorded'} · Post rating: {item.postRating ?? 'Not recorded'}</p><p>Submitted: {item.submittedAt || 'Date unavailable'}</p><p>Submission ID: {item.submissionId || 'Not recorded'}</p></div>)}</section>}
         {(v.cycle || 'Cycle 1') === 'Cycle 1' && <div className="survey-grid">

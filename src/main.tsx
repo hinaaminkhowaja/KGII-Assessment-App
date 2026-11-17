@@ -608,7 +608,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     // Count each student assessment source row once per REC/stage.
     // Never deduplicate using ChildName or a child identifier; a source row
     // may expand into many indicator records but represents one theme submission.
-    const submissionIdentity=(r:Rec)=>[r.Region,r.LocalBoard,r.REC,r.SourceSheet||'Students Assessment',r.SourceRow||r.SourceRecordID||r.RecordID].map(v=>norm(v).toLocaleLowerCase()).join('||');
+    const submissionIdentity=(r:Rec)=>{
+      const sourceRow=norm(r.SourceRow)||norm(r.SourceRecordID)||norm(r.RecordID);
+      return sourceRow?[r.Region,r.LocalBoard,r.REC,r.SourceSheet||'Students Assessment',sourceRow].map(v=>norm(v).toLocaleLowerCase()).join('||'):'';
+    };
     return distinctCount(cohortRows,submissionIdentity);
   };
   // Count source submissions, not expanded indicator rows. Content is counted
@@ -704,8 +707,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
         // Count source assessment rows, not child names/IDs. One source row
         // can expand to multiple indicator records for the same REC and theme.
         const key=recKey(r);
-        const id=[r.SourceSheet||'Students Assessment',r.SourceRow||r.SourceRecordID||r.RecordID].map(v=>norm(v).toLocaleLowerCase()).join('||');
-        if(!id.replace(/\|/g,''))return;
+        const sourceRow=norm(r.SourceRow)||norm(r.SourceRecordID)||norm(r.RecordID);
+        if(!sourceRow)return;
+        const id=[r.SourceSheet||'Students Assessment',sourceRow].map(v=>norm(v).toLocaleLowerCase()).join('||');
         const set=studentCounts.get(key)||new Set<string>();set.add(id);studentCounts.set(key,set);
       });
       stageRows.filter(r => norm(r.ParticipantType).toLowerCase()==='teacher' && r.Region && r.LocalBoard && r.REC).forEach(r => {

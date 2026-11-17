@@ -122,9 +122,9 @@ function ratingFilterMatch(r:Rec,f:any){
 }
 function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\s_-]+/g,'');}
 function cohortYearForRecord(r:Rec,targetRecs:any[]=[]){
- const key=(v:any)=>norm(v).toLowerCase().replace(/\\s*\\|\\s*/g,'|').replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim();
+ const key=(v:any)=>norm(v).toLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
  const full=[r.Region,r.LocalBoard,r.REC].map(key).join('||');
- const code=(v:any)=>{const m=String(v||'').match(/^\\s*(\\d{3,})\\s*\\|/);return m?m[1]:'';};
+ const code=(v:any)=>{const m=String(v||'').match(/^\s*(\d{3,})\s*\|/);return m?m[1]:'';};
  const recCode=code(r.REC);
  const match=targetRecs.find((x:any)=>[x.Region,x.LocalBoard,x.REC].map(key).join('||')===full)
    ||(recCode?targetRecs.find((x:any)=>code(x.REC)===recCode):undefined);
@@ -183,7 +183,7 @@ const OFFLINE_QUEUE_KEY='kgii_assessment_offline_queue_v1';
 type OfflineJob={id:string;action:string;body:Record<string,any>;createdAt:string};
 function readOfflineQueue():OfflineJob[]{try{const q=JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY)||'[]');return Array.isArray(q)?q:[]}catch{return []}}
 function writeOfflineQueue(q:OfflineJob[]){localStorage.setItem(OFFLINE_QUEUE_KEY,JSON.stringify(q));}
-async function apiPost(action:string,body:Record<string,any>){let response:Response;try{response=await fetch(`${API_URL}?action=${encodeURIComponent(action)}`,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});}catch(e:any){if(action==='studentsurvey'||action==='teachersurvey'){const q=readOfflineQueue();q.push({id:`${Date.now()}-${Math.random().toString(36).slice(2)}`,action,body,createdAt:new Date().toISOString()});writeOfflineQueue(q);return {success:true,queuedOffline:true,queueId:q[q.length-1].id};}throw new Error(`${action} request could not reach Google Apps Script: ${e?.message||'network or CORS error'}. Check your internet connection and Apps Script deployment.`)}const raw=await response.text();let d:any;try{d=JSON.parse(raw)}catch{const detail=raw.replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ').trim().slice(0,220);throw new Error(`${action} API returned a non-JSON response (HTTP ${response.status}): ${detail||'empty response'}. Check the Apps Script deployment and execution log.`)}if(!response.ok)throw new Error(`${action} API failed with HTTP ${response.status}: ${d.message||d.error||d.details||'No error details returned by Apps Script.'}`);if(d.success===false)throw new Error(`${action} API rejected the request: ${d.message||d.error||d.details||'Apps Script returned success:false without an error message.'}`);return d;}
+async function apiPost(action:string,body:Record<string,any>){let response:Response;try{response=await fetch(`${API_URL}?action=${encodeURIComponent(action)}`,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});}catch(e:any){if(action==='studentsurvey'||action==='teachersurvey'){const q=readOfflineQueue();q.push({id:`${Date.now()}-${Math.random().toString(36).slice(2)}`,action,body,createdAt:new Date().toISOString()});writeOfflineQueue(q);return {success:true,queuedOffline:true,queueId:q[q.length-1].id};}throw new Error(`${action} request could not reach Google Apps Script: ${e?.message||'network or CORS error'}. Check your internet connection and Apps Script deployment.`)}const raw=await response.text();let d:any;try{d=JSON.parse(raw)}catch{const detail=raw.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,220);throw new Error(`${action} API returned a non-JSON response (HTTP ${response.status}): ${detail||'empty response'}. Check the Apps Script deployment and execution log.`)}if(!response.ok)throw new Error(`${action} API failed with HTTP ${response.status}: ${d.message||d.error||d.details||'No error details returned by Apps Script.'}`);if(d.success===false)throw new Error(`${action} API rejected the request: ${d.message||d.error||d.details||'Apps Script returned success:false without an error message.'}`);return d;}
 async function syncOfflineSurveyQueue(){if(!navigator.onLine)return {synced:0,pending:readOfflineQueue().length};const q=readOfflineQueue();const remaining:OfflineJob[]=[];let synced=0;for(const job of q){try{const result=await apiPostOnline(job.action,job.body);if(result?.success===false)throw new Error(result.message||'Rejected');synced++;}catch{remaining.push(job);}}writeOfflineQueue(remaining);return {synced,pending:remaining.length};}
 async function apiPostOnline(action:string,body:Record<string,any>){const response=await fetch(`${API_URL}?action=${encodeURIComponent(action)}`,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});const raw=await response.text();const d=JSON.parse(raw);if(!response.ok||d.success===false)throw new Error(d.message||'Sync failed');return d;}
 
@@ -561,6 +561,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // StartingYear cohort for Pre, Post, Post 2 and every later follow-up.
   const recCohortForStage=(r:Rec,_year:number,_stage:'Pre'|'Post'|'Post 2')=>recStartingYearForRow(r)||Number((r as any).CohortYear)||0;
   const countSourceRows=()=>sourceRows.filter(r=>
+    (!f.cycle||norm(r.CycleID).toUpperCase()===String(f.cycle).toUpperCase())&&
     (!f.region||geoNorm(r.Region)===geoNorm(f.region))&&
     (!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&
     (!f.rec||geoNorm(r.REC)===geoNorm(f.rec))
@@ -570,7 +571,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // SourceSheet is authoritative for participant category when older or custom
   // API deployments omit ParticipantType from the normalized payload.
   const isStudentAssessmentRow=(r:Rec)=>norm(r.ParticipantType).toLowerCase()==='student'||/^(students pre assessment|students post assessment|app_student_surveys)$/i.test(norm(r.SourceSheet));
-  const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
+  const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const cohortRows=countSourceRows().filter(r=>{
       if(!isStudentAssessmentRow(r)||!cohortPlanIncludes(r,targetRecs)||!stageMatches(r,stage))return false;

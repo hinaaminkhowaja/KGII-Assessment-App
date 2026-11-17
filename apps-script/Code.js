@@ -3030,7 +3030,7 @@ function getDashboardData(email) {
   const masterByRecName=new Map();
   active.forEach(x=>{
     const code=recCode_(x.REC);if(code&&!masterByRecCode.has(code))masterByRecCode.set(code,x);
-    const name=geoKey(clean(x.REC).replace(/^\\s*\\d+\\s*\\|\\s*/,''));
+    const name=geoKey(clean(x.REC).replace(/^\s*\d+\s*\|\s*/,''));
     const keys=[geoKey(x.Region)+'|'+geoKey(x.LocalBoard)+'|'+name,geoKey(x.Region)+'|'+name];
     keys.forEach(key=>{if(name&&!masterByRecName.has(key))masterByRecName.set(key,x);});
   });
@@ -3108,7 +3108,7 @@ function getDashboardData(email) {
       if(!region||!board||!rec||!allowed(region,board,rec))return;
       const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','AssessmentDate','CreatedAt','end','End']);
       const date=dateOf(submitted);const submissionYear=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
-      const recName=geoKey(rec.replace(/^\\s*\\d+\\s*\\|\\s*/,''));
+      const recName=geoKey(rec.replace(/^\s*\d+\s*\|\s*/,''));
       const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|')) ||
         masterByRecCode.get(recCode_(rec)) ||
         masterByRecName.get([geoKey(region),geoKey(board),recName].join('|')) ||

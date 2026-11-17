@@ -121,7 +121,24 @@ function ratingFilterMatch(r:Rec,f:any){
  return (type==='student'&&!!studentRating&&score===Number(studentRating))||(type==='teacher'&&!!teacherRating&&score===Number(teacherRating));
 }
 function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\s_-]+/g,'');}
-function filterRows(rows:Rec[],f:any){return rows.filter(r=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String((r as any).CohortYear||r.Year||'')===String(f.year))&&ratingFilterMatch(r,f))}
+function cohortPlanIncludes(r:Rec){
+ const year=Number((r as any).CohortYear)||Number(r.Year)||0;
+ const participant=norm(r.ParticipantType).toLowerCase();
+ const skill=isTeacherSkillRec(r);
+ const stage=assessmentKey(r.Assessment);
+ if(year===2025){
+   if(participant==='student')return ['pre','post','post2'].includes(stage);
+   if(participant==='teacher')return skill?['pre','post','skillpre','skillpost'].includes(stage):['pre','post'].includes(stage);
+   return false;
+ }
+ if(year===2026){
+   if(participant==='student')return stage==='pre';
+   if(participant==='teacher')return !skill&&['pre','post'].includes(stage);
+   return false;
+ }
+ return false;
+}
+function filterRows(rows:Rec[],f:any){return rows.filter(r=>cohortPlanIncludes(r)&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String((r as any).CohortYear||r.Year||'')===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[
@@ -440,30 +457,25 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // One cohort rule for every student assessment stage: the REC master
   // StartingYear owns the cohort. Submission Year never changes the cohort.
   const cohortYear=(r:Rec)=>recStartingYear(r)||Number((r as any).CohortYear)||0;
-  const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
-  const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')||assessmentIsPost2(r.Assessment)));
-  const teacherContentAllRows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&(cohortYear(r)===2025||cohortYear(r)===2026)&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const teacherContent2025Rows=teacherContentAllRows.filter(r=>cohortYear(r)===2025);
-  const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const student2025Pct=stageAverage(student2025Rows,['Pre','Post']);
-  const student2026Pct=stageAverage(student2026Rows,['Pre','Post 2']);
+  const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&['pre','post','post2'].includes(assessmentKey(r.Assessment)));
+  const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&assessmentIs(r.Assessment,'Pre'));
+  const teacherContent2025Rows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const teacherContent2026Rows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const teacherSkills2025Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
+  const student2025Pct=stageAverage(student2025Rows,['Pre','Post','Post 2']);
+  const student2026Pct=aggregate(student2026Rows).p;
   const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:averagePresent([student2025Pct,student2026Pct].filter((_,i)=>[student2025Rows,student2026Rows][i].length>0));
-  const teacherContentPct=stageAverage(teacherContent2025Rows,['Pre','Post']);
-  const teacherSkillsPct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
-  // Fixed framework maxima by cohort: 2025 has student Pre + Post (87 each)
-  // and teacher content Pre + Post (16 each) = 206. 2026 has student Pre +
-  // Post 2 (87 each) and teacher skills Pre + Post (48 each) = 270. All = 476.
-  // Missing stages remain zero-score stages; they never shrink the denominator.
-  const studentPrePostPct=stageAverage(studentRowsAll,['Pre','Post']);
-  const studentPost2Pct=stageAverage(studentRowsAll,['Post 2']);
+  const teacherContent2025Pct=stageAverage(teacherContent2025Rows,['Pre','Post']);
+  const teacherContent2026Pct=stageAverage(teacherContent2026Rows,['Pre','Post']);
+  const teacherContentPct=f.year==='2025'?teacherContent2025Pct:f.year==='2026'?teacherContent2026Pct:averagePresent([teacherContent2025Pct,teacherContent2026Pct].filter((_,i)=>[teacherContent2025Rows,teacherContent2026Rows][i].length>0));
+  const teacherSkillsPct=stageAverage(teacherSkills2025Rows,['Pre','Post']);
   const weightedComponents=[
-    {key:'student-pre-post',year:2025,weight:174,p:student2025Pct,has:student2025Rows.some(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'))},
-    {key:'student-pre-post2',year:2026,weight:174,p:student2026Pct,has:student2026Rows.some(r=>assessmentIs(r.Assessment,'Pre')||assessmentIsPost2(r.Assessment))},
-    {key:'teacher-content',year:2025,weight:32,p:teacherContentPct,has:teacherContent2025Rows.length>0},
-    {key:'teacher-skills',year:2026,weight:96,p:teacherSkillsPct,has:teacherSkills2026Rows.length>0}
+    {key:'2025-students',year:2025,weight:261,p:student2025Pct},
+    {key:'2025-teacher-content',year:2025,weight:32,p:teacherContent2025Pct},
+    {key:'2025-teacher-skills',year:2025,weight:96,p:teacherSkillsPct},
+    {key:'2026-students',year:2026,weight:87,p:student2026Pct},
+    {key:'2026-teacher-content',year:2026,weight:32,p:teacherContent2026Pct}
   ];
-  // The denominator follows the selected programme cohort: 2025 = 206;
-  // 2026 = 270; All cohorts = 476.
   const selectedYear=String(f.year||'');
   const activeComponents=selectedYear==='2025'
     ? weightedComponents.filter(x=>x.year===2025)
@@ -471,7 +483,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       ? weightedComponents.filter(x=>x.year===2026)
       : weightedComponents;
   const overallMax=activeComponents.reduce((n,x)=>n+x.weight,0);
-  const overallScore=activeComponents.reduce((n,x)=>n+x.weight*(x.has?x.p:0)/100,0);
+  const overallScore=activeComponents.reduce((n,x)=>n+x.weight*x.p/100,0);
   const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
@@ -619,7 +631,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['No. of Students (2025 Pre / Post / Post 2)',`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
     ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
     ['No. of Teachers Content (2025 Pre / Post)',`${teacherContent2025Pre} / ${teacherContent2025Post}`],
-    ['No. of Teachers Skills (2026 Pre / Post)',`${teacherSkills2026Pre} / ${teacherSkills2026Post}`],
+    ['No. of Teachers Skills (2025 Pre / Post)',`${teacherSkillsCountForYear(2025,'Pre')} / ${teacherSkillsCountForYear(2025,'Post')}`],
     ['No. of RECs (2025 Pre / Post / Post 2)',`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
     ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
     ['Students Overall',fmt(studentPct)],

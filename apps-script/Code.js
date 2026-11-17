@@ -3083,7 +3083,7 @@ function getDashboardData(email) {
       // Stage is the reliable fallback for APP cohort classification:
       // Post 2+ belongs to the 2025 follow-up cohort; Pre belongs to 2026 intake.
       if(!cohort && (s.kind==='student-app'||s.kind==='teacher-app'||s.kind==='teacher-c2')){
-        if(/^post\s*(?:2|3|4|5|6|7)$/i.test(storedAssessment))cohort=2025;
+        if(/^post\\s*2$/i.test(storedAssessment))cohort=2025;
         else if(/^pre(?:\s*assessment)?$/i.test(storedAssessment))cohort=2026;
       }
       // Year is the actual assessment/submission year. CohortYear separately stores the REC's programme intake year.
@@ -3109,17 +3109,25 @@ function getDashboardData(email) {
             ? [directThemeId_(clean(val(r,h,['ThemeName'])))]
             : [...new Set(numericCols.map(c=>{const m=c.name.match(/^Theme\s*([1-4])/i);return m&&r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined?'Theme '+m[1]:'';}).filter(Boolean))];
         themeNames.filter(Boolean).forEach(theme=>{
-          const eventKey=recThemeKey_(region,board,rec,theme);
-          const event=(events[eventKey]||[]).find(e=>e.source===s.name&&e.row===i+2);
+          // Assessment stages are determined from the source sheet and its explicit
+          // survey selection; no deleted helper-column event sequence is used.
           // The app student survey explicitly records its intended stage:
           // 2025 cohort submissions are Post 2 (or later), while 2026 cohort
           // submissions can be Pre. Never overwrite that value with a
           // date-sequence inference. Kobo post rows continue to be sequenced
           // independently for each REC + theme.
+          const appStageRaw = s.kind === 'student-app'
+            ? clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted']))
+            : '';
+          // Only the two student-app stages currently supported by the programme
+          // are accepted. Legacy/removed Post 3-Post 8 values cannot leak into
+          // dashboard diagnostics or score calculations.
+          if (s.kind === 'student-app' && appStageRaw &&
+              !/^(pre|post\\s*2)$/i.test(appStageRaw)) return;
           let assessment = s.name === 'Students Pre Assessment'
             ? 'Pre'
             : s.kind === 'student-app'
-              ? (clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted'])) || 'Post 2')
+              ? (/^pre$/i.test(appStageRaw) ? 'Pre' : 'Post 2')
               : 'Post';
           // Student Post 2 submissions belong to Cycle 2; keep their submission year independent of cohort year.
           const cycle = s.kind==='student-app' && /^post\s*2$/i.test(assessment) ? 'C2' : 'C1';

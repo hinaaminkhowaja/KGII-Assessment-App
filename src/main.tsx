@@ -562,7 +562,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const stageMatches=(r:Rec,stage:'Pre'|'Post'|'Post 2')=>stage==='Pre'?assessmentIs(r.Assessment,'Pre'):stage==='Post'?assessmentIs(r.Assessment,'Post')&&!assessmentIsPost2(r.Assessment)&&!/^post\\s*3$/i.test(norm(r.Assessment)):assessmentIsPost2(r.Assessment);
   const studentCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const cohortRows=countSourceRows().filter(r=>{
-      if(!isStudentAssessmentRow(r)||!stageMatches(r,stage))return false;
+      if(!isStudentAssessmentRow(r)||!cohortPlanIncludes(r)||!stageMatches(r,stage))return false;
       const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });
@@ -642,7 +642,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Dimension Overall',fmt(dimensionOverall)]
   ];
   const hiddenByRating=f.studentRating&&!f.teacherRating
-    ? ['No. of Teachers Content (2025 Pre / Post)','No. of Teachers Skills (2026 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
+    ? ['No. of Teachers Content (2025 Pre / Post)','No. of Teachers Content (2026 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','Teachers Content Overall','Teachers Skills Overall']
     : f.teacherRating&&!f.studentRating
       ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
       : [];

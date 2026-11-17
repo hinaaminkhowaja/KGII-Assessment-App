@@ -471,20 +471,21 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherContent2025Rows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const teacherContent2026Rows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const teacherSkills2025Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const student2025Pct=stageAverage(student2025Rows,['Pre','Post','Post 2']);
+  const student2025Pct=f.cycle==='C1'?stageAverage(student2025Rows,['Pre','Post']):f.cycle==='C2'?aggregate(student2025Rows.filter(r=>assessmentIsPost2(r.Assessment))).p:stageAverage(student2025Rows,['Pre','Post','Post 2']);
   const student2026Pct=aggregate(student2026Rows).p;
-  const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:pct(261*student2025Pct+87*student2026Pct,348);
+  const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:f.cycle==='C1'?pct(174*student2025Pct+87*student2026Pct,261):f.cycle==='C2'?student2025Pct:pct(261*student2025Pct+87*student2026Pct,348);
   const teacherContent2025Pct=stageAverage(teacherContent2025Rows,['Pre','Post']);
   const teacherContent2026Pct=stageAverage(teacherContent2026Rows,['Pre','Post']);
-  const teacherContentPct=f.year==='2025'?teacherContent2025Pct:f.year==='2026'?teacherContent2026Pct:pct(32*teacherContent2025Pct+32*teacherContent2026Pct,64);
-  const teacherSkillsPct=stageAverage(teacherSkills2025Rows,['Pre','Post']);
+  const teacherContentPct=f.cycle==='C2'?0:f.year==='2025'?teacherContent2025Pct:f.year==='2026'?teacherContent2026Pct:pct(32*teacherContent2025Pct+32*teacherContent2026Pct,64);
+  const teacherSkillsPct=f.cycle==='C1'?0:stageAverage(teacherSkills2025Rows,['Pre','Post']);
+  const cycleFilter=String(f.cycle||'');
   const weightedComponents=[
-    {key:'2025-students',year:2025,weight:261,p:student2025Pct},
-    {key:'2025-teacher-content',year:2025,weight:32,p:teacherContent2025Pct},
-    {key:'2025-teacher-skills',year:2025,weight:96,p:teacherSkillsPct},
-    {key:'2026-students',year:2026,weight:87,p:student2026Pct},
-    {key:'2026-teacher-content',year:2026,weight:32,p:teacherContent2026Pct}
-  ];
+    {key:'2025-students',year:2025,weight:cycleFilter==='C1'?174:cycleFilter==='C2'?87:261,p:student2025Pct},
+    {key:'2025-teacher-content',year:2025,weight:cycleFilter==='C2'?0:32,p:teacherContent2025Pct},
+    {key:'2025-teacher-skills',year:2025,weight:cycleFilter==='C1'?0:96,p:teacherSkillsPct},
+    {key:'2026-students',year:2026,weight:cycleFilter==='C2'?0:87,p:student2026Pct},
+    {key:'2026-teacher-content',year:2026,weight:cycleFilter==='C2'?0:32,p:teacherContent2026Pct}
+  ].filter(x=>x.weight>0);
   const selectedYear=String(f.year||'');
   const activeComponents=selectedYear==='2025'
     ? weightedComponents.filter(x=>x.year===2025)

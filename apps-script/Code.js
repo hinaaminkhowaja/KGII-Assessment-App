@@ -3008,7 +3008,7 @@ function getDashboardData(email) {
   };
   const yearOf=v=>{if(v instanceof Date&&!isNaN(v))return String(v.getFullYear());const m=clean(v).match(/(?:19|20)\d{2}/);return m?m[0]:'';};
   const dateOf=v=>{if(v instanceof Date&&!isNaN(v))return v;const d=new Date(v);return isNaN(d)?null:d;};
-  const geoKey=v=>norm(v).replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const geoKey=v=>norm(v).replace(/[_-]+/g,' ').replace(/\s+\d+$/,'').replace(/\s+/g,' ').trim();
   const master=ss.getSheetByName('RECs_list_Phase_Wise');
   const masterRows=master&&master.getLastRow()>1?master.getDataRange().getValues():[];
   const mh=masterRows.length?masterRows[0].map(clean):[];
@@ -3027,7 +3027,13 @@ function getDashboardData(email) {
   // Kobo and app exports sometimes vary in board/REC display punctuation.
   // Use the stable numeric REC code as a guarded fallback when the full key differs.
   const masterByRecCode=new Map();
-  active.forEach(x=>{const code=recCode_(x.REC);if(code&&!masterByRecCode.has(code))masterByRecCode.set(code,x);});
+  const masterByRecName=new Map();
+  active.forEach(x=>{
+    const code=recCode_(x.REC);if(code&&!masterByRecCode.has(code))masterByRecCode.set(code,x);
+    const name=geoKey(clean(x.REC).replace(/^\\s*\\d+\\s*\\|\\s*/,''));
+    const keys=[geoKey(x.Region)+'|'+geoKey(x.LocalBoard)+'|'+name,geoKey(x.Region)+'|'+name];
+    keys.forEach(key=>{if(name&&!masterByRecName.has(key))masterByRecName.set(key,x);});
+  });
   const allowed=(region,board,rec)=>{
     // Admin dashboard reads the source sheets as the system of record.
     // Do not discard valid source submissions just because a REC is missing
@@ -3102,7 +3108,11 @@ function getDashboardData(email) {
       if(!region||!board||!rec||!allowed(region,board,rec))return;
       const submitted=val(r,h,['start','Start','SubmittedAt','SubmissionDate','AssessmentDate','CreatedAt','end','End']);
       const date=dateOf(submitted);const submissionYear=yearOf(submitted)||yearOf(val(r,h,['end','End']))||yearOf(val(r,h,['Year']));
-      const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|')) || masterByRecCode.get(recCode_(rec));
+      const recName=geoKey(rec.replace(/^\\s*\\d+\\s*\\|\\s*/,''));
+      const masterRec=masterMap.get([geoKey(region),geoKey(board),geoKey(rec)].join('|')) ||
+        masterByRecCode.get(recCode_(rec)) ||
+        masterByRecName.get([geoKey(region),geoKey(board),recName].join('|')) ||
+        masterByRecName.get([geoKey(region),recName].join('|'));
       const storedAssessment=clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted']));
       let cohort=masterRec?masterRec.StartingYear:'';
       // Stage is the reliable fallback for APP cohort classification:
@@ -3207,10 +3217,12 @@ function getDashboardData(email) {
     sourceDiagnostics[source.name]={
       sourceSheetFound:!!ss.getSheetByName(source.name),
       sourceRows:loadedSource?loadedSource.rows.filter(row=>row.some(value=>value!==''&&value!==null&&value!==undefined)).length:0,
+      headers:loadedSource?loadedSource.headers:[],
       emittedIndicatorRecords:sourceRecords.length,
       assessments:[...new Set(sourceRecords.map(record=>String(record[5]||'')))],
       submissionYears:[...new Set(sourceRecords.map(record=>String(record[2]||'')))],
       cohortYears:[...new Set(sourceRecords.map(record=>String(record[3]||'')))],
+      stageCohortBreakdown:sourceRecords.reduce((out,record)=>{const key=String(record[3]||'Unclassified')+' / '+String(record[5]||'No stage');out[key]=(out[key]||0)+1;return out;},{}),
       themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))]
     };
   });

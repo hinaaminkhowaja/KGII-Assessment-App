@@ -3057,44 +3057,9 @@ function getDashboardData(email) {
     const sh=ss.getSheetByName(s.name);if(!sh||sh.getLastRow()<2)return;
     const v=sh.getDataRange().getValues();loaded.push({source:s,headers:v[0].map(clean),rows:v.slice(1)});
   });
-  // Student stages are independent for each REC + theme. Original pre sheet is fixed baseline.
-  const events=Object.create(null);
-  const recEvents=Object.create(null);
-  const themeNamesForRow_=(x,r)=>{
-    if(x.source.name==='APP_Student_Surveys')return [directThemeId_(clean(val(r,x.headers,['ThemeName'])))].filter(Boolean);
-    const cols=x.headers.map((name,j)=>({name,j})).filter(c=>/^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name));
-    return [...new Set(cols.filter(c=>r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined).map(c=>'Theme '+c.name.match(/^Theme\s*([1-4])/i)[1]))];
-  };
-  const rowDate_=(r,h)=>['start','Start','SubmittedAt','SubmissionDate','AssessmentDate','end','End'].map(k=>val(r,h,[k])).find(v=>clean(v)!=='');
-  const recThemeKey_=(region,board,rec,theme)=>[geoKey(region),geoKey(board),geoKey(rec),geoKey(theme)].join('|');
-  loaded.filter(x=>x.source.kind==='student-kobo'||x.source.kind==='student-app').forEach(x=>{
-    x.rows.forEach((r,i)=>{
-      if(x.source.name==='Students Pre Assessment')return;
-      const h=x.headers,region=val(r,h,['1. Select your region','Select your region','Region']);
-      const board=val(r,h,['LocalBoard','Local Board (Standardized)','Local Board','Name of Local Board']);
-      const rec=val(r,h,['REC','REC (Standardized)','Name of RECs','Name of REC']);
-      if(!region||!board||!rec)return;
-      const d=dateOf(rowDate_(r,h));if(!d)return;
-      const day=Utilities.formatDate(d,Session.getScriptTimeZone(),'yyyy-MM-dd');
-      const rowThemes=themeNamesForRow_(x,r);
-      if(rowThemes.length){
-        const recKey=[geoKey(region),geoKey(board),geoKey(rec)].join('|');
-        (recEvents[recKey]||(recEvents[recKey]=[])).push({time:day,source:x.source.name,row:i+2});
-      }
-      rowThemes.forEach(theme=>{
-        const key=recThemeKey_(region,board,rec,theme);
-        (events[key]||(events[key]=[])).push({time:day,source:x.source.name,row:i+2});
-      });
-    });
-  });
-  const assignStages_=map=>{
-    Object.keys(map).forEach(k=>{
-      const dates=[...new Set(map[k].map(e=>e.time))].sort();
-      map[k].forEach(e=>{e.sequence=dates.indexOf(e.time)+2;e.assessment=e.sequence===2?'Post':'Post '+(e.sequence-1);});
-    });
-  };
-  assignStages_(events);
-  assignStages_(recEvents);
+  // Student assessment stages follow the agreed source-sheet design.
+  // Kobo Pre and Post sheets each represent one fixed stage. The app survey
+  // carries its own explicit Assessment selection (Pre or Post 2).
   // Temporary assessment helper columns are no longer written to source sheets.
   const headers=['RecordID','CycleID','Year','CohortYear','ParticipantType','Assessment','Region','LocalBoard','REC','ParticipantCount','Phase','ThemeID','DimensionID','IndicatorID','Score','MaxScore','SourceSheet','SourceRow','SourceRecordID','ChildName','TeacherName'];
   const records=[];
@@ -3154,8 +3119,8 @@ function getDashboardData(email) {
           let assessment = s.name === 'Students Pre Assessment'
             ? 'Pre'
             : s.kind === 'student-app'
-              ? (clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted'])) || (event ? event.assessment : 'Post'))
-              : (event ? event.assessment : clean(val(r,h,['Assessment','Specify the phase'])) || 'Post');
+              ? (clean(val(r,h,['Assessment','AssessmentStage','Select when this assessment conducted'])) || 'Post 2')
+              : 'Post';
           // Student Post 2 submissions belong to Cycle 2; keep their submission year independent of cohort year.
           const cycle = s.kind==='student-app' && /^post\s*2$/i.test(assessment) ? 'C2' : 'C1';
           numericCols.forEach(c=>{

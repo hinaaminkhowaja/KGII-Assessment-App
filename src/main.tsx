@@ -121,14 +121,34 @@ function ratingFilterMatch(r:Rec,f:any){
  return (type==='student'&&!!studentRating&&score===Number(studentRating))||(type==='teacher'&&!!teacherRating&&score===Number(teacherRating));
 }
 function assessmentKey(value:string){return norm(value).toLowerCase().replace(/[\s_-]+/g,'');}
+// Index the REC master once per directory version. A linear REC lookup for every
+// expanded indicator row made each dashboard filter O(records × RECs), repeated
+// across several panels. These maps make cohort resolution O(1) per record.
+const cohortLookupCache=new WeakMap<any[],{byKey:Map<string,number>;byCode:Map<string,number>}>();
+function cohortLookup(targetRecs:any[]=[]){
+ let index=cohortLookupCache.get(targetRecs);
+ if(index)return index;
+ const key=(v:any)=>norm(v).toLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+ const code=(v:any)=>{const m=String(v||'').match(/^\s*(\d{3,})\s*\|/);return m?m[1]:'';};
+ const byKey=new Map<string,number>(),byCode=new Map<string,number>();
+ targetRecs.forEach((x:any)=>{
+   const year=Number(x.StartingYear)||0;
+   if(!year)return;
+   const full=[x.Region,x.LocalBoard,x.REC].map(key).join('||');
+   if(full)byKey.set(full,year);
+   const recCode=code(x.REC);
+   if(recCode&&!byCode.has(recCode))byCode.set(recCode,year);
+ });
+ index={byKey,byCode};
+ cohortLookupCache.set(targetRecs,index);
+ return index;
+}
 function cohortYearForRecord(r:Rec,targetRecs:any[]=[]){
+ const index=cohortLookup(targetRecs);
  const key=(v:any)=>norm(v).toLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
  const full=[r.Region,r.LocalBoard,r.REC].map(key).join('||');
- const code=(v:any)=>{const m=String(v||'').match(/^\s*(\d{3,})\s*\|/);return m?m[1]:'';};
- const recCode=code(r.REC);
- const match=targetRecs.find((x:any)=>[x.Region,x.LocalBoard,x.REC].map(key).join('||')===full)
-   ||(recCode?targetRecs.find((x:any)=>code(x.REC)===recCode):undefined);
- return Number(match?.StartingYear)||Number((r as any).CohortYear)||0;
+ const m=String(r.REC||'').match(/^\s*(\d{3,})\s*\|/);
+ return index.byKey.get(full)||(m?index.byCode.get(m[1]):0)||Number((r as any).CohortYear)||0;
 }
 function cohortPlanIncludes(r:Rec,targetRecs:any[]=[]){
  const year=cohortYearForRecord(r,targetRecs);
@@ -289,13 +309,13 @@ const recs = useMemo(
   const allowedRecords=records;
   const cohortScopedRecords=useMemo(()=>allowedRecords,[allowedRecords]);
   const pageRecords=useMemo(()=>page==='teacher'?cohortScopedRecords.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'):cohortScopedRecords,[cohortScopedRecords,page]);
-  const filtered=useMemo(()=>filterRows(pageRecords,f,targetRecs),[pageRecords,f]);
-  const metricRows=useMemo(()=>filterRows(pageRecords,{...f,studentRating:'',teacherRating:''},targetRecs),[pageRecords,f]);
-  const allStageRows=useMemo(()=>filterRows(pageRecords,{...f,assessment:'',pt:'',theme:'',dim:'',focus:'',teacher:'',studentRating:'',teacherRating:''},targetRecs),[pageRecords,f]);
+  const filtered=useMemo(()=>filterRows(pageRecords,f,targetRecs),[pageRecords,f,targetRecs]);
+  const metricRows=useMemo(()=>filterRows(pageRecords,{...f,studentRating:'',teacherRating:''},targetRecs),[pageRecords,f,targetRecs]);
+  const allStageRows=useMemo(()=>filterRows(pageRecords,{...f,assessment:'',pt:'',theme:'',dim:'',focus:'',teacher:'',studentRating:'',teacherRating:''},targetRecs),[pageRecords,f,targetRecs]);
   const post2Rows=useMemo(()=>allStageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment)),[allStageRows]);
-  const regionPerformanceRows=useMemo(()=>filterRows(cohortScopedRecords,f,targetRecs),[cohortScopedRecords,f]);
-  const highlightRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:''},targetRecs),[cohortScopedRecords,f]);
-  const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''},targetRecs),[cohortScopedRecords,f]);
+  const regionPerformanceRows=useMemo(()=>filterRows(cohortScopedRecords,f,targetRecs),[cohortScopedRecords,f,targetRecs]);
+  const highlightRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
+  const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
  // Region options are sourced from the live six-source dashboard response.

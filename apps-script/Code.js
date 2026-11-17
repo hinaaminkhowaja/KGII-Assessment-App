@@ -3173,25 +3173,24 @@ function getDashboardData(email) {
   });
   // Per-source diagnostics make it possible to verify that each app survey
   // sheet is read and expanded into dashboard rows without exposing names.
+  const recordsBySource=Object.create(null);
+  records.forEach(record=>{
+    const sourceName=String(record[16]||'');
+    if(!recordsBySource[sourceName])recordsBySource[sourceName]=[];
+    recordsBySource[sourceName].push(record);
+  });
   const sourceDiagnostics={};
   sources.forEach(source=>{
-    const sheet=ss.getSheetByName(source.name);
-    const sourceRows=sheet&&sheet.getLastRow()>1
-      ? sheet.getRange(2,1,sheet.getLastRow()-1,sheet.getLastColumn()).getValues()
-          .filter(row=>row.some(value=>value!==''&&value!==null&&value!==undefined)).length
-      : 0;
-    const sourceRecords=records.filter(record=>record[16]===source.name);
+    const loadedSource=loaded.find(item=>item.source.name===source.name);
+    const sourceRecords=recordsBySource[source.name]||[];
     sourceDiagnostics[source.name]={
-      sourceSheetFound:!!sheet,
-      sourceRows,
+      sourceSheetFound:!!ss.getSheetByName(source.name),
+      sourceRows:loadedSource?loadedSource.rows.filter(row=>row.some(value=>value!==''&&value!==null&&value!==undefined)).length:0,
       emittedIndicatorRecords:sourceRecords.length,
       assessments:[...new Set(sourceRecords.map(record=>String(record[5]||'')))],
       submissionYears:[...new Set(sourceRecords.map(record=>String(record[2]||'')))],
       cohortYears:[...new Set(sourceRecords.map(record=>String(record[3]||'')))],
-      themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))],
-      regions:[...new Set(sourceRecords.map(record=>String(record[6]||'')))],
-      localBoards:[...new Set(sourceRecords.map(record=>String(record[7]||'')))],
-      recs:[...new Set(sourceRecords.map(record=>String(record[8]||'')))]
+      themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))]
     };
   });
   const studentSurveyDiagnostics=sourceDiagnostics['APP_Student_Surveys'];

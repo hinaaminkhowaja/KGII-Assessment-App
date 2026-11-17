@@ -1386,7 +1386,7 @@ function recThemeHasAssessmentSubmission_(region, localBoard, rec, themeID, requ
     const ai=col('Assessment','AssessmentStage','Select when this assessment conducted');
     if([ri,bi,ci].some(i=>i<0))continue;
     const ratingCols=headers.map((header,index)=>({header,index}))
-      .filter(item=>new RegExp('^theme\\s*'+themeNumber+'\\s*:', 'i').test(item.header))
+      .filter(item=>new RegExp('^theme\s*'+themeNumber+'\s*:', 'i').test(item.header))
       .map(item=>item.index);
 
     const found=values.slice(1).some(row=>{
@@ -3083,7 +3083,7 @@ function getDashboardData(email) {
       // Stage is the reliable fallback for APP cohort classification:
       // Post 2+ belongs to the 2025 follow-up cohort; Pre belongs to 2026 intake.
       if(!cohort && (s.kind==='student-app'||s.kind==='teacher-app'||s.kind==='teacher-c2')){
-        if(/^post\\s*2$/i.test(storedAssessment))cohort=2025;
+        if(/^post\s*2$/i.test(storedAssessment))cohort=2025;
         else if(/^pre(?:\s*assessment)?$/i.test(storedAssessment))cohort=2026;
       }
       // Year is the actual assessment/submission year. CohortYear separately stores the REC's programme intake year.
@@ -3123,7 +3123,7 @@ function getDashboardData(email) {
           // are accepted. Legacy/removed Post 3-Post 8 values cannot leak into
           // dashboard diagnostics or score calculations.
           if (s.kind === 'student-app' && appStageRaw &&
-              !/^(pre|post\\s*2)$/i.test(appStageRaw)) return;
+              !/^(pre|post\s*2)$/i.test(appStageRaw)) return;
           let assessment = s.name === 'Students Pre Assessment'
             ? 'Pre'
             : s.kind === 'student-app'

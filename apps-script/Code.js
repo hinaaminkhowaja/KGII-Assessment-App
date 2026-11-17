@@ -1327,14 +1327,16 @@ function handleSurveyClassification_(e) {
   if (!startingYear) throw new Error('REC StartingYear was not found in RECs_list_Phase_Wise.');
 
   if (participantType.toLowerCase() === 'student') {
-    if (startingYear >= 2026) {
-      return {success:true, assessment:'Pre', startingYear, classificationBasis:'REC StartingYear'};
-    }
-    if (startingYear === 2025) {
-      const alreadyPosted = themeID && recThemeHasPostSubmission_(p.region, p.localBoard, p.rec, themeID);
-      return {success:true, assessment:alreadyPosted ? 'Post 2' : 'Post', startingYear,
-        classificationBasis:'REC StartingYear + prior theme submissions'};
-    }
+    if (!themeID) throw new Error('Theme is required for student assessment classification.');
+    const completed = {
+      Pre: recThemeHasAssessmentSubmission_(p.region,p.localBoard,p.rec,themeID,'Pre'),
+      Post: recThemeHasAssessmentSubmission_(p.region,p.localBoard,p.rec,themeID,'Post'),
+      'Post 2': recThemeHasAssessmentSubmission_(p.region,p.localBoard,p.rec,themeID,'Post 2')
+    };
+    const sequence = startingYear === 2025 ? ['Pre','Post','Post 2'] : ['Pre','Post','Post 2'];
+    const assessment = sequence.find(stage=>!completed[stage]) || 'Post 2';
+    return {success:true,assessment,startingYear,completedAssessments:completed,
+      classificationBasis:'REC StartingYear + received submissions for selected theme'};
   }
 
   if (participantType.toLowerCase() === 'teacher') {
@@ -1345,59 +1347,62 @@ function handleSurveyClassification_(e) {
   return {success:true, startingYear, classificationBasis:'REC StartingYear'};
 }
 
-function recThemeHasPostSubmission_(region, localBoard, rec, themeID) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sourceNames = ['Students Post Assessment', 'APP_Student_Surveys'];
-  const key = value => clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
-  const compact = value => key(value).replace(/[^a-z0-9]/g,'');
-  const same = (a,b) => key(a)===key(b) || compact(a)===compact(b);
-  const canonicalTheme = value => {
+function recThemeHasAssessmentSubmission_(region, localBoard, rec, themeID, requestedStage) {
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  const sourceStages={
+    'Students Pre Assessment':'Pre',
+    'Students Post Assessment':'Post',
+    'APP_Student_Surveys':null
+  };
+  const key=value=>clean(value).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const compact=value=>key(value).replace(/[^a-z0-9]/g,'');
+  const same=(a,b)=>key(a)===key(b)||compact(a)===compact(b);
+  const canonicalTheme=value=>{
     const raw=key(value);
-    const digits=(raw.match(/(?:theme\s*|^t)([1-4])\b/i)||raw.match(/([1-4])/))?.[1];
-    if (digits) return 'theme'+digits;
+    const match=raw.match(/(?:theme\s*|^t)([1-4])\b/i)||raw.match(/([1-4])/);
+    if(match)return 'theme'+match[1];
     const normalized=raw.replace(/[^a-z]/g,'');
     const aliases={
       authorityandleadership:'theme1',authorityleadership:'theme1',
       intellectualtraditions:'theme2',ismailimuslimtraditions:'theme2',
-      roleinfamilycommunityandsociety:'theme3',
-      twoaspectsoflife:'theme4'
+      roleinfamilycommunityandsociety:'theme3',twoaspectsoflife:'theme4'
     };
-    return aliases[normalized] || normalized;
+    return aliases[normalized]||normalized;
   };
   const wantedTheme=canonicalTheme(themeID);
   const themeNumber=(wantedTheme.match(/theme([1-4])/)||[])[1];
-  if (!themeNumber) return false;
+  if(!themeNumber)return false;
 
-  for (const name of sourceNames) {
+  for(const name of Object.keys(sourceStages)){
     const sheet=ss.getSheetByName(name);
-    if (!sheet || sheet.getLastRow()<2) continue;
+    if(!sheet||sheet.getLastRow()<2)continue;
     const values=sheet.getDataRange().getValues();
     const headers=values[0].map(h=>clean(h));
     const col=(...names)=>headers.findIndex(h=>names.some(n=>key(h)===key(n)));
     const ri=col('1. Select your region','Select your region','Region');
     const bi=col('LocalBoard','Local Board','Local Board (Standardized)','Name of Local Board');
     const ci=col('REC','REC (Standardized)','Name of RECs');
+    const ti=col('ThemeName','Theme Name','Select the themes','ThemeID','Theme');
     const ai=col('Assessment','AssessmentStage','Select when this assessment conducted');
-    if ([ri,bi,ci].some(i=>i<0)) continue;
-
-    let themeCol=col('ThemeName','Theme Name','Select the themes','ThemeID','Theme');
-    const ratingCols=headers.map((header,index)=>({
-      index,
-      matches:new RegExp('^theme\\s*'+themeNumber+'\\s*:', 'i').test(header)
-    })).filter(item=>item.matches).map(item=>item.index);
+    if([ri,bi,ci].some(i=>i<0))continue;
+    const ratingCols=headers.map((header,index)=>({header,index}))
+      .filter(item=>new RegExp('^theme\\s*'+themeNumber+'\\s*:', 'i').test(item.header))
+      .map(item=>item.index);
 
     const found=values.slice(1).some(row=>{
-      if (!same(row[ri],region) || !same(row[bi],localBoard) || !same(row[ci],rec)) return false;
-      if (ai>=0) {
-        const assessment=key(row[ai]).replace(/\s+/g,'');
-        if (assessment!=='post' && assessment!=='postassessment') return false;
-      } else if (name!=='Students Post Assessment') {
-        return false;
+      if(!same(row[ri],region)||!same(row[bi],localBoard)||!same(row[ci],rec))return false;
+      let rowStage=sourceStages[name];
+      if(ai>=0){
+        const raw=key(row[ai]).replace(/[\s_-]+/g,'');
+        rowStage=raw==='pre'||raw==='preassessment'?'Pre':
+          raw==='post'||raw==='postassessment'?'Post':
+          raw==='post2'||raw==='post2assessment'?'Post 2':null;
       }
-      if (themeCol>=0) return canonicalTheme(row[themeCol])===wantedTheme;
-      return ratingCols.length>0 && ratingCols.some(index=>row[index]!=='' && row[index]!==null && row[index]!==undefined);
+      if(rowStage!==requestedStage)return false;
+      if(ti>=0)return canonicalTheme(row[ti])===wantedTheme;
+      return ratingCols.length>0&&ratingCols.some(index=>row[index]!==''&&row[index]!==null&&row[index]!==undefined);
     });
-    if (found) return true;
+    if(found)return true;
   }
   return false;
 }

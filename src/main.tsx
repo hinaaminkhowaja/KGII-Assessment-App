@@ -605,9 +605,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });
-    // Count source submissions separately by REC and theme, then use the
-    // highest theme count for each REC. Never deduplicate by child name/ID.
-    // Expanded indicator rows from one source row count once within a theme.
+    // Count all student participation across themes within each REC.
+    // One source submission counts once within its REC + theme, even though
+    // it expands to multiple indicator rows. Do not deduplicate across themes
+    // or by ChildName/student ID.
     const byRec=new Map<string,Map<string,Set<string>>>();
     cohortRows.forEach(r=>{
       const recKey=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLocaleLowerCase()).join('||');
@@ -620,10 +621,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       themes.set(theme,submissions);
       byRec.set(recKey,themes);
     });
-    return [...byRec.values()].reduce((total,themes)=>{
-      const highest=Math.max(0,...[...themes.values()].map(submissions=>submissions.size));
-      return total+highest;
-    },0);
+    return [...byRec.values()].reduce((total,themes)=>
+      total+[...themes.values()].reduce((themeTotal,submissions)=>themeTotal+submissions.size,0),0);
   };
   // Count source submissions, not expanded indicator rows. Content is counted
   // separately for each teacher/theme submission; skills once per teacher submission.

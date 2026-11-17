@@ -605,9 +605,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });
-    // Pre is a submission count: do not deduplicate by child name. One source
-    // row is one child assessment; the row may expand to many indicator records.
-    const submissionIdentity=(r:Rec)=>[r.SourceSheet||'Students Pre Assessment',r.SourceRow||r.SourceRecordID||r.RecordID||[r.Region,r.LocalBoard,r.REC,r.ChildName].join('|')].map(v=>norm(v).toLocaleLowerCase()).join('||');
+    // Count each student assessment source row once per REC/stage.
+    // Never deduplicate using ChildName or a child identifier; a source row
+    // may expand into many indicator records but represents one theme submission.
+    const submissionIdentity=(r:Rec)=>[r.Region,r.LocalBoard,r.REC,r.SourceSheet||'Students Assessment',r.SourceRow||r.SourceRecordID||r.RecordID].map(v=>norm(v).toLocaleLowerCase()).join('||');
     return distinctCount(cohortRows,submissionIdentity);
   };
   // Count source submissions, not expanded indicator rows. Content is counted
@@ -700,8 +701,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
       const studentCounts = new Map<string,Set<string>>();
       const teacherCounts = new Map<string,Set<string>>();
       stageRows.filter(r => norm(r.ParticipantType).toLowerCase()==='student' && r.Region && r.LocalBoard && r.REC).forEach(r => {
-        const key=recKey(r), id=(norm(r.SourceRecordID)||norm(r.ChildName)).toLocaleLowerCase();
-        if(!id)return; const set=studentCounts.get(key)||new Set<string>();set.add(id);studentCounts.set(key,set);
+        // Count source assessment rows, not child names/IDs. One source row
+        // can expand to multiple indicator records for the same REC and theme.
+        const key=recKey(r);
+        const id=[r.SourceSheet||'Students Assessment',r.SourceRow||r.SourceRecordID||r.RecordID].map(v=>norm(v).toLocaleLowerCase()).join('||');
+        if(!id.replace(/\|/g,''))return;
+        const set=studentCounts.get(key)||new Set<string>();set.add(id);studentCounts.set(key,set);
       });
       stageRows.filter(r => norm(r.ParticipantType).toLowerCase()==='teacher' && r.Region && r.LocalBoard && r.REC).forEach(r => {
         const key=recKey(r), id=norm(r.TeacherName).toLocaleLowerCase();
@@ -740,9 +745,9 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
   sourceGroups.forEach((r:any)=>{const raw=norm(groupValue(r));if(!raw)return;const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
   const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
 
-  // A submission expands into multiple indicator rows. Count students by child,
-  // but count teacher content submissions per REC + theme + stage. A teacher
-  // contributing to several themes is counted once in each submitted theme.
+  // A submission expands into multiple indicator rows. Count student and
+  // teacher source submissions per REC + theme + stage. Participation in
+  // separate themes is counted separately; child names/IDs are never used.
   const participants=new Map<string,Set<string>>();
   for(const r of scopedRecords){
     const group=groupKey(groupValue(r));

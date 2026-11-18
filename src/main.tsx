@@ -1135,19 +1135,57 @@ function performanceDrivers(rows:Rec[],mode:'strong'|'weak'){
  add('Teacher skill · ',choose(teacherSkills,'ThemeID',id=>/^S[1-3]$/i.test(id),id=>skillNames[id.toUpperCase()]||id));
  return out;
 }
-function highlightDrivers(rows:Rec[],mode:'strong'|'weak'){
- const areas=performanceDrivers(rows,mode);
- return areas.length?areas.map(a=>a.label+' ('+fmt(a.p)+')').join(' · '):'Insufficient data to identify contributing areas';
-}
-function HighlightTable({items,title}:{items:{label:string;item?:{rows:Rec[];name:string;overall:number}}[];title:string}){
- const renderDrivers=(rs:Rec[],mode:'strong'|'weak')=>performanceDrivers(rs,mode).map((a,i)=><div key={i} className="highlight-area"><b>{a.label}</b><small>{fmt(a.p)}</small></div>);
- return <section className="card performance-highlights"><div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>{title}</h2></div><p>Top performers show stronger areas only; locations needing support show focus areas only. Student and teacher themes, teacher skills, student dimensions and rubrics are considered.</p></div><div className="highlight-card-grid">{items.map(({label,item})=>{if(!item)return <article className="highlight-card" key={label}><p className="highlight-card-label">{label}</p><div className="empty">Not available</div></article>;const positive=label.toLowerCase().startsWith('top-performing');return <article className="highlight-card" key={label}><div className="highlight-card-top"><span className={'highlight-status '+(positive?'status-strong':'status-support')}>{positive?'TOP PERFORMANCE':'NEEDS SUPPORT'}</span><span className="highlight-scope">{label.toLowerCase().includes('region')?'REGION':label.toLowerCase().includes('local board')?'LOCAL BOARD':'REC'}</span></div><h3>{item.name}</h3><div className="highlight-driver-grid">{positive?<div className="highlight-driver strength"><h4><span>✓</span> Stronger areas</h4>{renderDrivers(item.rows,'strong')||<small>Not enough data</small>}</div>:<div className="highlight-driver support"><h4><span>↗</span> Focus areas</h4>{renderDrivers(item.rows,'weak')||<small>Not enough data</small>}</div>}</div></article>})}</div></section>
+function HighlightTable({items,title}:{items:{label:string;item?:{name:string;overall:number;studentScore:number|null;teacherScore:number|null}}[];title:string}){
+ const score=(value:number|null)=>value===null?'—':fmt(value);
+ return <section className="card performance-highlights">
+  <div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>{title}</h2></div><p>Locations are ranked by the combined overall percentage of student and teacher assessment scores. Student and teacher percentages are shown separately for clarity.</p></div>
+  <div className="highlight-card-grid">{items.map(({label,item})=>{
+   if(!item)return <article className="highlight-card" key={label}><p className="highlight-card-label">{label}</p><div className="empty">Not available</div></article>;
+   const positive=label.toLowerCase().startsWith('top-performing');
+   return <article className="highlight-card" key={label}>
+    <div className="highlight-card-top"><span className={'highlight-status '+(positive?'status-strong':'status-support')}>{positive?'TOP PERFORMANCE':'NEEDS SUPPORT'}</span><span className="highlight-scope">{label.toLowerCase().includes('region')?'REGION':label.toLowerCase().includes('local board')?'LOCAL BOARD':'REC'}</span></div>
+    <h3>{item.name}</h3>
+    <div className="highlight-overall"><span>Combined overall score</span><strong>{fmt(item.overall)}</strong></div>
+    <div className="highlight-score-row">
+     <div><span>Students overall</span><strong>{score(item.studentScore)}</strong></div>
+     <div><span>Teachers overall</span><strong>{score(item.teacherScore)}</strong></div>
+    </div>
+   </article>;
+  })}</div>
+ </section>;
 }
 function PerformanceHighlights({rows}:{rows:Rec[]}){
- const rank=(key:'Region'|'LocalBoard'|'REC')=>{const map=new Map<string,Rec[]>();rows.filter(r=>r[key]).forEach(r=>{const region=displayGeo(norm(r.Region)),board=displayGeo(norm(r.LocalBoard)),rec=displayGeo(norm(r.REC));const id=key==='Region'?region:key==='LocalBoard'?[region,board].join('||'):[region,board,rec].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});return [...map.values()].map(rs=>{const outcome=latestOutcomeRows(rs);return {rows:rs,name:key==='Region'?displayGeo(rs[0].Region):key==='LocalBoard'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),overall:aggregate(outcome).p,hasOutcome:outcome.length>0}}).filter(x=>x.hasOutcome).sort((a,b)=>b.overall-a.overall)};
+ const rank=(key:'Region'|'LocalBoard'|'REC')=>{
+  const map=new Map<string,Rec[]>();
+  rows.filter(r=>r[key]).forEach(r=>{
+   const region=displayGeo(norm(r.Region)),board=displayGeo(norm(r.LocalBoard)),rec=displayGeo(norm(r.REC));
+   const id=key==='Region'?region:key==='LocalBoard'?[region,board].join('||'):[region,board,rec].join('||');
+   if(!map.has(id))map.set(id,[]);map.get(id)!.push(r);
+  });
+  return [...map.values()].map(rs=>{
+   const outcome=latestOutcomeRows(rs);
+   const student=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'));
+   const teacher=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'));
+   const studentScore=student.max>0?student.p:null;
+   const teacherScore=teacher.max>0?teacher.p:null;
+   const available=[studentScore,teacherScore].filter((v):v is number=>v!==null);
+   const overall=available.length?available.reduce((sum,v)=>sum+v,0)/available.length:0;
+   return {
+    name:key==='Region'?displayGeo(rs[0].Region):key==='LocalBoard'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),
+    overall,studentScore,teacherScore,hasOutcome:available.length>0
+   };
+  }).filter(x=>x.hasOutcome).sort((a,b)=>b.overall-a.overall);
+ };
  const regions=rank('Region'),boards=rank('LocalBoard'),recs=rank('REC');
- const cards:{label:string;item:{rows:Rec[];name:string;overall:number}|undefined}[]=[{label:'Top-performing region',item:regions[0]},{label:'Region needing most support',item:regions[regions.length-1]},{label:'Top-performing local board',item:boards[0]},{label:'Local board needing most support',item:boards[boards.length-1]},{label:'Top-performing REC',item:recs[0]},{label:'REC needing most support',item:recs[recs.length-1]}];
- return <HighlightTable title="Performance Highlights" items={cards}/>
+ const cards:{label:string;item:{name:string;overall:number;studentScore:number|null;teacherScore:number|null}|undefined}[]=[
+  {label:'Top-performing region',item:regions[0]},
+  {label:'Region needing most support',item:regions[regions.length-1]},
+  {label:'Top-performing local board',item:boards[0]},
+  {label:'Local board needing most support',item:boards[boards.length-1]},
+  {label:'Top-performing REC',item:recs[0]},
+  {label:'REC needing most support',item:recs[recs.length-1]}
+ ];
+ return <HighlightTable title="Performance Highlights" items={cards}/>;
 }
 function Chart({title,data}:{title:string;data:{label:string;value:number}[]}){return <section className="card chart"><h2>{title}</h2>{data.length?data.map(d=><div className="barrow" key={d.label}><span>{d.label}</span><div><i style={{width:Math.max(0,Math.min(100,d.value))+'%'}}/></div><b>{fmt(d.value)}</b></div>):<div className="empty">No matching data</div>}</section>}
 function TeacherAnalysis({rows,all,metricRows,phase3Rows,allCycleRows,f,setF,sourceRows,targetRecs}:{rows:Rec[];all:Rec[];metricRows:Rec[];phase3Rows:Rec[];allCycleRows:Rec[];f:any;setF:(x:any)=>void;sourceRows:Rec[];targetRecs:any[]}) {

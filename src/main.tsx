@@ -1135,21 +1135,27 @@ function performanceDrivers(rows:Rec[],mode:'strong'|'weak'){
  add('Teacher skill · ',choose(teacherSkills,'ThemeID',id=>/^S[1-3]$/i.test(id),id=>skillNames[id.toUpperCase()]||id));
  return out;
 }
-function HighlightTable({items,title}:{items:{label:string;item?:{name:string;overall:number;studentScore:number|null;teacherScore:number|null}}[];title:string}){
- const score=(value:number|null)=>value===null?'—':fmt(value);
+function completeLocationScores(rows:Rec[]){
+ const outcome=latestOutcomeRows(rows);
+ const students=outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&/^T[1-4]$/i.test(norm(r.ThemeID)));
+ const teacherThemes=outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&!isTeacherSkillRec(r)&&/^T[1-4]$/i.test(norm(r.ThemeID)));
+ const completeThemes=(subset:Rec[])=>['T1','T2','T3','T4'].every(theme=>subset.some(r=>norm(r.ThemeID).toUpperCase()===theme&&Number(r.MaxScore)>0));
+ if(!completeThemes(students)||!completeThemes(teacherThemes))return null;
+ const student=aggregate(students),teacher=aggregate(teacherThemes);
+ if(!(student.max>0)||!(teacher.max>0))return null;
+ return {studentScore:student.p,teacherScore:teacher.p,overall:(student.p+teacher.p)/2};
+}
+function HighlightTable({items,title}:{items:{label:string;item?:{name:string;overall:number;studentScore:number;teacherScore:number}}[];title:string}){
  return <section className="card performance-highlights">
-  <div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>{title}</h2></div><p>Locations are ranked by the combined overall percentage of student and teacher assessment scores. Student and teacher percentages are shown separately for clarity.</p></div>
+  <div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>{title}</h2></div><p>Locations are ranked using complete results across all four student and teacher themes. Locations missing any theme or either assessment group are excluded.</p></div>
   <div className="highlight-card-grid">{items.map(({label,item})=>{
-   if(!item)return <article className="highlight-card" key={label}><p className="highlight-card-label">{label}</p><div className="empty">Not available</div></article>;
+   if(!item)return <article className="highlight-card" key={label}><p className="highlight-card-label">{label}</p><div className="empty">No complete four-theme data available</div></article>;
    const positive=label.toLowerCase().startsWith('top-performing');
    return <article className="highlight-card" key={label}>
     <div className="highlight-card-top"><span className={'highlight-status '+(positive?'status-strong':'status-support')}>{positive?'TOP PERFORMANCE':'NEEDS SUPPORT'}</span><span className="highlight-scope">{label.toLowerCase().includes('region')?'REGION':label.toLowerCase().includes('local board')?'LOCAL BOARD':'REC'}</span></div>
     <h3>{item.name}</h3>
     <div className="highlight-overall"><span>Combined overall score</span><strong>{fmt(item.overall)}</strong></div>
-    <div className="highlight-score-row">
-     <div><span>Students overall</span><strong>{score(item.studentScore)}</strong></div>
-     <div><span>Teachers overall</span><strong>{score(item.teacherScore)}</strong></div>
-    </div>
+    <div className="highlight-score-row"><div><span>Students overall</span><strong>{fmt(item.studentScore)}</strong></div><div><span>Teachers overall</span><strong>{fmt(item.teacherScore)}</strong></div></div>
    </article>;
   })}</div>
  </section>;
@@ -1157,33 +1163,21 @@ function HighlightTable({items,title}:{items:{label:string;item?:{name:string;ov
 function PerformanceHighlights({rows}:{rows:Rec[]}){
  const rank=(key:'Region'|'LocalBoard'|'REC')=>{
   const map=new Map<string,Rec[]>();
-  rows.filter(r=>r[key]).forEach(r=>{
+  rows.filter(r=>norm(r[key])).forEach(r=>{
    const region=displayGeo(norm(r.Region)),board=displayGeo(norm(r.LocalBoard)),rec=displayGeo(norm(r.REC));
    const id=key==='Region'?region:key==='LocalBoard'?[region,board].join('||'):[region,board,rec].join('||');
    if(!map.has(id))map.set(id,[]);map.get(id)!.push(r);
   });
   return [...map.values()].map(rs=>{
-   const outcome=latestOutcomeRows(rs);
-   const student=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'));
-   const teacher=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'));
-   const studentScore=student.max>0?student.p:null;
-   const teacherScore=teacher.max>0?teacher.p:null;
-   const available=[studentScore,teacherScore].filter((v):v is number=>v!==null);
-   const overall=available.length?available.reduce((sum,v)=>sum+v,0)/available.length:0;
-   return {
-    name:key==='Region'?displayGeo(rs[0].Region):key==='LocalBoard'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),
-    overall,studentScore,teacherScore,hasOutcome:available.length>0
-   };
-  }).filter(x=>x.hasOutcome).sort((a,b)=>b.overall-a.overall);
+   const scores=completeLocationScores(rs);if(!scores)return null;
+   return {name:key==='Region'?displayGeo(rs[0].Region):key==='LocalBoard'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),...scores};
+  }).filter((x):x is {name:string;overall:number;studentScore:number;teacherScore:number}=>x!==null).sort((a,b)=>b.overall-a.overall);
  };
  const regions=rank('Region'),boards=rank('LocalBoard'),recs=rank('REC');
- const cards:{label:string;item:{name:string;overall:number;studentScore:number|null;teacherScore:number|null}|undefined}[]=[
-  {label:'Top-performing region',item:regions[0]},
-  {label:'Region needing most support',item:regions[regions.length-1]},
-  {label:'Top-performing local board',item:boards[0]},
-  {label:'Local board needing most support',item:boards[boards.length-1]},
-  {label:'Top-performing REC',item:recs[0]},
-  {label:'REC needing most support',item:recs[recs.length-1]}
+ const cards:{label:string;item:{name:string;overall:number;studentScore:number;teacherScore:number}|undefined}[]=[
+  {label:'Top-performing region',item:regions[0]}, {label:'Region needing most support',item:regions[regions.length-1]},
+  {label:'Top-performing local board',item:boards[0]}, {label:'Local board needing most support',item:boards[boards.length-1]},
+  {label:'Top-performing REC',item:recs[0]}, {label:'REC needing most support',item:recs[recs.length-1]}
  ];
  return <HighlightTable title="Performance Highlights" items={cards}/>;
 }
@@ -1268,18 +1262,12 @@ function StudentTeacherCrossAnalysis({rows,f}:{rows:Rec[];f:any}){
 function Analysis({page,rows,all,metricRows,phase3Rows,allCycleRows,f,setF,nav,refs,targetRecs,sourceRows}:{page:string;rows:Rec[];all:Rec[];metricRows:Rec[];phase3Rows:Rec[];allCycleRows:Rec[];f:any;setF:(x:any)=>void;nav:(p:string)=>void;refs:Ref[];targetRecs:any[];sourceRows:Rec[]}){if(page==='teacher')return <TeacherAnalysis rows={rows} all={all} metricRows={metricRows} phase3Rows={phase3Rows} allCycleRows={allCycleRows} f={f} setF={setF} sourceRows={sourceRows} targetRecs={targetRecs}/>;if(page==='prepost')return <PrePost rows={filterRows(all,{...f,assessment:''})}/>;if(page==='theme')return <ThemeAnalysis rows={rows}/>;if(page==='dimension')return <DimensionAnalysis rows={rows}/>;if(page==='rec')return <RecAnalysis rows={rows} all={all} f={f} metricRows={metricRows} phase3Rows={phase3Rows} allCycleRows={allCycleRows} refs={refs} targetRecs={targetRecs} sourceRows={sourceRows}/>;const highlightRows=filterRows(all,{...f,assessment:''});const showSkills=hasTeacherSkillRows(rows);const key=page==='region'?'LocalBoard':'REC';const groupedRows=new Map<string,Rec[]>();rows.forEach(r=>{const name=norm(r[key as keyof Rec]);if(!name)return;const k=key==='LocalBoard'?[geoNorm(r.Region),geoNorm(r.LocalBoard)].join('||'):[geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('||');if(!groupedRows.has(k))groupedRows.set(k,[]);groupedRows.get(k)!.push(r)});const items=[...groupedRows.entries()].map(([k,rs])=>({key:k,name:key==='LocalBoard'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region),rows:rs,post:stageAggregate(rs.filter(r=>assessmentIs(r.Assessment,'Post')),'Post').p})).sort((a,b)=>b.post-a.post||a.name.localeCompare(b.name));return <><Kpis rows={rows} metricRows={metricRows} phase3Rows={phase3Rows} allCycleRows={allCycleRows} sourceRows={sourceRows} targetRecs={targetRecs} f={f} refs={refs}/><section className="card"><h2>{page==='region'?'Local Board Performance':'REC Performance'}</h2><table><thead><tr><th>{page==='region'?'Local Board':'REC'}</th><th>Students</th><th>Teachers</th><th>Student Score %</th><th>Teacher Score %</th><th>Overall %</th><th>UA %</th><th>A %</th><th>Teacher Themes Overall %</th>{showSkills&&<th>Teachers Skills Overall %</th>}</tr></thead><tbody>{items.map(item=><tr key={item.key} onClick={()=>{if(page==='region'){setF((x:any)=>({...x,board:norm(item.rows[0].LocalBoard),rec:''}));nav('board')}else{setF((x:any)=>({...x,rec:norm(item.rows[0].REC)}));nav('rec')}}}><td className="link">{item.name}</td><td>{count(item.rows,item.rows[0][key as keyof Rec] as string,'Student',key as 'LocalBoard'|'REC')}</td><td>{count(item.rows,item.rows[0][key as keyof Rec] as string,'Teacher',key as 'LocalBoard'|'REC')}</td><td>{fmt(aggregate(item.rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student')).p)}</td><td>{fmt(aggregate(item.rows.filter(r=>r.ParticipantType==='Teacher')).p)}</td><td>{fmt(aggregate(item.rows).p)}</td><td>{fmt(aggregate(item.rows.filter(r=>r.ParticipantType==='Student'&&r.DimensionID==='UA')).p)}</td><td>{fmt(aggregate(item.rows.filter(r=>r.ParticipantType==='Student'&&r.DimensionID==='A')).p)}</td><td>{fmt(aggregate(item.rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&!isTeacherSkillRec(r))).p)}</td>{showSkills&&<td>{fmt(aggregate(item.rows.filter(r=>isTeacherSkillRec(r))).p)}</td>}</tr>)}</tbody></table></section><ThemeWiseRecCoverage records={all} refs={refs} targetRecs={targetRecs} f={f} level={page==='region'?'board':'rec'}/>{page==='region'?<><ChildPerformanceHighlights rows={highlightRows} level="Local Board"/><ChildPerformanceHighlights rows={highlightRows} level="REC"/></>:<ChildPerformanceHighlights rows={highlightRows} level="REC"/>}<div className="grid2"><CompareChartWithPost2 title="Students — Theme Pre / Post / Post 2" data={compareGroup(rows.filter(r=>r.ParticipantType==='Student'),'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post,post2:post2Aggregate(rows.filter(r=>r.ParticipantType==='Student'&&norm(r.ThemeID)===x.key)).p}))}/><CompareChartWithPost2 title="Students — Dimension Pre / Post / Post 2" data={compareGroup(rows.filter(r=>r.ParticipantType==='Student'),'DimensionID').filter(x=>x.key==='UA'||x.key==='A').map(x=>({label:labelDim(x.key),pre:x.pre,post:x.post,post2:post2Aggregate(rows.filter(r=>r.ParticipantType==='Student'&&norm(r.DimensionID)===x.key)).p}))}/></div><div className="grid2"><CompareChart title="Teacher Themes — Theme Pre vs Post" data={compareGroup(rows.filter(r=>r.ParticipantType==='Teacher'&&!isTeacherSkillRec(r)),'ThemeID').map(x=>({label:labelTheme(x.key),pre:x.pre,post:x.post}))}/>{hasTeacherSkillRows(rows)&&<CompareChart title="Teachers Skills — Pre vs Post" data={['S1','S2','S3'].map(id=>{const rs=rows.filter(r=>isTeacherSkillRec(r)&&norm(r.ThemeID)===id);return {label:({S1:'Instructional Skills',S2:'Questioning Skills',S3:'Feedback Skills'} as Record<string,string>)[id],pre:stageAggregate(rs,'Pre').p,post:stageAggregate(rs,'Post').p}})}/>}</div><Chart title="Assessment Performance — Pre vs Post" data={group(rows,'Assessment').map(x=>({label:x.key,value:x.p}))}/><WayForward rows={rows} scope={page} f={f}/></>}
 function ChildPerformanceHighlights({rows,level}:{rows:Rec[];level:'Local Board'|'REC'}){
  const key=level==='Local Board'?'LocalBoard':'REC';const map=new Map<string,Rec[]>();
- rows.filter(r=>r[key]).forEach(r=>{const id=level==='Local Board'?[norm(r.Region),norm(r.LocalBoard)].join('||'):[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});
- const ranked=[...map.values()].map(rs=>{
-  const outcome=latestOutcomeRows(rs);
-  const student=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'));
-  const teacher=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'));
-  const studentScore=student.max>0?student.p:null;
-  const teacherScore=teacher.max>0?teacher.p:null;
-  const available=[studentScore,teacherScore].filter((v):v is number=>v!==null);
-  const overall=available.length?available.reduce((sum,v)=>sum+v,0)/available.length:0;
-  return {name:level==='Local Board'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),overall,studentScore,teacherScore,hasOutcome:available.length>0};
- }).filter(x=>x.hasOutcome).sort((a,b)=>b.overall-a.overall);
- return <HighlightTable title={level+' Performance Highlights'} items={[{label:'Top-performing '+level.toLowerCase(),item:ranked[0]},{label:level+' needing most support',item:ranked[ranked.length-1]}]}/>
+ rows.filter(r=>norm(r[key])).forEach(r=>{const id=level==='Local Board'?[norm(r.Region),norm(r.LocalBoard)].join('||'):[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});
+ const ranked:{name:string;overall:number;studentScore:number;teacherScore:number}[]=[];
+ [...map.values()].forEach(rs=>{const scores=completeLocationScores(rs);if(!scores)return;ranked.push({name:level==='Local Board'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),...scores})});
+ ranked.sort((a,b)=>b.overall-a.overall);
+ const items:{label:string;item:{name:string;overall:number;studentScore:number;teacherScore:number}|undefined}[]=[{label:'Top-performing '+level.toLowerCase(),item:ranked[0]},{label:level+' needing most support',item:ranked[ranked.length-1]}];
+ return <HighlightTable title={level+' Performance Highlights'} items={items}/>;
 }
 function count(rows:Rec[],item:string,pt:string,key:'Region'|'LocalBoard'|'REC'|'ThemeID'|'DimensionID'){
   const scoped=rows.filter(r=>r.ParticipantType===pt&&norm(r[key])===item);

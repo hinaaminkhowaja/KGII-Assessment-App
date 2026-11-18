@@ -3091,31 +3091,41 @@ function getDashboardData(email) {
       const id=clean(val(r,h,['_uuid','_id','SubmissionID','meta/rootUuid']))||s.name+'-'+(i+2);
       const child=clean(val(r,h,['Name of a child:','Name of a child','ChildName']));
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
-      // Kobo student sheets use long descriptive rubric headers. Resolve those
-      // columns from the source text itself; do not depend on APP_Indicators or
-      // short synthetic headers. Theme 2/3 counts are intentionally discovered
-      // independently for Pre and Post.
+      // Kobo student sheets use long descriptive rubric headers. Their 29
+      // indicator columns follow "Specify the phase" in the programme's defined
+      // order. Map each source column to its real UA/A indicator ID; do not use
+      // APP_Indicators, synthetic I-numbers, or the old incorrect 10/6/5/8 split.
       const koboRubricCols = (s.kind === 'student-kobo')
         ? (() => {
-            // Both original Kobo student sheets store 29 indicator responses
-            // consecutively after "Specify the phase". Themes 2-4 have plain
-            // child-statement headers, so header wording cannot identify them.
             const phaseIndex = h.findIndex(name => norm(name) === 'specify the phase');
             if (phaseIndex < 0) throw new Error(s.name + ': cannot find "Specify the phase".');
-            const themeSizes = [10, 6, 5, 8];
+            const indicatorCodesByTheme = [
+              ['UA1','A1','UA2','A2','A3','UA3','UA4','A4','A5','A6'],
+              ['UA1','UA2','A1','A2','UA3','UA4','A3'],
+              ['UA1','A1','UA2','A2'],
+              ['UA1','UA2','A1','A2','A3','A4','A5','A6']
+            ];
             const cols = [];
             let offset = 0;
-            themeSizes.forEach((size, themeIndex) => {
-              for (let n = 1; n <= size; n++) {
+            indicatorCodesByTheme.forEach((indicatorCodes, themeIndex) => {
+              indicatorCodes.forEach(indicatorCode => {
                 const j = phaseIndex + 1 + offset;
                 if (j >= h.length || !clean(h[j])) {
                   throw new Error(s.name + ': missing student indicator column ' + (offset + 1) + ' after "Specify the phase".');
                 }
                 const themeNo = themeIndex + 1;
-                cols.push({name:h[j],j,themeNo,indicatorId:'Theme'+themeNo+':I'+n});
+                const dimension = indicatorCode.match(/^(UA|A)/)[1];
+                cols.push({
+                  name:h[j],
+                  j,
+                  themeNo,
+                  dimension,
+                  indicatorId:'Theme'+themeNo+':'+indicatorCode
+                });
                 offset++;
-              }
+              });
             });
+            if (offset !== 29) throw new Error(s.name + ': expected 29 student indicators; mapped ' + offset + '.');
             return cols;
           })()
         : [];
@@ -3188,7 +3198,7 @@ function getDashboardData(email) {
               const themeNo=c.themeNo;
               const indicatorNo=koboRubricCols.filter(x=>x.themeNo===themeNo&&x.j<=c.j).length;
               const indicatorId=c.indicatorId||('Theme'+themeNo+':I'+indicatorNo);
-              records.push([id+'-'+themeNo+'-'+(c.indicatorId||('I'+indicatorNo)),cycle,year,cohort,'Student',assessment,region,board,rec,1,'','T'+themeNo,'Overall',indicatorId,score,3,s.name,i+2,id,child,'']);
+              records.push([id+'-'+themeNo+'-'+indicatorId,cycle,year,cohort,'Student',assessment,region,board,rec,1,'','T'+themeNo,c.dimension,indicatorId,score,3,s.name,i+2,id,child,'']);
             }else{
               const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
               if(!mm)return;

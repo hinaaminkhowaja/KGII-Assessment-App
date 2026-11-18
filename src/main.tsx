@@ -560,7 +560,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
 
   const themePct=['T1','T2','T3','T4'].map(theme=>aggregate(metricRows.filter(r=>norm(r.ThemeID)===theme)).p).filter((p,i)=>metricRows.some(r=>norm(r.ThemeID)===['T1','T2','T3','T4'][i]));
   const themeOverall=themePct.length?themePct.reduce((a,b)=>a+b,0)/themePct.length:0;
-  const dimensionPct=['UA','A'].map(dim=>aggregate(metricRows.filter(r=>norm(r.DimensionID)===dim)).p).filter((p,i)=>metricRows.some(r=>norm(r.DimensionID)===['UA','A'][i]));
+  // Dimension labels differ by source: student Kobo and teacher content use
+  // "Overall", student app records use UA/A, and Cycle 2 teacher skills use
+  // Instructional/Questioning/Feedback. Include every populated dimension
+  // across students and teachers instead of silently excluding non-UA/A rows.
+  const dimensionIds=unique(metricRows,'DimensionID').filter(dim=>!!norm(dim));
+  const dimensionPct=dimensionIds.map(dim=>aggregate(metricRows.filter(r=>norm(r.DimensionID)===dim)).p);
   const dimensionOverall=dimensionPct.length?dimensionPct.reduce((a,b)=>a+b,0)/dimensionPct.length:0;
 
   // Stage counts follow the REC's StartingYear cohort and assessment type,

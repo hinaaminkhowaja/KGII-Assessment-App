@@ -860,7 +860,7 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
     const area=norm(r.ThemeID).toUpperCase();
     if(!group||!r.REC)continue;
     const participant=norm(r.ParticipantType).toLowerCase();
-    const stage=assessmentIs(r.Assessment,'Pre')?'Pre':assessmentIs(r.Assessment,'Post')?'Post':assessmentIsPost2(r.Assessment)?'Post 2':null;
+    const stage=assessmentIs(r.Assessment,'Pre')?'Pre':assessmentIsPost2(r.Assessment)?'Post 2':assessmentIs(r.Assessment,'Post')?'Post':null;
     if(!stage)continue;
     if(participant==='student'&&themes.includes(area)){
       addCount(groupValue(r),area,stage,r,studentSubmissionIdentity(r));

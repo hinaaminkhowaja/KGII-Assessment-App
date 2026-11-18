@@ -658,9 +658,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   };
   const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const eligible=countSourceRows().filter(r=>{
-      // Student REC coverage must follow the student assessment source only.
-      // Teacher content/skills submissions must never increase student REC KPIs.
-      if(!isStudentAssessmentRow(r)||!stageMatches(r,stage))return false;
+      // Cycle 1 REC coverage is based on student assessment submissions.
+      // In Cycle 2, Teacher Skills Pre/Post also represent REC participation;
+      // Student Post 2 remains the student component of Cycle 2 coverage.
+      const studentRow=isStudentAssessmentRow(r);
+      const cycle2SkillsRow=f.cycle==='C2'&&isTeacherSkillRow(r)&&(stage==='Pre'||stage==='Post');
+      if((!studentRow&&!cycle2SkillsRow)||!stageMatches(r,stage))return false;
       const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });

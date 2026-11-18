@@ -1012,7 +1012,7 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
   const weakestDim = dimGroups[0];
   const strongestDim = dimGroups.slice().sort((a,b)=>b.p-a.p)[0];
   const strongestStudentDim = group(studentRows,'DimensionID').filter(x=>x.key==='UA'||x.key==='A').sort((a,b)=>b.p-a.p)[0];
-  const strongestTeacherSkill = teacherSkills.slice().sort((a,b)=>b.p-a.p)[0];
+
   const weakIndicators = indicatorGroups.slice(0,3).filter(x=>x.rows.length);
   const strongIndicators = indicatorGroups.slice().sort((a,b)=>b.p-a.p).slice(0,3).filter(x=>x.rows.length);
   const themeActions:Record<string,string> = {

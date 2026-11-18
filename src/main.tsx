@@ -341,7 +341,7 @@ const recs = useMemo(
   const allStageRows=useMemo(()=>filterRows(pageRecords,{...f,assessment:'',pt:'',theme:'',dim:'',focus:'',teacher:'',studentRating:'',teacherRating:''},targetRecs),[pageRecords,f,targetRecs]);
   const post2Rows=useMemo(()=>allStageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment)),[allStageRows]);
   const regionPerformanceRows=useMemo(()=>filterRows(cohortScopedRecords,f,targetRecs),[cohortScopedRecords,f,targetRecs]);
-  const highlightRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
+  const highlightRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
   const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
@@ -1137,19 +1137,16 @@ function performanceDrivers(rows:Rec[],mode:'strong'|'weak'){
 }
 function completeLocationScores(rows:Rec[]){
  const outcome=latestOutcomeRows(rows);
- const students=outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&/^T[1-4]$/i.test(norm(r.ThemeID)));
- const teacherThemes=outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&!isTeacherSkillRec(r)&&/^T[1-4]$/i.test(norm(r.ThemeID)));
- const completeThemes=(subset:Rec[])=>['T1','T2','T3','T4'].every(theme=>subset.some(r=>norm(r.ThemeID).toUpperCase()===theme&&Number(r.MaxScore)>0));
- if(!completeThemes(students)||!completeThemes(teacherThemes))return null;
- const student=aggregate(students),teacher=aggregate(teacherThemes);
- if(!(student.max>0)||!(teacher.max>0))return null;
- return {studentScore:student.p,teacherScore:teacher.p,overall:(student.p+teacher.p)/2};
+ const students=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'));
+ const teachers=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'));
+ if(!(students.max>0)||!(teachers.max>0))return null;
+ return {studentScore:students.p,teacherScore:teachers.p,overall:(students.p+teachers.p)/2};
 }
 function HighlightTable({items,title}:{items:{label:string;item?:{name:string;overall:number;studentScore:number;teacherScore:number}}[];title:string}){
  return <section className="card performance-highlights">
-  <div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>{title}</h2></div><p>Locations are ranked using complete results across all four student and teacher themes. Locations missing any theme or either assessment group are excluded.</p></div>
+  <div className="highlight-heading"><div><span className="eyebrow">AT A GLANCE</span><h2>{title}</h2></div><p>Locations are ranked using all available student and teacher assessment results within the selected filters. Both student and teacher scores are shown separately.</p></div>
   <div className="highlight-card-grid">{items.map(({label,item})=>{
-   if(!item)return <article className="highlight-card" key={label}><p className="highlight-card-label">{label}</p><div className="empty">No complete four-theme data available</div></article>;
+   if(!item)return <article className="highlight-card" key={label}><p className="highlight-card-label">{label}</p><div className="empty">No student and teacher assessment data available</div></article>;
    const positive=label.toLowerCase().startsWith('top-performing');
    return <article className="highlight-card" key={label}>
     <div className="highlight-card-top"><span className={'highlight-status '+(positive?'status-strong':'status-support')}>{positive?'TOP PERFORMANCE':'NEEDS SUPPORT'}</span><span className="highlight-scope">{label.toLowerCase().includes('region')?'REGION':label.toLowerCase().includes('local board')?'LOCAL BOARD':'REC'}</span></div>

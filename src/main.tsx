@@ -727,7 +727,8 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label))&&!hiddenByCycle.includes(String(label)));
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||Number(r.StartingYear)===Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
   const coverageRows=[...metricRows,...phase3Rows.filter(r=>assessmentIsPost2(r.Assessment))];
-  const recKey = (r:Rec) => [norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');
+  // Use the same canonical geographic key as the KPI REC count so coded/standardized names do not split one REC into two.
+  const recKey = (r:Rec) => [geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('||');
   const themeCoverage = ['T1','T2','T3','T4'].map(theme => {
     const themeRows = coverageRows.filter(r => norm(r.ThemeID) === theme);
     const countStage = (stage:'Pre'|'Post'|'Post 2',participant:'Student'|'Teacher',kind:'content'|'skills'|'all'='all') => {

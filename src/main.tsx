@@ -1269,7 +1269,16 @@ function Analysis({page,rows,all,metricRows,phase3Rows,allCycleRows,f,setF,nav,r
 function ChildPerformanceHighlights({rows,level}:{rows:Rec[];level:'Local Board'|'REC'}){
  const key=level==='Local Board'?'LocalBoard':'REC';const map=new Map<string,Rec[]>();
  rows.filter(r=>r[key]).forEach(r=>{const id=level==='Local Board'?[norm(r.Region),norm(r.LocalBoard)].join('||'):[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});
- const ranked=[...map.values()].map(rs=>{const outcome=latestOutcomeRows(rs);return {rows:rs,name:level==='Local Board'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),overall:aggregate(outcome).p,hasOutcome:aggregate(outcome).max>0}}).filter(x=>x.hasOutcome).sort((a,b)=>b.overall-a.overall);
+ const ranked=[...map.values()].map(rs=>{
+  const outcome=latestOutcomeRows(rs);
+  const student=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'));
+  const teacher=aggregate(outcome.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'));
+  const studentScore=student.max>0?student.p:null;
+  const teacherScore=teacher.max>0?teacher.p:null;
+  const available=[studentScore,teacherScore].filter((v):v is number=>v!==null);
+  const overall=available.length?available.reduce((sum,v)=>sum+v,0)/available.length:0;
+  return {name:level==='Local Board'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),overall,studentScore,teacherScore,hasOutcome:available.length>0};
+ }).filter(x=>x.hasOutcome).sort((a,b)=>b.overall-a.overall);
  return <HighlightTable title={level+' Performance Highlights'} items={[{label:'Top-performing '+level.toLowerCase(),item:ranked[0]},{label:level+' needing most support',item:ranked[ranked.length-1]}]}/>
 }
 function count(rows:Rec[],item:string,pt:string,key:'Region'|'LocalBoard'|'REC'|'ThemeID'|'DimensionID'){

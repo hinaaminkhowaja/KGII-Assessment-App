@@ -1035,9 +1035,6 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
       ? 'Strengthen application: provide guided practice, role-play and repeated opportunities to demonstrate the learning during classroom and home routines.'
       : 'Review the weakest rubric area with the team and agree on one observable child behaviour to practise and assess.';
   const titleScope = scope==='teacher'?'Teacher':scope==='dashboard'?'Overall':scope==='region'?'Region':scope==='board'?'Local Board':'REC';
-  const strongestStudentTheme = studentThemes.slice().sort((a,b)=>b.p-a.p)[0];
-  const strongestTeacherTheme = teacherThemes.slice().sort((a,b)=>b.p-a.p)[0];
-  const strongestTeacherSkill = teacherSkills.slice().sort((a,b)=>b.p-a.p)[0];
   return <section className="card way-forward">
     <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>{scope==='teacher'?'Teacher priorities are based on the selected teacher’s theme performance.':'Student and teacher strengths and support priorities use the latest available student assessment and teachers’ Post assessment.'}</p></div></div>
     {!rows.length ? <p className="empty">No assessment data is available for these filters yet.</p> : <>

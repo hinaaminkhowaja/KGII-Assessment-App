@@ -1086,9 +1086,10 @@ function compareGroup(rows:Rec[],key:'ThemeID'|'DimensionID'){return unique(rows
 function CompareChartWithPost2({title,data}:{title:string;data:{label:string;pre:number;post:number;post2:number}[]}){const showPost2=title.toLowerCase().includes('post 2')||data.some(d=>d.post2>0);return <section className="card chart compare-chart"><h2>{title}</h2><div className="compare-legend"><span><i className="pre-swatch"/>Pre</span><span><i className="post-swatch"/>Post</span>{showPost2&&<span><i className="post2-swatch" style={{backgroundColor:"#0f766e"}}/>Post 2</span>}</div>{data.length?data.map(d=><div className="compare-row" key={d.label}><strong>{d.label}</strong><div className="compare-bars" style={{gridTemplateColumns:showPost2?'1fr auto 1fr auto 1fr auto':'1fr auto 1fr auto'}}><div className="compare-track"><i className="pre-bar" style={{width:Math.max(0,Math.min(100,d.pre))+'%'}}/></div><b>{fmt(d.pre)}</b><div className="compare-track"><i className="post-bar" style={{width:Math.max(0,Math.min(100,d.post))+'%'}}/></div><b>{fmt(d.post)}</b>{showPost2&&<><div className="compare-track"><i className="post2-bar" style={{width:Math.max(0,Math.min(100,d.post2))+'%',backgroundColor:"#0f766e"}}/></div><b>{fmt(d.post2)}</b></>}</div></div>):<div className="empty">No matching data</div>}</section>}
 function CompareChart({title,data}:{title:string;data:{label:string;pre:number;post:number}[]}){return <section className="card chart compare-chart"><h2>{title}</h2><div className="compare-legend"><span><i className="pre-swatch"/>Pre</span><span><i className="post-swatch"/>Post</span></div>{data.length?data.map(d=><div className="compare-row" key={d.label}><strong>{d.label}</strong><div className="compare-bars"><div className="compare-track"><i className="pre-bar" style={{width:Math.max(0,Math.min(100,d.pre))+'%'}}/></div><b>{fmt(d.pre)}</b><div className="compare-track"><i className="post-bar" style={{width:Math.max(0,Math.min(100,d.post))+'%'}}/></div><b>{fmt(d.post)}</b></div></div>):<div className="empty">No matching data</div>}</section>}
 function latestOutcomeRows(rows:Rec[]){
- // Use the most recent available student stage per source submission and theme.
- // Fall back to Pre where a REC has not yet completed Post or Post 2 so local-board
- // and REC rankings never become teacher-only simply because student follow-up is pending.
+ // Keep the latest available student stage per submission/theme.
+ // For teachers, select the latest stage independently for each teacher assessment stream
+ // (content themes vs skills) and theme/skill. This prevents a content Post submission
+ // from suppressing an available skills Pre result, or vice versa.
  const studentBuckets=new Map<string,Rec[]>();
  rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&(assessmentIsPost2(r.Assessment)||assessmentIs(r.Assessment,'Post')||assessmentIs(r.Assessment,'Pre'))).forEach(r=>{
   const key=studentSubmissionIdentity(r)+'||'+norm(r.ThemeID);
@@ -1100,10 +1101,17 @@ function latestOutcomeRows(rows:Rec[]){
   const post=bucket.filter(r=>assessmentIs(r.Assessment,'Post'));
   return post.length?post:bucket.filter(r=>assessmentIs(r.Assessment,'Pre'));
  });
- const teacherPost=rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Post'));
- const teacherPre=rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&assessmentIs(r.Assessment,'Pre'));
- // Prefer Post for teacher themes/skills; use Pre only when no Post result exists.
- const teacherLatest=teacherPost.length?teacherPost:teacherPre;
+ const teacherBuckets=new Map<string,Rec[]>();
+ rows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&(assessmentIs(r.Assessment,'Post')||assessmentIs(r.Assessment,'Pre'))).forEach(r=>{
+  const teacherId=norm(r.TeacherName).toLowerCase()||norm(r.SourceRecordID||r.RecordID).toLowerCase()||[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||').toLowerCase();
+  const stream=isTeacherSkillRec(r)?'skills':'themes';
+  const key=[teacherId,stream,norm(r.ThemeID)].join('||');
+  const bucket=teacherBuckets.get(key)||[];bucket.push(r);teacherBuckets.set(key,bucket);
+ });
+ const teacherLatest=[...teacherBuckets.values()].flatMap(bucket=>{
+  const post=bucket.filter(r=>assessmentIs(r.Assessment,'Post'));
+  return post.length?post:bucket.filter(r=>assessmentIs(r.Assessment,'Pre'));
+ });
  return [...studentLatest,...teacherLatest];
 }
 function performanceDrivers(rows:Rec[],mode:'strong'|'weak'){

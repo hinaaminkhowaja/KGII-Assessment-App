@@ -159,26 +159,38 @@ function cohortYearForRecord(r:Rec,targetRecs:any[]=[]){
  const m=String(r.REC||'').match(/^\s*(\d{3,})\s*\|/);
  return index.byKey.get(full)||(m?index.byCode.get(m[1]):0)||Number((r as any).CohortYear)||0;
 }
-function cohortPlanIncludes(r:Rec,targetRecs:any[]=[]){
+function cycleToken(value:any){
+ const v=norm(value).toUpperCase().replace(/[^A-Z0-9]/g,'');
+ if(v==='C1'||v==='CYCLE1'||v==='1')return 'C1';
+ if(v==='C2'||v==='CYCLE2'||v==='2')return 'C2';
+ return '';
+}
+function cohortPlanIncludes(r:Rec,targetRecs:any[]=[],selectedCycle?:string){
  const year=cohortYearForRecord(r,targetRecs);
  const participant=norm(r.ParticipantType).toLowerCase();
  const skill=isTeacherSkillRec(r);
  const isPre=assessmentIs(r.Assessment,'Pre');
  const isPost=assessmentIs(r.Assessment,'Post');
  const isPost2=assessmentIsPost2(r.Assessment);
- if(year===2025){
-   if(participant==='student')return isPre||isPost||isPost2;
-   if(participant==='teacher')return isPre||isPost;
+ const selected=cycleToken(selectedCycle);
+ const recordCycle=cycleToken(r.CycleID);
+ if(selected&&recordCycle&&selected!==recordCycle)return false;
+ const cycle=selected||recordCycle;
+ if(cycle==='C1'){
+   if(year===2025)return participant==='student'?(isPre||isPost):participant==='teacher'?!skill&&(isPre||isPost):false;
+   if(year===2026)return participant==='student'?isPre:participant==='teacher'?!skill&&(isPre||isPost):false;
    return false;
  }
- if(year===2026){
-   if(participant==='student')return isPre;
-   if(participant==='teacher')return !skill&&(isPre||isPost);
+ if(cycle==='C2'){
+   if(year===2025||year===2026)return participant==='student'?isPost2:participant==='teacher'?skill&&(isPre||isPost):false;
    return false;
  }
+ // When no cycle is selected (e.g. internal cohort audit), retain eligible stages.
+ if(year===2025)return participant==='student'?(isPre||isPost||isPost2):participant==='teacher'?(skill?(isPre||isPost):isPre||isPost):false;
+ if(year===2026)return participant==='student'?(isPre||isPost2):participant==='teacher'?(skill?(isPre||isPost):isPre||isPost):false;
  return false;
 }
-function filterRows(rows:Rec[],f:any,targetRecs:any[]=[]){return rows.filter(r=>cohortPlanIncludes(r,targetRecs)&&(!f.cycle||norm(r.CycleID).toUpperCase()===String(f.cycle).toUpperCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&ratingFilterMatch(r,f))}
+function filterRows(rows:Rec[],f:any,targetRecs:any[]=[]){return rows.filter(r=>cohortPlanIncludes(r,targetRecs,f.cycle)&&(!f.cycle||!cycleToken(r.CycleID)||cycleToken(r.CycleID)===cycleToken(f.cycle))&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.pt||r.ParticipantType===f.pt)&&(!f.teacher||norm(r.TeacherName)===f.teacher)&&(!f.assessment||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!f.focus||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Content')===f.focus)&&(!f.theme||r.ThemeID===f.theme)&&(!f.dim||r.DimensionID===f.dim)&&(!f.year||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[
@@ -950,6 +962,7 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
   const teacherThemes = group(teacherContentRows,'ThemeID').sort((a,b)=>a.p-b.p);
   const teacherSkills = group(teacherSkillRows,'ThemeID').sort((a,b)=>a.p-b.p);
   const weakestTeacherSkill = teacherSkills[0];
+  const strongestTeacherSkill = teacherSkills.slice().sort((a,b)=>b.p-a.p)[0];
   const skillNames:Record<string,string> = {S1:'Instructional Skills',S2:'Questioning Skills',S3:'Feedback Skills'};
   const skillActions:Record<string,string> = {
     S1:'Model clear lesson objectives, demonstrate effective facilitation and classroom routines, and provide coaching with an observation-and-feedback cycle.',
@@ -1006,7 +1019,7 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
         </> : <>
           <div><span>Students · Weakest theme</span><b>{weakestStudentTheme ? labelTheme(weakestStudentTheme.key)+' · '+fmt(weakestStudentTheme.p) : 'Not available'}</b><p>{weakestStudentTheme ? (themeActions[weakestStudentTheme.key] || 'Plan a focused review, model the expected learning, and assess it again using the same indicators.') : 'No student assessment data is available for this selection.'}</p></div>
           <div><span>Teachers · Weakest content theme</span><b>{weakestTeacherTheme ? labelTheme(weakestTeacherTheme.key)+' · '+fmt(weakestTeacherTheme.p) : 'Not available'}</b><p>{weakestTeacherTheme ? (teacherThemeActions[weakestTeacherTheme.key] || 'Plan focused professional learning and review progress against the same indicators.') : 'No teacher content assessment data is available for this selection.'}</p></div>
-          {teacherSkillRows.length>0&&<div><span>Teachers · Skills requiring support</span><b>{weakestTeacherSkill ? (skillNames[weakestTeacherSkill.key]||weakestTeacherSkill.key)+' · '+fmt(weakestTeacherSkill.p) : 'Not available'}</b><p>{weakestTeacherSkill ? skillActions[weakestTeacherSkill.key] : 'No teacher skills assessment data is available for this selection.'}</p></div>}
+          {teacherSkillRows.length>0&&<><div><span>Teachers · Strongest skill area</span><b>{strongestTeacherSkill ? (skillNames[strongestTeacherSkill.key]||strongestTeacherSkill.key)+' · '+fmt(strongestTeacherSkill.p) : 'Not available'}</b><p>Recognise and share this effective practice through peer demonstration, collaborative planning and mentoring.</p></div><div><span>Teachers · Skill area needing most support</span><b>{weakestTeacherSkill ? (skillNames[weakestTeacherSkill.key]||weakestTeacherSkill.key)+' · '+fmt(weakestTeacherSkill.p) : 'Not available'}</b><p>{weakestTeacherSkill ? skillActions[weakestTeacherSkill.key] : 'No teacher skills assessment data is available for this selection.'}</p></div></>}
           <div><span>Students · Weakest dimension</span><b>{weakestDim ? labelDim(weakestDim.key)+' · '+fmt(weakestDim.p) : 'Not available'}</b><p>{dimAction}</p></div>
         </>}
       </div>
@@ -1062,7 +1075,9 @@ function HighlightTable({items,title}:{items:{label:string;item?:{rows:Rec[];nam
 function PerformanceHighlights({rows}:{rows:Rec[]}){
  const rank=(key:'Region'|'LocalBoard'|'REC')=>{const map=new Map<string,Rec[]>();rows.filter(r=>r[key]).forEach(r=>{const region=displayGeo(norm(r.Region)),board=displayGeo(norm(r.LocalBoard)),rec=displayGeo(norm(r.REC));const id=key==='Region'?region:key==='LocalBoard'?[region,board].join('||'):[region,board,rec].join('||');if(!map.has(id))map.set(id,[]);map.get(id)!.push(r)});return [...map.values()].map(rs=>({rows:rs,name:key==='Region'?displayGeo(rs[0].Region):key==='LocalBoard'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard),overall:stageAggregate(rs,'Post').p})).filter(x=>stageAggregate(x.rows,'Post').max>0).sort((a,b)=>b.overall-a.overall)};
  const regions=rank('Region'),boards=rank('LocalBoard'),recs=rank('REC');
- const cards:{label:string;item:{rows:Rec[];name:string;overall:number}|undefined}[]=[{label:'Top-performing region',item:regions[0]},{label:'Region needing most support',item:regions[regions.length-1]},{label:'Top-performing local board',item:boards[0]},{label:'Local board needing most support',item:boards[boards.length-1]},{label:'Top-performing REC',item:recs[0]},{label:'REC needing most support',item:recs[recs.length-1]}];
+ const skillRows=rows.filter(r=>r.ParticipantType==='Teacher'&&isTeacherSkillRec(r));
+ const skillAreas=['S1','S2','S3'].map(id=>{const rs=skillRows.filter(r=>norm(r.ThemeID).toUpperCase()===id);return {rows:rs,name:({S1:'Instructional Skills',S2:'Questioning Skills',S3:'Feedback Skills'} as Record<string,string>)[id],overall:aggregate(rs).p};}).filter(x=>x.rows.length).sort((a,b)=>b.overall-a.overall);
+ const cards:{label:string;item:{rows:Rec[];name:string;overall:number}|undefined}[]=[{label:'Top-performing region',item:regions[0]},{label:'Region needing most support',item:regions[regions.length-1]},{label:'Top-performing local board',item:boards[0]},{label:'Local board needing most support',item:boards[boards.length-1]},{label:'Top-performing REC',item:recs[0]},{label:'REC needing most support',item:recs[recs.length-1]},...(skillAreas.length?[{label:'Top teacher skill area',item:skillAreas[0]},{label:'Teacher skill area needing most support',item:skillAreas[skillAreas.length-1]}]:[])];
  return <HighlightTable title="Performance Highlights" items={cards}/>
 }
 function Chart({title,data}:{title:string;data:{label:string;value:number}[]}){return <section className="card chart"><h2>{title}</h2>{data.length?data.map(d=><div className="barrow" key={d.label}><span>{d.label}</span><div><i style={{width:Math.max(0,Math.min(100,d.value))+'%'}}/></div><b>{fmt(d.value)}</b></div>):<div className="empty">No matching data</div>}</section>}

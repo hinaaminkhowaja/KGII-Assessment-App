@@ -3096,13 +3096,25 @@ function getDashboardData(email) {
       // short synthetic headers. Theme 2/3 counts are intentionally discovered
       // independently for Pre and Post.
       const koboRubricCols = (s.kind === 'student-kobo')
-        ? h.map((name,j)=>({name,j,normalized:norm(name)})).filter(c=>
-            /rubrics.*child.{0,4}s.?status/i.test(c.normalized) &&
-            /theme\s*[1-4]/i.test(c.normalized)
-          ).map(c=>{
-            const match=c.normalized.match(/theme\s*([1-4])/i);
-            return {name:c.name,j:c.j,themeNo:Number(match[1])};
-          })
+        ? (() => {
+            // Prefer explicit ThemeN:UA/A source columns per theme. These
+            // preserve the actual Theme 2/3 split and avoid duplicate scoring.
+            const explicit = h.map((name,j)=>{
+              const match=String(name||'').match(/^Theme\\s*([1-4])\\s*:\\s*(UA|A)\\s*(\\d+)$/i);
+              return match ? {name,j,themeNo:Number(match[1]),indicatorId:'Theme'+match[1]+':'+match[2].toUpperCase()+match[3]} : null;
+            }).filter(Boolean);
+            const descriptive = h.map((name,j)=>({name,j,normalized:norm(name)})).filter(col=>
+              /rubrics.*child.{0,4}s.?status/i.test(col.normalized) &&
+              /theme\\s*[1-4]/i.test(col.normalized)
+            ).map(col=>{
+              const match=col.normalized.match(/theme\\s*([1-4])/i);
+              return {name:col.name,j:col.j,themeNo:Number(match[1]),indicatorId:''};
+            });
+            return [1,2,3,4].flatMap(themeNo=>{
+              const direct=explicit.filter(col=>col.themeNo===themeNo);
+              return direct.length ? direct : descriptive.filter(col=>col.themeNo===themeNo);
+            });
+          })()
         : [];
       // APP_Student_Surveys retains its own explicit ThemeN:UA/A indicator
       // headers; this mapping is separate from the original Kobo sheets.
@@ -3172,8 +3184,8 @@ function getDashboardData(email) {
             if(s.kind==='student-kobo'){
               const themeNo=c.themeNo;
               const indicatorNo=koboRubricCols.filter(x=>x.themeNo===themeNo&&x.j<=c.j).length;
-              const indicatorId='Theme'+themeNo+':I'+indicatorNo;
-              records.push([id+'-'+themeNo+'-I'+indicatorNo,cycle,year,cohort,'Student',assessment,region,board,rec,1,'','T'+themeNo,'Overall',indicatorId,score,3,s.name,i+2,id,child,'']);
+              const indicatorId=c.indicatorId||('Theme'+themeNo+':I'+indicatorNo);
+              records.push([id+'-'+themeNo+'-'+(c.indicatorId||('I'+indicatorNo)),cycle,year,cohort,'Student',assessment,region,board,rec,1,'','T'+themeNo,'Overall',indicatorId,score,3,s.name,i+2,id,child,'']);
             }else{
               const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
               if(!mm)return;
@@ -3233,15 +3245,18 @@ function getDashboardData(email) {
       stageCohortBreakdown:sourceRecords.reduce((out,record)=>{const key=String(record[3]||'Unclassified')+' / '+String(record[5]||'No stage');out[key]=(out[key]||0)+1;return out;},{}),
       themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))],
       studentRubricColumnsByTheme:loadedSource&&['Students Pre Assessment','Students Post Assessment'].includes(source.name)
-        ? loadedSource.headers.reduce((out,header)=>{
-            const normalized=norm(header);
-            const match=normalized.match(/theme\s*([1-4])/i);
-            if(match&&/rubrics.*child.{0,4}s.?status/i.test(normalized)){
-              const key='Theme '+match[1];
-              out[key]=(out[key]||0)+1;
-            }
-            return out;
-          },{'Theme 1':0,'Theme 2':0,'Theme 3':0,'Theme 4':0})
+        ? (() => {
+            const explicit={'Theme 1':0,'Theme 2':0,'Theme 3':0,'Theme 4':0};
+            const descriptive={'Theme 1':0,'Theme 2':0,'Theme 3':0,'Theme 4':0};
+            loadedSource.headers.forEach(header=>{
+              const direct=String(header||'').match(/^Theme\\s*([1-4])\\s*:\\s*(UA|A)\\s*\\d+$/i);
+              if(direct)explicit['Theme '+direct[1]]++;
+              const normalized=norm(header);
+              const match=normalized.match(/theme\\s*([1-4])/i);
+              if(match&&/rubrics.*child.{0,4}s.?status/i.test(normalized))descriptive['Theme '+match[1]]++;
+            });
+            return Object.fromEntries([1,2,3,4].map(n=>['Theme '+n,explicit['Theme '+n]||descriptive['Theme '+n]]));
+          })()
         : {}
     };
   });

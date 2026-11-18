@@ -3257,7 +3257,7 @@ function getDashboardData(email) {
               const match=normalized.match(/theme\s*([1-4])/i);
               if(match&&/rubrics?/i.test(normalized)&&!/(remarks|attach|evidence|average|overall)/i.test(normalized))descriptive['Theme '+match[1]]++;
             });
-            return Object.fromEntries([1,2,3,4].map(n=>['Theme '+n,explicit['Theme '+n]||descriptive['Theme '+n]]));
+            return Object.fromEntries([1,2,3,4].map(n=>['Theme '+n,descriptive['Theme '+n]]));
           })()
         : {}
     };

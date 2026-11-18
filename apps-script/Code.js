@@ -3091,14 +3091,39 @@ function getDashboardData(email) {
       const id=clean(val(r,h,['_uuid','_id','SubmissionID','meta/rootUuid']))||s.name+'-'+(i+2);
       const child=clean(val(r,h,['Name of a child:','Name of a child','ChildName']));
       const teacher=clean(val(r,h,['Name of participant','TeacherName','Your Name','Teacher']));
-      const numericCols=h.map((name,j)=>({name,j})).filter(c=>
-        /^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name) &&
-        // Theme 3 has a duplicated legacy UA3 column in both Kobo student
-        // exports. The agreed framework has four Theme 3 indicators; exclude
-        // this duplicate from both Pre and Post so each stage remains 87 points.
-        !(['Students Pre Assessment','Students Post Assessment'].includes(s.name) &&
-          /^Theme\s*3\s*:\s*UA\s*3$/i.test(c.name))
-      );
+      // Kobo student sheets use long descriptive rubric headers. Resolve those
+      // columns from the source text itself; do not depend on APP_Indicators or
+      // short synthetic headers. Theme 2/3 counts are intentionally discovered
+      // independently for Pre and Post.
+      const koboRubricCols = (s.kind === 'student-kobo')
+        ? h.map((name,j)=>({name,j,normalized:norm(name)})).filter(c=>
+            /rubrics.*child.{0,4}s.?status/i.test(c.normalized) &&
+            /theme\s*[1-4]/i.test(c.normalized)
+          ).map(c=>{
+            const match=c.normalized.match(/theme\s*([1-4])/i);
+            return {name:c.name,j:c.j,themeNo:Number(match[1])};
+          })
+        : [];
+      const themeIndicatorCounts = [1,2,3,4].reduce((out,n)=>{
+        out[n]=koboRubricCols.filter(c=>c.themeNo===n).length;
+        return out;
+      },{});
+      // APP_Student_Surveys retains its own explicit ThemeN:UA/A indicator
+      // headers; this mapping is separate from the original Kobo sheets.
+      const appNumericCols = s.kind === 'student-app'
+        ? h.map((name,j)=>({name,j})).filter(c=>
+            /^Theme\s*[1-4]\s*:\s*(UA|A)\s*\d+$/i.test(c.name)
+          )
+        : [];
+      const studentRatingScore_ = value => {
+        const label=norm(value);
+        if(label==='very well')return 3;
+        if(label==='to some extent')return 2;
+        if(label==='face difficulty')return 1;
+        if(value===''||value===null||value===undefined)return null;
+        const numeric=Number(value);
+        return Number.isFinite(numeric)&&numeric>=0&&numeric<=3?numeric:null;
+      };
       if(s.kind==='student-kobo'||s.kind==='student-app'){
         // Original student pre-assessment is the fixed four-theme baseline.
         // Keep every indicator in its denominator, including unanswered indicators.
@@ -3107,7 +3132,7 @@ function getDashboardData(email) {
           ? ['Theme 1','Theme 2','Theme 3','Theme 4']
           : s.kind==='student-app'
             ? [directThemeId_(clean(val(r,h,['ThemeName'])))]
-            : [...new Set(numericCols.map(c=>{const m=c.name.match(/^Theme\s*([1-4])/i);return m&&r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined?'Theme '+m[1]:'';}).filter(Boolean))];
+            : [...new Set(koboRubricCols.filter(c=>r[c.j]!==''&&r[c.j]!==null&&r[c.j]!==undefined).map(c=>'Theme '+c.themeNo))];
         themeNames.filter(Boolean).forEach(theme=>{
           // Assessment stages are determined from the source sheet and its explicit
           // survey selection; no deleted helper-column event sequence is used.
@@ -3131,19 +3156,33 @@ function getDashboardData(email) {
               : 'Post';
           // Student Post 2 submissions belong to Cycle 2; keep their submission year independent of cohort year.
           const cycle = s.kind==='student-app' && /^post\s*2$/i.test(assessment) ? 'C2' : 'C1';
-          numericCols.forEach(c=>{
-            if (s.kind === 'student-app') {
-              const columnTheme = c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*\d+$/i);
-              const selectedThemeNumber = Number((theme.match(/[1-4]/) || [])[0]);
-              if (!columnTheme || Number(columnTheme[1]) !== selectedThemeNumber) return;
-            }
+          const selectedThemeNumber = Number((theme.match(/[1-4]/) || [])[0]);
+          const columnsForTheme = s.kind === 'student-kobo'
+            ? koboRubricCols.filter(c=>c.themeNo===selectedThemeNumber)
+            : appNumericCols.filter(c=>{
+                const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*\d+$/i);
+                return mm&&Number(mm[1])===selectedThemeNumber;
+              });
+          columnsForTheme.forEach((c,columnIndex)=>{
             const raw=r[c.j];
-            const isBlank = raw===''||raw===null||raw===undefined;
-            if(isBlank && !isStudentPre)return;
-            const score=isBlank?0:Number(raw);if(!Number.isFinite(score))return;
-            const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
-            if(!mm)return;
-            records.push([id+'-'+mm[1]+'-'+mm[2]+'-'+mm[3],cycle,year,cohort,'Student',assessment,region,board,rec,1,'', 'T'+mm[1],mm[2].toUpperCase(), 'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,child,'']);
+            const isBlank=raw===''||raw===null||raw===undefined;
+            // Keep the established fixed Pre denominator (unanswered baseline
+            // indicators score zero); Post and app surveys count answered items.
+            if(isBlank&&!isStudentPre)return;
+            const score=s.kind==='student-kobo'
+              ? (isBlank?0:studentRatingScore_(raw))
+              : (isBlank?0:Number(raw));
+            if(score===null||!Number.isFinite(score))return;
+            if(s.kind==='student-kobo'){
+              const themeNo=c.themeNo;
+              const indicatorNo=koboRubricCols.filter(x=>x.themeNo===themeNo&&x.j<=c.j).length;
+              const indicatorId='Theme'+themeNo+':I'+indicatorNo;
+              records.push([id+'-'+themeNo+'-I'+indicatorNo,cycle,year,cohort,'Student',assessment,region,board,rec,1,'','T'+themeNo,'Overall',indicatorId,score,3,s.name,i+2,id,child,'']);
+            }else{
+              const mm=c.name.match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
+              if(!mm)return;
+              records.push([id+'-'+mm[1]+'-'+mm[2]+'-'+mm[3],cycle,year,cohort,'Student',assessment,region,board,rec,1,'','T'+mm[1],mm[2].toUpperCase(),'Theme'+mm[1]+':'+mm[2].toUpperCase()+mm[3],score,3,s.name,i+2,id,child,'']);
+            }
           });
         });
       } else if(s.kind==='teacher-kobo'){
@@ -3196,7 +3235,14 @@ function getDashboardData(email) {
       submissionYears:[...new Set(sourceRecords.map(record=>String(record[2]||'')))],
       cohortYears:[...new Set(sourceRecords.map(record=>String(record[3]||'')))],
       stageCohortBreakdown:sourceRecords.reduce((out,record)=>{const key=String(record[3]||'Unclassified')+' / '+String(record[5]||'No stage');out[key]=(out[key]||0)+1;return out;},{}),
-      themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))]
+      themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))],
+      detectedStudentRubricColumns:loadedSource&&source.name.startsWith('Students ')
+        ? (source.name==='Students Pre Assessment'||source.name==='Students Post Assessment'
+            ? (source.name==='Students Pre Assessment'
+                ? (loadedSource.headers.filter(header=>/rubrics.*child.{0,4}s.?status/i.test(norm(header))&&/theme\s*[1-4]/i.test(norm(header))).length)
+                : (loadedSource.headers.filter(header=>/rubrics.*child.{0,4}s.?status/i.test(norm(header))&&/theme\s*[1-4]/i.test(norm(header))).length))
+            : 0)
+        : 0
     };
   });
   const studentSurveyDiagnostics=sourceDiagnostics['APP_Student_Surveys'];

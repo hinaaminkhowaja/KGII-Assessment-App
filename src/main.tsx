@@ -794,43 +794,60 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
   // determined by the permanent StartingYear cohort in the master list.
   const scopedTargets=targetRecs.filter(targetMatches).filter((r:any)=>!f.year||Number(r.StartingYear)===Number(f.year));
   const themes=['T1','T2','T3','T4'];
+  const skillAreas=[{id:'S1',name:'Instructional Skills'},{id:'S2',name:'Questioning Skills'},{id:'S3',name:'Feedback Skills'}];
   const groupValue=(r:any)=>level==='region'?r.Region:level==='board'?r.LocalBoard:r.REC;
   const groupLabel=level==='region'?'Region':level==='board'?'Local Board':'REC';
   const title=level==='region'?'Region-wise Theme Assessment':level==='board'?'Local Board-wise Theme Assessment':'REC-wise Theme Assessment';
   const groupKey=(value:any)=>geoNorm(displayGeo(norm(value)));
   const groupMap=new Map<string,string>();
-  const sourceGroups=scopedTargets;
-  sourceGroups.forEach((r:any)=>{const raw=norm(groupValue(r));if(!raw)return;const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
+  scopedTargets.forEach((r:any)=>{const raw=norm(groupValue(r));if(!raw)return;const key=groupKey(raw);if(key&&!groupMap.has(key))groupMap.set(key,displayGeo(raw));});
   const groups=[...groupMap.values()].sort((a,b)=>a.localeCompare(b));
 
-  // A submission expands into multiple indicator rows. Count student and
-  // teacher source submissions per REC + theme + stage. Participation in
-  // separate themes is counted separately; child names/IDs are never used.
-  const participants=new Map<string,Set<string>>();
+  // Count each source submission once within its REC and assessment area/stage,
+  // regardless of how many indicator rows that submission expands into.
+  const counts=new Map<string,Set<string>>();
+  const recKey=(r:Rec)=>[geoNorm(r.Region),geoNorm(r.LocalBoard),geoNorm(r.REC)].join('||');
+  const addCount=(group:string,area:string,stage:string,r:Rec,identity:string)=>{
+    if(!identity||!r.REC)return;
+    const key=[groupKey(group),area,stage].join('||');
+    if(!counts.has(key))counts.set(key,new Set<string>());
+    counts.get(key)!.add([recKey(r),identity].join('||'));
+  };
   for(const r of scopedRecords){
     const group=groupKey(groupValue(r));
-    const theme=norm(r.ThemeID);
-    if(!group||!themes.includes(theme)||!r.REC)continue;
-    const stage=assessmentIs(r.Assessment,'Pre')?'Pre':assessmentIs(r.Assessment,'Post')?'Post':null;
-    const participant=norm(r.ParticipantType);
-    if(!stage||(participant!=='Student'&&participant!=='Teacher'))continue;
-    const identity=participant==='Teacher'
-      ? geoNorm(norm(r.SourceRecordID)||norm(r.RecordID))
-      : studentSubmissionIdentity(r);
-    if(!identity)continue;
-    const key=[group,theme,stage,participant].join('||');
-    if(!participants.has(key))participants.set(key,new Set<string>());
-    participants.get(key)!.add(identity);
+    const area=norm(r.ThemeID).toUpperCase();
+    if(!group||!r.REC)continue;
+    const participant=norm(r.ParticipantType).toLowerCase();
+    const stage=assessmentIs(r.Assessment,'Pre')?'Pre':assessmentIs(r.Assessment,'Post')?'Post':assessmentIsPost2(r.Assessment)?'Post 2':null;
+    if(!stage)continue;
+    if(participant==='student'&&themes.includes(area)){
+      addCount(groupValue(r),area,stage,r,studentSubmissionIdentity(r));
+    }else if(participant==='teacher'&&themes.includes(area)&&!isTeacherSkillRec(r)&&stage!=='Post 2'){
+      const identity=norm(r.SourceRecordID)||norm(r.RecordID)||norm(r.SourceRow);
+      addCount(groupValue(r),area,stage,r,identity);
+    }else if(participant==='teacher'&&skillAreas.some(x=>x.id===area)&&isTeacherSkillRec(r)&&stage!=='Post 2'){
+      const identity=norm(r.SourceRow)||norm(r.SourceRecordID)||norm(r.RecordID);
+      addCount(groupValue(r),area,stage,r,[norm(r.SourceSheet),identity].join('||'));
+    }
   }
-  const participantCount=(group:string,theme:string,stage:'Pre'|'Post',participant:'Student'|'Teacher')=>
-    participants.get([groupKey(group),theme,stage,participant].join('||'))?.size||0;
+  const count=(group:string,area:string,stage:string)=>counts.get([groupKey(group),area,stage].join('||'))?.size||0;
   return <section className={`card theme-rec-coverage theme-rec-coverage-${level}`}>
-    <div className="section-head"><div><h2>{title}</h2><p>Students are counted by source assessment submission within each REC, theme and stage; teacher counts reflect submitted assessments per REC, theme and stage.</p></div></div>
+    <div className="section-head"><div><h2>{title}</h2><p>Each source assessment submission is counted once within its REC, theme or skill area, and stage.</p></div></div>
+    <h3>Student Theme Assessment</h3>
     <div className="table-wrap"><table><thead>
-      <tr><th rowSpan={3}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={4}>{labelTheme(theme)}</th>)}</tr>
-      <tr>{themes.flatMap(theme=>[<th key={theme+'-students'} colSpan={2}>Students</th>,<th key={theme+'-teachers'} colSpan={2}>Teachers</th>])}</tr>
-      <tr>{themes.flatMap(theme=>[<th key={theme+'-spre'}>Pre</th>,<th key={theme+'-spost'}>Post</th>,<th key={theme+'-tpre'}>Pre</th>,<th key={theme+'-tpost'}>Post</th>])}</tr>
-    </thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>[<td key={theme+'-spre'}>{participantCount(group,theme,'Pre','Student')}</td>,<td key={theme+'-spost'}>{participantCount(group,theme,'Post','Student')}</td>,<td key={theme+'-tpre'}>{participantCount(group,theme,'Pre','Teacher')}</td>,<td key={theme+'-tpost'}>{participantCount(group,theme,'Post','Teacher')}</td>])}</tr>)}</tbody></table></div>
+      <tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={3}>{labelTheme(theme)}</th>)}</tr>
+      <tr>{themes.flatMap(theme=>['Pre','Post','Post 2'].map(stage=><th key={theme+'-student-'+stage}>{stage}</th>))}</tr>
+    </thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>['Pre','Post','Post 2'].map(stage=><td key={theme+'-student-'+stage}>{count(group,theme,stage)}</td>))}</tr>)}</tbody></table></div>
+    <h3>Teacher Content Assessment</h3>
+    <div className="table-wrap"><table><thead>
+      <tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={2}>{labelTheme(theme)}</th>)}</tr>
+      <tr>{themes.flatMap(theme=>['Pre','Post'].map(stage=><th key={theme+'-content-'+stage}>{stage}</th>))}</tr>
+    </thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>['Pre','Post'].map(stage=><td key={theme+'-content-'+stage}>{count(group,theme,stage)}</td>))}</tr>)}</tbody></table></div>
+    <h3>Teacher Skills Assessment</h3>
+    <div className="table-wrap"><table><thead>
+      <tr><th rowSpan={2}>{groupLabel}</th>{skillAreas.map(area=><th key={area.id} colSpan={2}>{area.name}</th>)}</tr>
+      <tr>{skillAreas.flatMap(area=>['Pre','Post'].map(stage=><th key={area.id+'-'+stage}>{stage}</th>))}</tr>
+    </thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{skillAreas.flatMap(area=>['Pre','Post'].map(stage=><td key={area.id+'-'+stage}>{count(group,area.id,stage)}</td>))}</tr>)}</tbody></table></div>
     {!groups.length&&<p className="empty">No matching {groupLabel.toLowerCase()} data found for the selected filters.</p>}
   </section>;
 }

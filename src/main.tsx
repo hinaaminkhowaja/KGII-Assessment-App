@@ -840,8 +840,8 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
     </thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>['Pre','Post','Post 2'].map(stage=><td key={theme+'-student-'+stage}>{count(group,theme,stage)}</td>))}</tr>)}</tbody></table></div>
     <h3>Teacher Assessment</h3>
     <div className="table-wrap"><table><thead>
-      <tr><th rowSpan={2}>{groupLabel}</th><th colSpan={8}>Teacher Content</th><th colSpan={6}>Teacher Skills</th></tr>
-      <tr>{themes.flatMap(theme=>[<th key={theme+'-content-pre'}>{labelTheme(theme)} Pre</th>,<th key={theme+'-content-post'}>{labelTheme(theme)} Post</th>])}{skillAreas.flatMap(area=>['Pre','Post'].map(stage=><th key={area.id+'-'+stage}>{area.name} {stage}</th>))}</tr>
+      <tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={2}>{labelTheme(theme)}</th>)}{skillAreas.map(area=><th key={area.id} colSpan={2}>{area.name}</th>)}</tr>
+      <tr>{themes.flatMap(theme=>['Pre','Post'].map(stage=><th key={theme+'-content-'+stage}>{stage}</th>))}{skillAreas.flatMap(area=>['Pre','Post'].map(stage=><th key={area.id+'-'+stage}>{stage}</th>))}</tr>
     </thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>['Pre','Post'].map(stage=><td key={theme+'-content-'+stage}>{count(group,theme,stage)}</td>))}{skillAreas.flatMap(area=>['Pre','Post'].map(stage=><td key={area.id+'-'+stage}>{count(group,area.id,stage)}</td>))}</tr>)}</tbody></table></div>
     {!groups.length&&<p className="empty">No matching {groupLabel.toLowerCase()} data found for the selected filters.</p>}
   </section>;

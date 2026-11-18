@@ -712,7 +712,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     : f.year==='2026'
       ? ['No. of Students (2025 Pre / Post / Post 2)','No. of Teachers Content (2025 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of RECs (2025 Pre / Post / Post 2)','Teachers Skills Overall']
       : [];
-  const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label)));
+  // Teacher skills belong to Cycle 2 only. Hide their count and score
+  // whenever the selected view is the 2025 Cycle 1 baseline.
+  const hiddenByCycle=f.year==='2025'&&f.cycle==='C1'
+    ? ['No. of Teachers Skills (2025 Pre / Post)','Teachers Skills Overall']
+    : [];
+  const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label))&&!hiddenByCycle.includes(String(label)));
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!f.year||Number(r.StartingYear)===Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));
   const themeCoverage = ['T1','T2','T3','T4'].map(theme => {
     const themeRows = metricRows.filter(r => r.ThemeID === theme);

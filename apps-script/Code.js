@@ -2026,7 +2026,7 @@ if (values.length < 2) {
     if([r,b,rc,n].some(x=>x<0)) return;
     const themeMap={'authority and leadership':'1','intellectual traditions':'2','ismaili muslim traditions':'2','role in family, community and society':'3','two aspects of life':'4'};
     data.slice(1).forEach((row,index)=>{
-      if(clean(row[r]).replace(/_\\d+$/,'').toLowerCase()!==region.toLowerCase().replace(/_\\d+$/,'')||
+      if(clean(row[r]).replace(/_\d+$/,'').toLowerCase()!==region.toLowerCase().replace(/_\d+$/,'')||
          clean(row[b]).toLowerCase()!==localBoard.toLowerCase()||
          clean(row[rc]).toLowerCase()!==rec.toLowerCase()||
          clean(row[n]).toLowerCase()!==name.toLowerCase()) return;
@@ -2040,7 +2040,7 @@ if (values.length < 2) {
         item.ratings={};
         const tn=themeMap[themeName.toLowerCase()]||'';
         hh.forEach((header,j)=>{
-          if(/^Theme[1-4]:(UA|A)\\d+$/i.test(header)&&(!tn||header.startsWith('Theme'+tn+':'))&&row[j]!==''&&row[j]!=null)item.ratings[header]=row[j];
+          if(/^Theme[1-4]:(UA|A)\d+$/i.test(header)&&(!tn||header.startsWith('Theme'+tn+':'))&&row[j]!==''&&row[j]!=null)item.ratings[header]=row[j];
         });
         item.childGender=clean(row[findCol(["ChildGender","Child's gender"])]);
         item.assessorDesignation=clean(row[findCol(['AssessorDesignation','Designation of a person assess a child'])]);
@@ -3100,14 +3100,14 @@ function getDashboardData(email) {
             // Prefer explicit ThemeN:UA/A source columns per theme. These
             // preserve the actual Theme 2/3 split and avoid duplicate scoring.
             const explicit = h.map((name,j)=>{
-              const match=String(name||'').match(/^Theme\\s*([1-4])\\s*:\\s*(UA|A)\\s*(\\d+)$/i);
+              const match=String(name||'').match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
               return match ? {name,j,themeNo:Number(match[1]),indicatorId:'Theme'+match[1]+':'+match[2].toUpperCase()+match[3]} : null;
             }).filter(Boolean);
             const descriptive = h.map((name,j)=>({name,j,normalized:norm(name)})).filter(col=>
               /rubrics.*child.{0,4}s.?status/i.test(col.normalized) &&
-              /theme\\s*[1-4]/i.test(col.normalized)
+              /theme\s*[1-4]/i.test(col.normalized)
             ).map(col=>{
-              const match=col.normalized.match(/theme\\s*([1-4])/i);
+              const match=col.normalized.match(/theme\s*([1-4])/i);
               return {name:col.name,j:col.j,themeNo:Number(match[1]),indicatorId:''};
             });
             return [1,2,3,4].flatMap(themeNo=>{
@@ -3249,10 +3249,10 @@ function getDashboardData(email) {
             const explicit={'Theme 1':0,'Theme 2':0,'Theme 3':0,'Theme 4':0};
             const descriptive={'Theme 1':0,'Theme 2':0,'Theme 3':0,'Theme 4':0};
             loadedSource.headers.forEach(header=>{
-              const direct=String(header||'').match(/^Theme\\s*([1-4])\\s*:\\s*(UA|A)\\s*\\d+$/i);
+              const direct=String(header||'').match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*\d+$/i);
               if(direct)explicit['Theme '+direct[1]]++;
               const normalized=norm(header);
-              const match=normalized.match(/theme\\s*([1-4])/i);
+              const match=normalized.match(/theme\s*([1-4])/i);
               if(match&&/rubrics.*child.{0,4}s.?status/i.test(normalized))descriptive['Theme '+match[1]]++;
             });
             return Object.fromEntries([1,2,3,4].map(n=>['Theme '+n,explicit['Theme '+n]||descriptive['Theme '+n]]));

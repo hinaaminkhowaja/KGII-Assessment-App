@@ -3097,25 +3097,26 @@ function getDashboardData(email) {
       // independently for Pre and Post.
       const koboRubricCols = (s.kind === 'student-kobo')
         ? (() => {
-            // Prefer explicit ThemeN:UA/A source columns per theme. These
-            // preserve the actual Theme 2/3 split and avoid duplicate scoring.
-            const explicit = h.map((name,j)=>{
-              const match=String(name||'').match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*(\d+)$/i);
-              return match ? {name,j,themeNo:Number(match[1]),indicatorId:'Theme'+match[1]+':'+match[2].toUpperCase()+match[3]} : null;
-            }).filter(Boolean);
-            const descriptive = h.map((name,j)=>({name,j,normalized:norm(name)})).filter(col=>
-              /rubrics?/i.test(col.normalized) &&
-              /theme\s*[1-4]/i.test(col.normalized) &&
-              !/(remarks|attach|evidence|average|overall)/i.test(col.normalized)
-            ).map(col=>{
-              const match=col.normalized.match(/theme\s*([1-4])/i);
-              return {name:col.name,j:col.j,themeNo:Number(match[1]),indicatorId:''};
+            // Both original Kobo student sheets store 29 indicator responses
+            // consecutively after "Specify the phase". Themes 2-4 have plain
+            // child-statement headers, so header wording cannot identify them.
+            const phaseIndex = h.findIndex(name => norm(name) === 'specify the phase');
+            if (phaseIndex < 0) throw new Error(s.name + ': cannot find "Specify the phase".');
+            const themeSizes = [10, 6, 5, 8];
+            const cols = [];
+            let offset = 0;
+            themeSizes.forEach((size, themeIndex) => {
+              for (let n = 1; n <= size; n++) {
+                const j = phaseIndex + 1 + offset;
+                if (j >= h.length || !clean(h[j])) {
+                  throw new Error(s.name + ': missing student indicator column ' + (offset + 1) + ' after "Specify the phase".');
+                }
+                const themeNo = themeIndex + 1;
+                cols.push({name:h[j],j,themeNo,indicatorId:'Theme'+themeNo+':I'+n});
+                offset++;
+              }
             });
-            // The original Kobo descriptive rubric columns are authoritative.
-            // Appended short ThemeN:UA/A columns may be partial/legacy.
-            return [1,2,3,4].flatMap(themeNo=>
-              descriptive.filter(col=>col.themeNo===themeNo)
-            );
+            return cols;
           })()
         : [];
       // APP_Student_Surveys retains its own explicit ThemeN:UA/A indicator
@@ -3248,18 +3249,19 @@ function getDashboardData(email) {
       themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))],
       studentRubricColumnsByTheme:loadedSource&&['Students Pre Assessment','Students Post Assessment'].includes(source.name)
         ? (() => {
-            const explicit={'Theme 1':0,'Theme 2':0,'Theme 3':0,'Theme 4':0};
-            const descriptive={'Theme 1':0,'Theme 2':0,'Theme 3':0,'Theme 4':0};
-            loadedSource.headers.forEach(header=>{
-              const direct=String(header||'').match(/^Theme\s*([1-4])\s*:\s*(UA|A)\s*\d+$/i);
-              if(direct)explicit['Theme '+direct[1]]++;
-              const normalized=norm(header);
-              const match=normalized.match(/theme\s*([1-4])/i);
-              if(match&&/rubrics?/i.test(normalized)&&!/(remarks|attach|evidence|average|overall)/i.test(normalized))descriptive['Theme '+match[1]]++;
+            const phaseIndex = loadedSource.headers.findIndex(header => norm(header) === 'specify the phase');
+            const sizes = [10, 6, 5, 8];
+            let offset = 0;
+            const counts = {};
+            sizes.forEach((size,index) => {
+              counts['Theme '+(index+1)] = phaseIndex < 0 ? 0 :
+                loadedSource.headers.slice(phaseIndex+1+offset,phaseIndex+1+offset+size).filter(header=>!!clean(header)).length;
+              offset += size;
             });
-            return Object.fromEntries([1,2,3,4].map(n=>['Theme '+n,descriptive['Theme '+n]]));
+            return counts;
           })()
         : {}
+
     };
   });
   const studentSurveyDiagnostics=sourceDiagnostics['APP_Student_Surveys'];

@@ -987,7 +987,6 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
   const teacherThemes = group(teacherContentRows,'ThemeID').filter(x=>/^T[1-4]$/i.test(x.key)).sort((a,b)=>a.p-b.p);
   const teacherSkills = group(teacherSkillRows,'ThemeID').filter(x=>/^S[1-3]$/i.test(x.key)).sort((a,b)=>a.p-b.p);
   const weakestTeacherSkill = teacherSkills[0];
-  const strongestTeacherSkill = teacherSkills.slice().sort((a,b)=>b.p-a.p)[0];
   const skillNames:Record<string,string> = {S1:'Instructional Skills',S2:'Questioning Skills',S3:'Feedback Skills'};
   const skillActions:Record<string,string> = {
     S1:'Model clear lesson objectives, demonstrate effective facilitation and classroom routines, and provide coaching with an observation-and-feedback cycle.',
@@ -1008,14 +1007,9 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
     const a=aggregate(subset);
     return {id,label:rubricDescription(id),p:a.p,rows:subset};
   }).sort((a,b)=>a.p-b.p);
-  const strongestTheme = (scope==='teacher'?teacherThemes:studentThemes).slice().sort((a,b)=>b.p-a.p)[0];
   const weakestStudentTheme = studentThemes[0];
-  const strongestStudentTheme = studentThemes.slice().sort((a,b)=>b.p-a.p)[0];
   const weakestTeacherTheme = teacherThemes[0];
-  const strongestTeacherTheme = teacherThemes.slice().sort((a,b)=>b.p-a.p)[0];
   const weakestDim = dimGroups[0];
-  const strongestDim = dimGroups.slice().sort((a,b)=>b.p-a.p)[0];
-  const strongestStudentDim = group(studentRows,'DimensionID').filter(x=>x.key==='UA'||x.key==='A').sort((a,b)=>b.p-a.p)[0];
 
   const weakIndicators = indicatorGroups.slice(0,3).filter(x=>x.rows.length);
   const strongIndicators = indicatorGroups.slice().sort((a,b)=>b.p-a.p).slice(0,3).filter(x=>x.rows.length);
@@ -1038,7 +1032,7 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
       : 'Review the weakest rubric area with the team and agree on one observable child behaviour to practise and assess.';
   const titleScope = scope==='teacher'?'Teacher':scope==='dashboard'?'Overall':scope==='region'?'Region':scope==='board'?'Local Board':'REC';
   return <section className="card way-forward">
-    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>{scope==='teacher'?'Teacher priorities are based on the selected teacher’s theme performance.':'Student and teacher strengths and support priorities use the latest available student assessment and teachers’ Post assessment.'}</p></div></div>
+    <div className="section-head"><div><h2>Way Forward — {titleScope}</h2><p>{scope==='teacher'?'Teacher priorities are based on the selected teacher’s theme performance.':'Only areas requiring support are listed, using the latest available student assessment and teachers’ Post assessment.'}</p></div></div>
     {!rows.length ? <p className="empty">No assessment data is available for these filters yet.</p> : <>
       <div className="way-forward-priorities">
         {scope==='teacher' ? <>

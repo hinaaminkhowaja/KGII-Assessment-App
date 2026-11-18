@@ -566,7 +566,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Stage counts follow the REC's StartingYear cohort and assessment type,
   // not the calendar date on which a Kobo/app submission was uploaded.
   // Keep the selected Year filter for KPI source counts; do not silently reset it.
-  const rowsForCounts=()=>filterRows(sourceRows,{...f,year:'',pt:'',assessment:'',focus:'',theme:'',dim:'',studentRating:'',teacherRating:''},targetRecs);
+  // Count cards must respond to the same active dashboard filters as the scorecards.
+  // Stage/cohort totals are still split below, but no selected filter is silently discarded.
+  const rowsForCounts=()=>filterRows(sourceRows,f,targetRecs);
   const recMasterKey=(v:any)=>norm(v).toLocaleLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
   // Build the REC cohort index once. Repeated Array.find calls for every
   // expanded indicator row made dashboard recalculation slow on large datasets.
@@ -587,12 +589,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Stage does not affect cohort membership. A REC stays in its original
   // StartingYear cohort for Pre, Post, Post 2 and every later follow-up.
   const recCohortForStage=(r:Rec,_year:number,_stage:'Pre'|'Post'|'Post 2')=>recStartingYearForRow(r)||Number((r as any).CohortYear)||0;
-  const countSourceRows=()=>sourceRows.filter(r=>
-    (!f.cycle||norm(r.CycleID).toUpperCase()===String(f.cycle).toUpperCase())&&
-    (!f.region||geoNorm(r.Region)===geoNorm(f.region))&&
-    (!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&
-    (!f.rec||geoNorm(r.REC)===geoNorm(f.rec))
-  );
+  const countSourceRows=()=>filterRows(sourceRows,f,targetRecs);
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const isTeacherSkillRow=(r:Rec)=>isTeacherSkillRec(r);
   // SourceSheet is authoritative for participant category when older or custom

@@ -980,9 +980,9 @@ function WayForward({rows,scope,f,nav}:{rows:Rec[];scope:string;f:any;nav?:(p:st
   const teacherRows = rows.filter(r => r.ParticipantType === 'Teacher');
   const teacherContentRows = teacherRows.filter(r => !isTeacherSkillRec(r));
   const teacherSkillRows = teacherRows.filter(r => isTeacherSkillRec(r));
-  const studentThemes = group(studentRows,'ThemeID').sort((a,b)=>a.p-b.p);
-  const teacherThemes = group(teacherContentRows,'ThemeID').sort((a,b)=>a.p-b.p);
-  const teacherSkills = group(teacherSkillRows,'ThemeID').sort((a,b)=>a.p-b.p);
+  const studentThemes = group(studentRows,'ThemeID').filter(x=>/^T[1-4]$/i.test(x.key)).sort((a,b)=>a.p-b.p);
+  const teacherThemes = group(teacherContentRows,'ThemeID').filter(x=>/^T[1-4]$/i.test(x.key)).sort((a,b)=>a.p-b.p);
+  const teacherSkills = group(teacherSkillRows,'ThemeID').filter(x=>/^S[1-3]$/i.test(x.key)).sort((a,b)=>a.p-b.p);
   const weakestTeacherSkill = teacherSkills[0];
   const strongestTeacherSkill = teacherSkills.slice().sort((a,b)=>b.p-a.p)[0];
   const skillNames:Record<string,string> = {S1:'Instructional Skills',S2:'Questioning Skills',S3:'Feedback Skills'};
@@ -1100,7 +1100,7 @@ function performanceDrivers(rows:Rec[],mode:'strong'|'weak'){
  const add=(prefix:string,items:{id:string;p:number;label:string}[])=>items.forEach(x=>out.push({label:prefix+x.label,p:x.p}));
  add('Student · ',choose(students,'ThemeID',id=>/^T[1-4]$/i.test(id),labelTheme));
  add('Student · ',choose(students,'DimensionID',id=>/^(UA|A)$/i.test(id),labelDim));
- add('Student · ',choose(students,'IndicatorID',id=>/^Theme[1-4]:(UA|A)\\d+$/i.test(id),rubricDescription));
+ add('Student · ',choose(students,'IndicatorID',id=>/^Theme[1-4]:(UA|A)\d+$/i.test(id),rubricDescription));
  add('Teacher theme · ',choose(teacherThemes,'ThemeID',id=>/^T[1-4]$/i.test(id),labelTheme));
  const skillNames:Record<string,string>={S1:'Instructional Skills',S2:'Questioning Skills',S3:'Feedback Skills'};
  add('Teacher skill · ',choose(teacherSkills,'ThemeID',id=>/^S[1-3]$/i.test(id),id=>skillNames[id.toUpperCase()]||id));

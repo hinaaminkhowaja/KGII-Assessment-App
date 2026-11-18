@@ -3104,10 +3104,6 @@ function getDashboardData(email) {
             return {name:c.name,j:c.j,themeNo:Number(match[1])};
           })
         : [];
-      const themeIndicatorCounts = [1,2,3,4].reduce((out,n)=>{
-        out[n]=koboRubricCols.filter(c=>c.themeNo===n).length;
-        return out;
-      },{});
       // APP_Student_Surveys retains its own explicit ThemeN:UA/A indicator
       // headers; this mapping is separate from the original Kobo sheets.
       const appNumericCols = s.kind === 'student-app'
@@ -3236,13 +3232,17 @@ function getDashboardData(email) {
       cohortYears:[...new Set(sourceRecords.map(record=>String(record[3]||'')))],
       stageCohortBreakdown:sourceRecords.reduce((out,record)=>{const key=String(record[3]||'Unclassified')+' / '+String(record[5]||'No stage');out[key]=(out[key]||0)+1;return out;},{}),
       themes:[...new Set(sourceRecords.map(record=>String(record[11]||'')))],
-      detectedStudentRubricColumns:loadedSource&&source.name.startsWith('Students ')
-        ? (source.name==='Students Pre Assessment'||source.name==='Students Post Assessment'
-            ? (source.name==='Students Pre Assessment'
-                ? (loadedSource.headers.filter(header=>/rubrics.*child.{0,4}s.?status/i.test(norm(header))&&/theme\s*[1-4]/i.test(norm(header))).length)
-                : (loadedSource.headers.filter(header=>/rubrics.*child.{0,4}s.?status/i.test(norm(header))&&/theme\s*[1-4]/i.test(norm(header))).length))
-            : 0)
-        : 0
+      studentRubricColumnsByTheme:loadedSource&&['Students Pre Assessment','Students Post Assessment'].includes(source.name)
+        ? loadedSource.headers.reduce((out,header)=>{
+            const normalized=norm(header);
+            const match=normalized.match(/theme\s*([1-4])/i);
+            if(match&&/rubrics.*child.{0,4}s.?status/i.test(normalized)){
+              const key='Theme '+match[1];
+              out[key]=(out[key]||0)+1;
+            }
+            return out;
+          },{'Theme 1':0,'Theme 2':0,'Theme 3':0,'Theme 4':0})
+        : {}
     };
   });
   const studentSurveyDiagnostics=sourceDiagnostics['APP_Student_Surveys'];

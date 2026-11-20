@@ -342,7 +342,7 @@ const recs = useMemo(
   const post2Rows=useMemo(()=>allStageRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment)),[allStageRows]);
   const regionPerformanceRows=useMemo(()=>filterRows(cohortScopedRecords,f,targetRecs),[cohortScopedRecords,f,targetRecs]);
   const highlightRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
-  const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
+  const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:'',theme:'',focus:'',teacher:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
  // Region options are sourced from the live six-source dashboard response.
@@ -1207,7 +1207,6 @@ function TeacherAnalysis({rows,all,metricRows,phase3Rows,allCycleRows,f,setF,sou
 function StudentTeacherCrossAnalysis({rows,f,nav}:{rows:Rec[];f:any;nav:(p:string)=>void}){
  const clean=rows.filter(r=>r.ParticipantType==='Student'||r.ParticipantType==='Teacher');
  const latest=latestOutcomeRows(clean);
- const showPost2=hasPost2Rows(clean);
  const hasRegion=!!f.region&&f.region!=='All',hasBoard=!!f.board&&f.board!=='All',hasRec=!!f.rec&&f.rec!=='All';
  const selectedLevel: 'National'|'Region'|'Local Board'|'REC'=hasRec?'REC':hasBoard?'Local Board':hasRegion?'Region':'National';
  const studentRows=clean.filter(r=>r.ParticipantType==='Student'),teacherRows=clean.filter(r=>r.ParticipantType==='Teacher');

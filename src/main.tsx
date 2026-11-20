@@ -884,9 +884,9 @@ function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{record
     <div className="section-head"><div><h2>{title}</h2><p>Each source assessment submission is counted once within its REC, theme or skill area, and stage.</p></div></div>
     <h3>Student Theme Assessment</h3>
     <div className="table-wrap"><table><thead>
-      <tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={showPost2?3:2}>{labelTheme(theme)}</th>)}</tr>
-      <tr>{themes.flatMap(theme=>(showPost2?['Pre','Post','Post 2']:['Pre','Post']).map(stage=><th key={theme+'-student-'+stage}>{stage}</th>))}</tr>
-    </thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>(showPost2?['Pre','Post','Post 2']:['Pre','Post']).map(stage=><td key={theme+'-student-'+stage}>{count(group,theme,stage)}</td>))}</tr>)}</tbody></table></div>
+      <tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={3}>{labelTheme(theme)}</th>)}</tr>
+      <tr>{themes.flatMap(theme=>['Pre','Post','Post 2'].map(stage=><th key={theme+'-student-'+stage}>{stage}</th>))}</tr>
+    </thead><tbody>{groups.map(group=><tr key={group}><td><strong>{displayGeo(group)}</strong></td>{themes.flatMap(theme=>['Pre','Post','Post 2'].map(stage=><td key={theme+'-student-'+stage}>{count(group,theme,stage)}</td>))}</tr>)}</tbody></table></div>
     <h3>Teacher Assessment</h3>
     <div className="table-wrap"><table><thead>
       <tr><th rowSpan={2}>{groupLabel}</th>{themes.map(theme=><th key={theme} colSpan={2}>{labelTheme(theme)}</th>)}{showSkills&&skillAreas.map(area=><th key={area.id} colSpan={2}>{area.name}</th>)}</tr>

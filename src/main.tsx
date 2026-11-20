@@ -1317,7 +1317,7 @@ function TeacherDevelopmentSupport({rows,f}:{rows:Rec[];f:any}){
  };
  const regionDevelopment=developmentGroups('region'),boardDevelopment=developmentGroups('board'),recDevelopment=developmentGroups('rec');
  const priorities=(xs:{id:string;score:number}[],kind:string,emptyLabel:string)=>xs.length?xs.map(x=>(kind==='indicator'?x.id+' '+rubricDescription(x.id):kind==='skill'?skillName(x.id):themeName(x.id))+' ('+fmt(x.score)+')').join('; '):emptyLabel;
- const pairedChildThemes=(xs:{id:string;score:number;teacherScore:number|null}[])=>xs.length?xs.map(x=>themeName(x.id)+' — Children '+fmt(x.score)+' · Teachers '+(x.teacherScore===null?'not available (no matching teacher theme assessment)':fmt(x.teacherScore))).join('; '):'No child theme assessment available';
+ const pairedChildThemes=(xs:{id:string;score:number;teacherScore:number|null}[])=>xs.length?xs.map(x=>themeName(x.id)+' — Children '+fmt(x.score)).join('; '):'No child theme assessment available';
  const developmentFocus=(x:typeof regionDevelopment[number])=>{
   const parts:string[]=[];
   if(x.childThemes.length){const a=x.childThemes[0];parts.push('Priority theme: '+themeName(a.id)+'. Children score '+fmt(a.score)+'; teachers’ score in the same theme '+(a.teacherScore===null?'is unavailable because no matching teacher theme assessment was found':('is '+fmt(a.teacherScore)))+'. Proposed next-review targets: children reach at least 50%; teachers reach or maintain at least 50% in this theme. Plan a focused teacher learning session, model an age-appropriate activity, observe classroom implementation and review children’s responses.')}

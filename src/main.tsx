@@ -307,7 +307,7 @@ function App(){
  };
  const loadAdmin=async(email:string)=>{const [u,a]=await Promise.all([apiGet('users',{email}),apiGet('access',{email})]);const uu=arrayFrom(u,'users','records','data').map(mapUser);const ac=arrayFrom(a,'access','rules','data').map(mapAccess);setUsers(uu);setAccess(ac);};
  // Load reference lists only when a page needs them. Keeping this request off the initial dashboard path reduces competing Apps Script calls.
- useEffect(()=>{if(!['student-survey','teacher-survey','admin','dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis','teacherdevelopment'].includes(page))return;let active=true;loadDirectory().catch(e=>{if(active)setApiError('Could not load REC directory from Apps Script: '+e.message)});return()=>{active=false}},[page]);
+ useEffect(()=>{if(!['student-survey','teacher-survey','admin','dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis'].includes(page))return;let active=true;loadDirectory().catch(e=>{if(active)setApiError('Could not load REC directory from Apps Script: '+e.message)});return()=>{active=false}},[page]);
  useEffect(()=>{if(page!=='admin'||user?.role!=='admin'||!user.email)return;let active=true;loadAdmin(user.email).catch((e:any)=>{if(active)setApiError('Could not load Users & Access data: '+(e?.message||''))});return()=>{active=false}},[page,user?.email,user?.role]);
  useEffect(()=>{let active=true;let saved=localStorage.getItem(SESSION_KEY);let cached:AppUser|null=null;try{const raw=localStorage.getItem(USER_CACHE_KEY);if(raw)cached=mapUser(JSON.parse(raw));}catch{localStorage.removeItem(USER_CACHE_KEY);}if(!saved&&cached?.email)saved=cached.email;const validCached=!!saved&&!!cached&&cached!.email===saved&&(cached!.status==='approved'||cached!.role==='admin');if(validCached){localStorage.setItem(SESSION_KEY,cached!.email);setUser(cached);setPage('dashboard');}setLoading(!!saved&&!validCached);if(saved){const refreshSession=async()=>{try{let liveUser:AppUser;if(validCached){liveUser=cached!;}else{const d=await apiGet('login',{email:saved!});if(!d.user)throw new Error('This email is not approved for dashboard access.');liveUser=mapUser(d.user);if(liveUser.status!=='approved'&&liveUser.role!=='admin')throw new Error('This account is not approved.');}if(!active)return;if(liveUser.role==='admin'){setRecords([]);localStorage.removeItem('kgii_assessment_cached_records');}setUser(liveUser);localStorage.setItem(SESSION_KEY,liveUser.email);localStorage.setItem(USER_CACHE_KEY,JSON.stringify(liveUser));setF((current:any)=>({...current,year:'2025',cycle:'C1',phase:undefined,cohortYear:undefined}));setPage('dashboard');setLoading(false);void loadDashboard(liveUser.email).catch((e:any)=>{if(active)setApiError('Dashboard data could not be refreshed. Your saved sign-in remains active. '+(e?.message||''));});}catch(e:any){if(!active)return;if(!validCached){setApiError('Could not verify the saved session with the server. Your saved sign-in was kept; please refresh and retry. '+(e.message||''));}else{setApiError('Dashboard data could not be refreshed. Your saved sign-in remains active. '+(e.message||''));}}finally{if(active)setLoading(false);}};refreshSession();}else{setLoading(false);}return()=>{active=false}},[]);
  
@@ -343,7 +343,6 @@ const recs = useMemo(
   const regionPerformanceRows=useMemo(()=>filterRows(cohortScopedRecords,f,targetRecs),[cohortScopedRecords,f,targetRecs]);
   const highlightRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
   const crossRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
-  const developmentRows=useMemo(()=>filterRows(cohortScopedRecords,{...f,assessment:'',pt:'',studentRating:'',teacherRating:'',dim:'',theme:'',focus:'',teacher:''},targetRecs),[cohortScopedRecords,f,targetRecs]);
  const surveyRefs=refs;
  useEffect(()=>{if(f.board&&!boards.includes(f.board))setF((x:any)=>({...x,board:'',rec:''}))},[boards,f.board]);useEffect(()=>{if(f.rec&&!recs.includes(f.rec))setF((x:any)=>({...x,rec:''}))},[recs,f.rec]);
  // Region options are sourced from the live six-source dashboard response.
@@ -355,14 +354,14 @@ const pts=unique(allowedRecords,'ParticipantType'),assessments=['Pre','Post','Po
  // Refresh dashboard data every 15 minutes so Kobo imports become visible without a new login.
  // Dashboard refresh reads the original assessment and survey sheets directly.
  useEffect(()=>{
-  const dashboardPages=['dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis','teacherdevelopment'];
+  const dashboardPages=['dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis'];
   if(!user?.email||!dashboardPages.includes(page))return;
   const timer=window.setInterval(()=>{void refresh(user);},15*60*1000);
   return()=>window.clearInterval(timer);
  },[page,user?.email]);
  // Dashboard data is also refreshed at sign-in or when the user chooses Refresh data.
  // This prevents background refreshes from replacing visible data during active work.
- const nav=(p:string)=>{setMobileNavOpen(false);if(['dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis','teacherdevelopment','admin','resources'].includes(p)&&!user){setPage('login');return}if(p==='teacher')setF((x:any)=>({...x,pt:'',teacher:'',studentRating:''}));else if(p==='teacherdevelopment')setF((x:any)=>({...x,pt:'',assessment:'',theme:'',dim:'',focus:'',teacher:'',studentRating:'',teacherRating:'',cycle:''}));else setF((x:any)=>x.teacher?({...x,teacher:''}):x);setPage(p)};
+ const nav=(p:string)=>{setMobileNavOpen(false);if(['dashboard','region','board','rec','teacher','theme','dimension','prepost','crossanalysis','admin','resources'].includes(p)&&!user){setPage('login');return}if(p==='teacher')setF((x:any)=>({...x,pt:'',teacher:'',studentRating:''}));else setF((x:any)=>x.teacher?({...x,teacher:''}):x);setPage(p)};
  const login=async(email:string)=>{setLoading(true);setApiError('');try{const d=await apiGet('login',{email:email.trim().toLowerCase()});if(!d.user)throw new Error(d.message||'No account was found for this email.');const u=mapUser(d.user);if(u.status!=='approved'&&u.role!=='admin')throw new Error(u.status==='pending'?'Your account is awaiting administrator approval.':`Your account is ${u.status}.`);if(u.role==='admin'){setRecords([]);localStorage.removeItem('kgii_assessment_cached_records');}setUser(u);localStorage.setItem(SESSION_KEY,u.email);localStorage.setItem(USER_CACHE_KEY,JSON.stringify(u));setF({region:'',board:'',rec:'',pt:'',assessment:'',theme:'',dim:'',year:''});setPage('dashboard');setLoading(false);
     // Load dashboard first; admin users/access data is fetched only when Users & Access is opened.
     void loadDashboard(u.email).catch((e:any)=>setApiError('Signed in, but dashboard data could not be loaded. Use Refresh data to retry. '+(e?.message||'')));
@@ -489,7 +488,7 @@ function ResourceLibrary({user}:{user:AppUser|null}){
 function title(p:string){return ({dashboard:'KG II Assessment Dashboard',region:'Region-wise Analysis',board:'Local Board-wise Analysis',rec:'REC-wise Analysis',teacher:'Teacher-wise Analysis',theme:'Theme-wise & Skills Analysis',dimension:'Dimension-wise Analysis',prepost:'Pre / Post / Post 2 Analysis',crossanalysis:'Student–Teacher Cross-Analysis',admin:'Users & Access',resources:'Mentoring & Assessment Strategies','student-survey':'Student Survey Entry','teacher-survey':'Teacher Survey Entry'} as any)[p]}
 function subtitle(p:string){if(p==='student-survey')return 'Enter student survey responses using the master Region → Local Board → REC hierarchy.';if(p==='teacher-survey')return 'Enter teacher survey responses using the master Region → Local Board → REC hierarchy.';if(p==='resources')return 'View and download mentoring and assessment resources.';return p==='dashboard'?'Assessment Performance Overview':p==='teacher'?'Review individual teacher performance across themes, dimensions and pre/post assessments.':p==='crossanalysis'?'Compare student understanding, articulation and application with teacher assessment results across REC, Local Board, Region and National levels.':'Drill down into performance using the selected filters.'}
 function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,teachers,page}:any){
- const teacherPage=page==='teacher';const developmentPage=page==='teacherdevelopment';
+ const teacherPage=page==='teacher';
  const cycle1Selected=cycleToken(f.cycle)==='C1';
  const baseAssessmentOptions=(teacherPage||f.pt==='Teacher')
   ?assessments.filter((a:string)=>a==='Pre'||a==='Post'||a==='Skill Pre'||a==='Skill Post')
@@ -501,13 +500,13 @@ function Filters({f,setF,regions,boards,recs,pts,assessments,themes,dims,years,t
  const S=({k,lab,vals}:{k:string;lab:string;vals:string[]})=><label><span>{lab}</span><select value={f[k]||''} onChange={e=>setF((x:any)=>({...x,[k]:e.target.value,...(k==='pt'?{focus:'',assessment:''}:k==='cycle'?{focus:'',assessment:'',theme:''}:k==='region'?{board:'',rec:'',teacher:''}:k==='board'?{rec:'',teacher:''}:k==='rec'?{teacher:''}:{})}))}><option value="">All</option>{vals.map(v=><option key={v} value={v}>{k==='theme'?labelTheme(v):k==='dim'?labelDim(v):k==='region'?displayGeo(v):k==='studentRating'?studentRatingLabel(v):k==='teacherRating'?teacherRatingLabel(v):k==='cycle'?({C1:'Cycle 1',C2:'Cycle 2'} as Record<string,string>)[v]||v:v}</option>)}</select></label>;
  return <section className="filters">
   <S k="region" lab="Region" vals={regions}/>{geoLevel>=2&&<S k="board" lab="Local Board" vals={boards}/ >}{geoLevel>=3&&<S k="rec" lab="REC" vals={recs}/ >}
-  {page==='crossanalysis'||developmentPage?null:page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/ >}
-  {page!=='crossanalysis'&&!developmentPage&&<S k="assessment" lab="Assessment Type" vals={assessmentOptions}/ >}
-  {(teacherPage||f.pt==='Teacher')&&page!=='crossanalysis'&&!developmentPage&&<S k="focus" lab="Assessment Focus" vals={focusOptions}/ >}
-  {!teacherPage&&page!=='crossanalysis'&&!developmentPage&&<S k="studentRating" lab="Student Rating" vals={['3','2','1']}/ >}
-  {page!=='crossanalysis'&&!developmentPage&&<S k="teacherRating" lab="Teacher Rating" vals={['4','3','2','1']}/ >}
-  {!developmentPage&&<S k="theme" lab="Theme" vals={themeOptions}/ >}
-  {!teacherPage&&page!=='crossanalysis'&&!developmentPage&&<S k="dim" lab="Dimension" vals={dims}/ >}
+  {page==='crossanalysis'?null:page==='teacher'?<S k="teacher" lab="Teacher Name" vals={teachers}/>:<S k="pt" lab="Participant" vals={pts}/ >}
+  {page!=='crossanalysis'&&<S k="assessment" lab="Assessment Type" vals={assessmentOptions}/ >}
+  {(teacherPage||f.pt==='Teacher')&&page!=='crossanalysis'&&<S k="focus" lab="Assessment Focus" vals={focusOptions}/ >}
+  {!teacherPage&&page!=='crossanalysis'&&<S k="studentRating" lab="Student Rating" vals={['3','2','1']}/ >}
+  {page!=='crossanalysis'&&<S k="teacherRating" lab="Teacher Rating" vals={['4','3','2','1']}/ >}
+  {<S k="theme" lab="Theme" vals={themeOptions}/ >}
+  {!teacherPage&&page!=='crossanalysis'&&<S k="dim" lab="Dimension" vals={dims}/ >}
   <S k="year" lab="Year" vals={years.map(String)}/ ><S k="cycle" lab="Cycle" vals={["C1","C2"]}/ >
  </section>
 }

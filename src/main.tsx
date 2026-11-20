@@ -708,16 +708,19 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   };
   const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
     const eligible=countSourceRows().filter(r=>{
-      // Cycle 1 REC coverage is based on student assessment submissions.
-      // In Cycle 2, Teacher Skills Pre/Post also represent REC participation;
-      // Student Post 2 remains the student component of Cycle 2 coverage.
+      // REC participation is evidenced by any relevant assessment stream:
+      // student assessments, teacher theme assessments, or teacher skills.
+      // This ensures a REC with teacher assessment data is not omitted merely
+      // because its student assessment has not yet been submitted.
+      const participant=norm(r.ParticipantType).toLowerCase();
       const studentRow=isStudentAssessmentRow(r);
-      const cycle2SkillsRow=f.cycle==='C2'&&isTeacherSkillRow(r)&&(stage==='Pre'||stage==='Post');
-      if((!studentRow&&!cycle2SkillsRow)||!stageMatches(r,stage))return false;
+      const teacherAssessmentRow=participant==='teacher';
+      if((!studentRow&&!teacherAssessmentRow)||!stageMatches(r,stage))return false;
       const cohort=recCohortForStage(r,year,stage);
       return cohort===year;
     });
-    // Standardized Region + LocalBoard + REC; one REC per assessment stage.
+    // Standardized Region + LocalBoard + REC; count each REC once per stage,
+    // even when it has both student and teacher assessment submissions.
     return distinctCount(eligible,r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
   };
   const student2025Pre=studentCountForYear(2025,'Pre');

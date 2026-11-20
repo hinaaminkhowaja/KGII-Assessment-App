@@ -1313,7 +1313,7 @@ function TeacherDevelopmentSupport({rows,f}:{rows:Rec[];f:any}){
    const teacherSkills=weak(skills,'ThemeID',['S1','S2','S3']).slice(0,1).filter(x=>skills.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
    const location=level==='region'?displayGeo(rs[0].Region):level==='board'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region);
    return {key,location,childThemes,childIndicators,teacherScore:childThemes[0]?.teacherScore??null,lowestTeacherSkill:teacherSkills};
-  }).sort((a,b)=>(a.student??101)-(b.student??101));
+  });
  };
  const regionDevelopment=developmentGroups('region'),boardDevelopment=developmentGroups('board'),recDevelopment=developmentGroups('rec');
  const priorities=(xs:{id:string;score:number}[],kind:string,emptyLabel:string)=>xs.length?xs.map(x=>(kind==='indicator'?x.id+' '+rubricDescription(x.id):kind==='skill'?skillName(x.id):themeName(x.id))+' ('+fmt(x.score)+')').join('; '):emptyLabel;

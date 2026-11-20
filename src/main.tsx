@@ -1305,10 +1305,10 @@ function TeacherDevelopmentSupport({rows,f}:{rows:Rec[];f:any}){
    const students=rs.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'),teachers=rs.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
    const content=teachers.filter(r=>!isTeacherSkillRec(r)),skills=teachers.filter(isTeacherSkillRec);
    const weak=(source:Rec[],field:'ThemeID'|'IndicatorID',ids?:string[])=> (ids||unique(source,field)).map(id=>({id,score:aggregate(source.filter(r=>norm(r[field]).toUpperCase()===id.toUpperCase())).p})).sort((a,b)=>a.score-b.score).slice(0,3);
-   const childThemes=weak(students,'ThemeID',['T1','T2','T3','T4']).filter(x=>students.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
-   const childIndicators=weak(students,'IndicatorID').filter(x=>students.some(r=>norm(r.IndicatorID)===x.id));
-   const teacherThemes=weak(content,'ThemeID',['T1','T2','T3','T4']).filter(x=>content.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
-   const teacherSkills=weak(skills,'ThemeID',['S1','S2','S3']).filter(x=>skills.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
+   const childThemes=weak(students,'ThemeID',['T1','T2','T3','T4']).filter(x=>x.score<50&&students.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
+   const childIndicators=weak(students,'IndicatorID').filter(x=>x.score<50&&students.some(r=>norm(r.IndicatorID)===x.id));
+   const teacherThemes=weak(content,'ThemeID',['T1','T2','T3','T4']).filter(x=>x.score<50&&content.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
+   const teacherSkills=weak(skills,'ThemeID',['S1','S2','S3']).filter(x=>x.score<50&&skills.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
    const location=level==='region'?displayGeo(rs[0].Region):level==='board'?displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region):displayGeo(rs[0].REC)+' · '+displayGeo(rs[0].LocalBoard)+' · '+displayGeo(rs[0].Region);
    return {key,location,student:students.length?aggregate(students).p:null,content:content.length?aggregate(content).p:null,skills:skills.length?aggregate(skills).p:null,childThemes,childIndicators,teacherThemes,teacherSkills};
   }).sort((a,b)=>(a.student??101)-(b.student??101));

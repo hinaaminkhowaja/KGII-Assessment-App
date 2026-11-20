@@ -1305,7 +1305,9 @@ function TeacherDevelopmentSupport({rows,f}:{rows:Rec[];f:any}){
    const students=rs.filter(r=>norm(r.ParticipantType).toLowerCase()==='student'),teachers=rs.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
    const content=teachers.filter(r=>!isTeacherSkillRec(r)),skills=teachers.filter(isTeacherSkillRec);
    const weak=(source:Rec[],field:'ThemeID'|'IndicatorID',ids?:string[])=> (ids||unique(source,field)).map(id=>({id,score:aggregate(source.filter(r=>norm(r[field]).toUpperCase()===id.toUpperCase())).p})).sort((a,b)=>a.score-b.score).slice(0,3);
-   const childThemes=weak(students,'ThemeID',['T1','T2','T3','T4']).filter(x=>x.score<50&&students.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
+   const childThemes=weak(students,'ThemeID',['T1','T2','T3','T4'])
+    .filter(x=>x.score<50&&students.some(r=>norm(r.ThemeID).toUpperCase()===x.id))
+    .map(x=>{const sameTheme=content.filter(r=>norm(r.ThemeID).toUpperCase()===x.id);return {...x,teacherScore:sameTheme.length?aggregate(sameTheme).p:null};});
    const childIndicators=weak(students,'IndicatorID').filter(x=>x.score<50&&students.some(r=>norm(r.IndicatorID)===x.id));
    const teacherThemes=weak(content,'ThemeID',['T1','T2','T3','T4']).filter(x=>x.score<50&&content.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
    const teacherSkills=weak(skills,'ThemeID',['S1','S2','S3']).filter(x=>x.score<50&&skills.some(r=>norm(r.ThemeID).toUpperCase()===x.id));
@@ -1314,16 +1316,17 @@ function TeacherDevelopmentSupport({rows,f}:{rows:Rec[];f:any}){
   }).sort((a,b)=>(a.student??101)-(b.student??101));
  };
  const regionDevelopment=developmentGroups('region'),boardDevelopment=developmentGroups('board'),recDevelopment=developmentGroups('rec');
- const priorities=(xs:{id:string;score:number}[],kind:string)=>xs.length?xs.map(x=>(kind==='indicator'?x.id+' '+rubricDescription(x.id):kind==='skill'?skillName(x.id):themeName(x.id))+' ('+fmt(x.score)+')').join('; '):'No matching assessment evidence';
+ const priorities=(xs:{id:string;score:number}[],kind:string,emptyLabel:string)=>xs.length?xs.map(x=>(kind==='indicator'?x.id+' '+rubricDescription(x.id):kind==='skill'?skillName(x.id):themeName(x.id))+' ('+fmt(x.score)+')').join('; '):emptyLabel;
+ const pairedChildThemes=(xs:{id:string;score:number;teacherScore:number|null}[])=>xs.length?xs.map(x=>themeName(x.id)+' — Children '+fmt(x.score)+' · Teachers '+(x.teacherScore===null?'no matching theme result':fmt(x.teacherScore))).join('; '):'No child theme below 50%';
  const developmentFocus=(x:typeof regionDevelopment[number])=>{
   const parts:string[]=[];
-  if(x.childThemes.length){const a=x.childThemes[0];parts.push('Children’s weakest theme is '+themeName(a.id)+' ('+fmt(a.score)+'); plan targeted activities and review children’s responses.')}
-  if(x.childIndicators.length){const a=x.childIndicators[0];parts.push('Prioritise '+a.id+' — '+rubricDescription(a.id)+' ('+fmt(a.score)+') in lesson planning and observation.')}
-  if(x.teacherThemes.length){const a=x.teacherThemes[0];parts.push('Teacher content development: '+themeName(a.id)+' ('+fmt(a.score)+') through concept clarification and collaborative planning.')}
-  if(x.teacherSkills.length){const a=x.teacherSkills[0];parts.push('Teacher practice: '+skillName(a.id)+' ('+fmt(a.score)+'); '+supportForSkill(a.id))}
-  return parts.length?parts.join(' '):'Insufficient indicator-level evidence to set a specific development focus.';
+  if(x.childThemes.length){const a=x.childThemes[0];parts.push('Priority: '+themeName(a.id)+'. Children score '+fmt(a.score)+'; teacher score in the same theme '+(a.teacherScore===null?'is unavailable':('is '+fmt(a.teacherScore)))+'. Proposed next-review targets: children reach at least 50%; teachers reach or maintain at least 50% in this theme. Plan a focused teacher learning session, model an age-appropriate activity, observe classroom implementation and review children’s responses.')}
+  if(x.childIndicators.length){const a=x.childIndicators[0];parts.push('Child indicator target: '+a.id+' — '+rubricDescription(a.id)+' ('+fmt(a.score)+'); plan targeted learning experiences and review evidence at the next assessment.')}
+  if(x.teacherThemes.length){const a=x.teacherThemes[0];parts.push('Additional teacher content priority: '+themeName(a.id)+' ('+fmt(a.score)+'); target at least 50% through concept clarification and collaborative planning.')}
+  if(x.teacherSkills.length){const a=x.teacherSkills[0];parts.push('Teacher practice priority: '+skillName(a.id)+' ('+fmt(a.score)+'); target at least 50%. '+supportForSkill(a.id))}
+  return parts.length?parts.join(' '):'No child or teacher development area is currently below the 50% screening threshold.';
  };
- const renderDevelopmentGroups=(items:typeof regionDevelopment,level:string)=><div className="table-wrap development-hierarchy-table">{items.length?<table className="development-table"><thead><tr><th>{level}</th><th>Children: latest score</th><th>Children: priority themes</th><th>Children: indicators</th><th>Teacher content</th><th>Teacher skills</th><th>Teacher-development focus</th></tr></thead><tbody>{items.map(x=><tr key={x.key}><td><strong>{x.location}</strong></td><td>{fmtScore(x.student)}</td><td>{priorities(x.childThemes,'theme')}</td><td>{priorities(x.childIndicators,'indicator')}</td><td>{fmtScore(x.content)}<small>{priorities(x.teacherThemes,'theme')}</small></td><td>{fmtScore(x.skills)}<small>{priorities(x.teacherSkills,'skill')}</small></td><td>{developmentFocus(x)}</td></tr>)}</tbody></table>:<p className="empty">No critical {level.toLowerCase()} records are available for the current filters.</p>}</div>;
+ const renderDevelopmentGroups=(items:typeof regionDevelopment,level:string)=><div className="table-wrap development-hierarchy-table">{items.length?<table className="development-table"><thead><tr><th>{level}</th><th>Children: latest score</th><th>Children’s priority themes · teacher score in same theme</th><th>Children: indicators</th><th>Teacher content: overall and priorities below 50%</th><th>Teacher skills: overall and priorities below 50%</th><th>Development plan and proposed targets</th></tr></thead><tbody>{items.map(x=><tr key={x.key}><td><strong>{x.location}</strong></td><td>{fmtScore(x.student)}</td><td>{pairedChildThemes(x.childThemes)}</td><td>{priorities(x.childIndicators,'indicator','No child indicator below 50%')}</td><td>{fmtScore(x.content)}<small>{priorities(x.teacherThemes,'theme','No teacher content theme below 50%')}</small></td><td>{fmtScore(x.skills)}<small>{priorities(x.teacherSkills,'skill','No teacher skill area below 50%')}</small></td><td>{developmentFocus(x)}</td></tr>)}</tbody></table>:<p className="empty">No critical {level.toLowerCase()} records are available for the current filters.</p>}</div>;
  const criticalRecKeys=new Set(redFlagRecs.map(x=>x.key));
  const criticalBoardKeys=new Set(redFlagRecs.map(x=>[geoNorm(x.region),geoNorm(x.board)].join('||')));
  const fmtScore=(v:number|null|undefined)=>v===null||v===undefined?'—':fmt(v);

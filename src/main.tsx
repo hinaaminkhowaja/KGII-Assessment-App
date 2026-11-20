@@ -552,12 +552,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherContentPct=f.cycle==='C2'?0:f.year==='2025'?teacherContent2025Pct:f.year==='2026'?teacherContent2026Pct:weightedPercent([{weight:32,p:teacherContent2025Pct},{weight:32,p:teacherContent2026Pct}]);
   const teacherSkills2025Pct=stageAverage(teacherSkills2025Rows,['Pre','Post']);
   const teacherSkills2026Pct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
-  const teacherSkillsPct=f.cycle==='C1'?0:f.year==='2025'?teacherSkills2025Pct:f.year==='2026'?teacherSkills2026Pct:weightedPercent([{weight:96,p:teacherSkills2025Pct},{weight:96,p:teacherSkills2026Pct}]);
+  const teacherSkillsPct=f.cycle==='C1'?0:f.year==='2025'?teacherSkills2025Pct:teacherSkills2026Pct;
   const cycleFilter=String(f.cycle||'');
   const weightedComponents=[
     {key:'2025-students',year:2025,weight:cycleFilter==='C1'?174:cycleFilter==='C2'?87:261,p:student2025Pct},
     {key:'2025-teacher-content',year:2025,weight:cycleFilter==='C2'?0:32,p:teacherContent2025Pct},
-    {key:'2025-teacher-skills',year:2025,weight:cycleFilter==='C1'?0:96,p:teacherSkills2025Pct},
+    {key:'2025-teacher-skills',year:2025,weight:0,p:teacherSkills2025Pct},
     {key:'2026-students',year:2026,weight:cycleFilter==='C2'?0:87,p:student2026Pct},
     {key:'2026-teacher-content',year:2026,weight:cycleFilter==='C2'?0:32,p:teacherContent2026Pct},
     {key:'2026-teacher-skills',year:2026,weight:cycleFilter==='C1'?0:96,p:teacherSkills2026Pct}
@@ -766,14 +766,14 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Dimension Overall',fmt(dimensionOverall)]
   ];
   const hiddenByRating=f.studentRating&&!f.teacherRating
-    ? ['No. of Teacher Themes (2025 Pre / Post)','No. of Teacher Themes (2026 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','Teacher Themes Overall','Teachers Skills Overall']
+    ? ['No. of Teacher Themes (2025 Pre / Post)','No. of Teacher Themes (2026 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of Teachers Skills (2026 Pre / Post)','Teacher Themes Overall','Teachers Skills Overall']
     : f.teacherRating&&!f.studentRating
       ? ['No. of Students (2025 Pre / Post)','No. of Students (2025 Pre / Post / Post 2)','No. of Students (2025 Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
       : [];
   const hiddenByYear=f.year==='2025'
-    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teacher Themes (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)']
+    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teacher Themes (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','Teachers Skills Overall']
     : f.year==='2026'
-      ? ['No. of Students (2025 Pre / Post)','No. of Students (2025 Pre / Post / Post 2)','No. of Students (2025 Post 2)','No. of Teacher Themes (2025 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of RECs (2025 Pre / Post)','No. of RECs (2025 Post 2 / Skills Pre / Skills Post)','Teachers Skills Overall']
+      ? ['No. of Students (2025 Pre / Post)','No. of Students (2025 Pre / Post / Post 2)','No. of Students (2025 Post 2)','No. of Teacher Themes (2025 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of RECs (2025 Pre / Post)','No. of RECs (2025 Post 2 / Skills Pre / Skills Post)']
       : [];
   // Teacher skills belong to Cycle 2 only. Hide their count and score
   // whenever the selected view is the 2025 Cycle 1 baseline.

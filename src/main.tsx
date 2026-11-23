@@ -556,7 +556,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherContentPct=f.cycle==='C2'?0:f.year==='2025'?teacherContent2025Pct:f.year==='2026'?teacherContent2026Pct:weightedPercent([{weight:32,p:teacherContent2025Pct},{weight:32,p:teacherContent2026Pct}]);
   const teacherSkills2025Pct=stageAverage(teacherSkills2025Rows,['Pre','Post']);
   const teacherSkills2026Pct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
-  const teacherSkillsPct=f.cycle==='C1'?0:f.year==='2025'?teacherSkills2025Pct:teacherSkills2026Pct;
+  const teacherSkillsPct=f.cycle==='C1'?0:f.year==='2026'?teacherSkills2026Pct:teacherSkills2025Pct;
   const cycleFilter=String(f.cycle||'');
   const weightedComponents=[
     {key:'2025-students',year:2025,weight:cycleFilter==='C1'?174:cycleFilter==='C2'?87:261,p:student2025Pct},

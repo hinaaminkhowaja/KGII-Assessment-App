@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       workbox: {
         importScripts: ['./push-handler.js'],
         cleanupOutdatedCaches: true,

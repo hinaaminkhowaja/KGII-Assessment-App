@@ -715,18 +715,18 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     );
     return distinctCount(eligible,r=>teacherSubmissionKey(r,false));
   };
-  const recCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
-    const eligible=countSourceRows().filter(r=>{
-      // REC coverage cards report student assessment coverage only.
-      // Teacher theme and skills participation is reported in its own
-      // coverage tables and must not inflate the student REC denominator.
-      if(!isStudentAssessmentRow(r)||!stageMatches(r,stage))return false;
-      const cohort=recCohortForStage(r,year,stage);
-      return cohort===year;
-    });
-    // Standardized Region + LocalBoard + REC; count each student REC once
-    // per stage, regardless of the number of expanded indicator records.
-    return distinctCount(eligible,r=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||'));
+  const recIdentity=(r:Rec)=>[r.Region,r.LocalBoard,r.REC].map(geoNorm).join('||');
+  const studentRecCountForYear=(year:number,stage:'Pre'|'Post'|'Post 2')=>{
+    const eligible=countSourceRows().filter(r=>isStudentAssessmentRow(r)&&stageMatches(r,stage)&&cohortPlanIncludes(r,targetRecs)&&recCohortForStage(r,year,stage)===year);
+    return distinctCount(eligible,recIdentity);
+  };
+  const teacherThemeRecCountForYear=(year:number,stage:'Pre'|'Post')=>{
+    const eligible=rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&!isTeacherSkillRow(r)&&stageMatches(r,stage)&&(recStartingYearForRow(r)||Number(r.Year)||0)===year);
+    return distinctCount(eligible,recIdentity);
+  };
+  const teacherSkillsRecCountForYear=(year:number,stage:'Pre'|'Post')=>{
+    const eligible=rowsForCounts().filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher'&&isTeacherSkillRow(r)&&stageMatches(r,stage)&&(recStartingYearForRow(r)||Number(r.Year)||0)===year);
+    return distinctCount(eligible,recIdentity);
   };
   const student2025Pre=studentCountForYear(2025,'Pre');
   const student2025Post=studentCountForYear(2025,'Post');
@@ -742,24 +742,30 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherSkills2026Post=teacherSkillsCountForYear(2026,'Post');
   const teacherContent2026Pre=teacherContentCountForYear(2026,'Pre');
   const teacherContent2026Post=teacherContentCountForYear(2026,'Post');
-  const rec2025Pre=recCountForYear(2025,'Pre');
-  const rec2025Post=recCountForYear(2025,'Post');
-  const rec2025Post2=recCountForYear(2025,'Post 2');
-  const rec2026Pre=recCountForYear(2026,'Pre');
-  const rec2026Post=recCountForYear(2026,'Post');
-  const rec2026Post2=recCountForYear(2026,'Post 2');
+  const studentRecs2025Pre=studentRecCountForYear(2025,'Pre');
+  const studentRecs2025Post=studentRecCountForYear(2025,'Post');
+  const studentRecs2025Post2=studentRecCountForYear(2025,'Post 2');
+  const studentRecs2026Pre=studentRecCountForYear(2026,'Pre');
+  const teacherThemeRecs2025Pre=teacherThemeRecCountForYear(2025,'Pre');
+  const teacherThemeRecs2025Post=teacherThemeRecCountForYear(2025,'Post');
+  const teacherSkillsRecs2025Pre=teacherSkillsRecCountForYear(2025,'Pre');
+  const teacherSkillsRecs2025Post=teacherSkillsRecCountForYear(2025,'Post');
+  const teacherThemeRecs2026Pre=teacherThemeRecCountForYear(2026,'Pre');
+  const teacherThemeRecs2026Post=teacherThemeRecCountForYear(2026,'Post');
   const cards=[
     ['Overall Score',`${overall.score.toFixed(1)} / ${overall.max.toFixed(1)}`],
     ['Performance',fmt(overall.p)],
     ['Status',statusFor(overall.p)],
     [f.cycle==='C2'?'No. of Students (2025 Post 2)':f.cycle==='C1'?'No. of Students (2025 Pre / Post)':'No. of Students (2025 Pre / Post / Post 2)',f.cycle==='C2'?String(student2025Post2):f.cycle==='C1'?`${student2025Pre} / ${student2025Post}`:`${student2025Pre} / ${student2025Post} / ${student2025Post2}`],
-    ['No. of Students (2026 Pre / Post / Post 2)',`${student2026Pre} / ${student2026Post} / ${student2026Post2}`],
+    ['No. of Students (2026 Pre)',String(student2026Pre)],
     ['No. of Teacher Themes (2025 Pre / Post)',`${teacherContent2025Pre} / ${teacherContent2025Post}`],
     ['No. of Teacher Themes (2026 Pre / Post)',`${teacherContent2026Pre} / ${teacherContent2026Post}`],
     ['No. of Teachers Skills (2025 Pre / Post)',`${teacherSkills2025Pre} / ${teacherSkills2025Post}`],
-    ['No. of Teachers Skills (2026 Pre / Post)',`${teacherSkills2026Pre} / ${teacherSkills2026Post}`],
-    [f.cycle==='C2'?'No. of RECs (2025 Post 2 / Skills Pre / Skills Post)':f.cycle==='C1'?'No. of RECs (2025 Pre / Post)':'No. of RECs (2025 Pre / Post / Post 2)',f.cycle==='C2'?`${rec2025Post2} / ${rec2025Pre} / ${rec2025Post}`:f.cycle==='C1'?`${rec2025Pre} / ${rec2025Post}`:`${rec2025Pre} / ${rec2025Post} / ${rec2025Post2}`],
-    ['No. of RECs (2026 Pre / Post / Post 2)',`${rec2026Pre} / ${rec2026Post} / ${rec2026Post2}`],
+    ['No. of Student RECs (2025 Pre / Post / Post 2)',`${studentRecs2025Pre} / ${studentRecs2025Post} / ${studentRecs2025Post2}`],
+    ['No. of Student RECs (2026 Pre)',String(studentRecs2026Pre)],
+    ['No. of Teacher Theme RECs (2025 Pre / Post)',`${teacherThemeRecs2025Pre} / ${teacherThemeRecs2025Post}`],
+    ['No. of Teacher Skills RECs (2025 Pre / Post)',`${teacherSkillsRecs2025Pre} / ${teacherSkillsRecs2025Post}`],
+    ['No. of Teacher Theme RECs (2026 Pre / Post)',`${teacherThemeRecs2026Pre} / ${teacherThemeRecs2026Post}`],
     ['Students Overall',fmt(studentPct)],
     ['Teacher Themes Overall',fmt(teacherContentPct)],
     ['Teachers Skills Overall',fmt(teacherSkillsPct)],
@@ -767,21 +773,20 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     ['Dimension Overall',fmt(dimensionOverall)]
   ];
   const hiddenByRating=f.studentRating&&!f.teacherRating
-    ? ['No. of Teacher Themes (2025 Pre / Post)','No. of Teacher Themes (2026 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of Teachers Skills (2026 Pre / Post)','Teacher Themes Overall','Teachers Skills Overall']
+    ? ['No. of Teacher Themes (2025 Pre / Post)','No. of Teacher Themes (2026 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','Teacher Themes Overall','Teachers Skills Overall','No. of Teacher Theme RECs (2025 Pre / Post)','No. of Teacher Skills RECs (2025 Pre / Post)','No. of Teacher Theme RECs (2026 Pre / Post)']
     : f.teacherRating&&!f.studentRating
-      ? ['No. of Students (2025 Pre / Post)','No. of Students (2025 Pre / Post / Post 2)','No. of Students (2025 Post 2)','No. of Students (2026 Pre / Post / Post 2)','Students Overall']
+      ? ['No. of Students (2025 Pre / Post)','No. of Students (2025 Pre / Post / Post 2)','No. of Students (2025 Post 2)','No. of Students (2026 Pre)','Students Overall','No. of Student RECs (2025 Pre / Post / Post 2)','No. of Student RECs (2026 Pre)']
       : [];
   const hiddenByYear=f.year==='2025'
-    ? ['No. of Students (2026 Pre / Post / Post 2)','No. of Teacher Themes (2026 Pre / Post)','No. of RECs (2026 Pre / Post / Post 2)','No. of Teachers Skills (2026 Pre / Post)','Teachers Skills Overall']
+    ? ['No. of Students (2026 Pre)','No. of Teacher Themes (2026 Pre / Post)','No. of Teacher Theme RECs (2026 Pre / Post)','No. of Student RECs (2026 Pre)','Teachers Skills Overall']
     : f.year==='2026'
-      ? ['No. of Students (2025 Pre / Post)','No. of Students (2025 Pre / Post / Post 2)','No. of Students (2025 Post 2)','No. of Teacher Themes (2025 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of RECs (2025 Pre / Post)','No. of RECs (2025 Post 2 / Skills Pre / Skills Post)']
+      ? ['No. of Students (2025 Pre / Post)','No. of Students (2025 Pre / Post / Post 2)','No. of Students (2025 Post 2)','No. of Teacher Themes (2025 Pre / Post)','No. of Teachers Skills (2025 Pre / Post)','No. of Student RECs (2025 Pre / Post / Post 2)','No. of Teacher Theme RECs (2025 Pre / Post)','No. of Teacher Skills RECs (2025 Pre / Post)']
       : [];
-  // Teacher skills belong to Cycle 2 only. Hide their count and score
-  // whenever the selected view is the 2025 Cycle 1 baseline.
+  // Teacher Skills are a 2025 cohort follow-up only; never display a 2026 skills card.
   const hiddenByCycle=f.cycle==='C1'
-     ? ['No. of Teachers Skills (2025 Pre / Post)','No. of Teachers Skills (2026 Pre / Post)','Teachers Skills Overall']
+     ? ['No. of Teachers Skills (2025 Pre / Post)','Teachers Skills Overall','No. of Teacher Skills RECs (2025 Pre / Post)']
     : f.year==='2025'&&f.cycle==='C2'
-      ? ['No. of Teacher Themes (2025 Pre / Post)','Teacher Themes Overall']
+      ? ['No. of Teacher Themes (2025 Pre / Post)','Teacher Themes Overall','No. of Teacher Theme RECs (2025 Pre / Post)']
       : [];
   const visibleCards=cards.filter(([label])=>!hiddenByRating.includes(String(label))&&!hiddenByYear.includes(String(label))&&!hiddenByCycle.includes(String(label)));
    const expectedRecKeys = new Set(activeTargetRecs.filter((r:any)=>['active','yes','true','1'].includes(norm(r.Status).toLowerCase())&&(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&(!hasActiveFilter(f.year)||Number(r.StartingYear)===Number(f.year))).map((r:any)=>[norm(r.Region),norm(r.LocalBoard),norm(r.REC)].join('||')));

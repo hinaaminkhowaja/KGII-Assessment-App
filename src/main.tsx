@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
+import 'virtual:pwa-register/auto';
 
 type Rec={RecordID:string;SourceRecordID?:string;SourceSheet?:string;SourceRow?:number|string;ChildName?:string;TeacherName?:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
 type Ref={Region:string;LocalBoard:string;REC:string;StartingYear?:number|string;Status?:string};
@@ -226,6 +227,28 @@ type AccessRule={id:string;userId:string;region:string;board:string;rec:string;a
 const API_URL='https://script.google.com/macros/s/AKfycbyKPP1xJ2u00KDvrI3igfbT5ezDo0we7zR2Frta8AL9Usu0G6kWS36MxyZMC5yQ7gW25A/exec';
 const SESSION_KEY='kgii_app_session_email_v1';
 const USER_CACHE_KEY='kgii_app_cached_user_v1';
+const DASHBOARD_CACHE_DB='kgii_assessment_offline_db_v1';
+const DASHBOARD_CACHE_STORE='dashboard';
+type DashboardCache={email:string;records:Rec[];savedAt:string};
+function openDashboardCache():Promise<IDBDatabase>{
+ return new Promise((resolve,reject)=>{
+  if(!('indexedDB' in window)){reject(new Error('IndexedDB is unavailable'));return;}
+  const request=indexedDB.open(DASHBOARD_CACHE_DB,1);
+  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(DASHBOARD_CACHE_STORE))db.createObjectStore(DASHBOARD_CACHE_STORE,{keyPath:'email'});};
+  request.onsuccess=()=>resolve(request.result);
+  request.onerror=()=>reject(request.error||new Error('Could not open offline data storage'));
+ });
+}
+async function saveDashboardCache(email:string,records:Rec[]){
+ const db=await openDashboardCache();
+ try{await new Promise<void>((resolve,reject)=>{const tx=db.transaction(DASHBOARD_CACHE_STORE,'readwrite');tx.objectStore(DASHBOARD_CACHE_STORE).put({email:email.toLowerCase(),records,savedAt:new Date().toISOString()} satisfies DashboardCache);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error||new Error('Could not save offline dashboard data'));tx.onabort=()=>reject(tx.error||new Error('Offline dashboard save was cancelled'));});}finally{db.close();}
+}
+async function readDashboardCache(email:string):Promise<DashboardCache|null>{
+ const db=await openDashboardCache();
+ try{return await new Promise((resolve,reject)=>{const tx=db.transaction(DASHBOARD_CACHE_STORE,'readonly');const request=tx.objectStore(DASHBOARD_CACHE_STORE).get(email.toLowerCase());request.onsuccess=()=>resolve(request.result||null);request.onerror=()=>reject(request.error||new Error('Could not read offline dashboard data'));});}finally{db.close();}
+}
+function offlineSavedLabel(value:string){const date=new Date(value);return Number.isNaN(date.getTime())?'an earlier session':date.toLocaleString();}
+
 
 async function apiGetRaw(action:string,params:Record<string,string>={}){const q=new URLSearchParams({action,...params});let lastError:any;for(let attempt=0;attempt<2;attempt++){try{const r=await fetch(API_URL+'?'+q.toString(),{cache:'no-store'});if(!r.ok){if(r.status===404||r.status>=500||r.status===429)throw new Error('Temporary API error ('+r.status+')');throw new Error('API request failed ('+r.status+')')}const d=await r.json();if(d.success===false)throw new Error(d.message||d.error||'API request failed.');return d;}catch(e:any){lastError=e;const message=String(e?.message||e);const retryable=e instanceof TypeError||/Temporary API error|Failed to fetch|NetworkError|Load failed/i.test(message);if(!retryable||attempt===1)break;await new Promise(resolve=>setTimeout(resolve,500));}}throw lastError||new Error('API request failed.');}
 const apiGetInFlight=new Map<string,Promise<any>>();
@@ -275,7 +298,13 @@ function App(){
   setDirectoryLoaded(true);
  };
  const loadDashboard=async(email:string)=>{
-  const d=await apiGet('dashboard',{email});
+  let d:any;
+  try{d=await apiGet('dashboard',{email});}
+  catch(error:any){
+    try{const cached=await readDashboardCache(email);if(cached?.records?.length){setRecords(cached.records);setApiError('Offline mode: showing the last saved dashboard data from '+offlineSavedLabel(cached.savedAt)+'. Reconnect and select Refresh data to update it.');return;}}
+    catch(cacheError){console.warn('[KGII] Could not read the offline dashboard cache:',cacheError);}
+    throw error;
+  }
   if(d?.sourceDiagnostics) console.info('[KGII] Dashboard source diagnostics:',d.sourceDiagnostics);
   const rows=arrayFrom(d,'records','rows','data');
   const headers=Array.isArray(d?.headers)?d.headers:[];
@@ -305,8 +334,9 @@ function App(){
     return {RecordID:norm(field('RecordID','recordId','ID')),SourceRecordID:norm(field('SourceRecordID','Source Record ID')),SourceSheet:norm(field('SourceSheet','Source Sheet')),SourceRow:field('SourceRow','Source Row'),ChildName:norm(field('ChildName','Child Name','StudentName','Student Name','ParticipantName','Participant Name','Name')),StudentID:norm(field('StudentID','Student ID','ChildID','Child ID','ParticipantID','Participant ID','StudentCode','Student Code')),TeacherName:norm(field('TeacherName','Teacher Name','Name of Teacher','TeacherID','Teacher ID')),CycleID:norm(field('CycleID')),Year:Number(field('Year'))||0,CohortYear:Number(field('CohortYear','Cohort Year'))||0,ParticipantType:norm(field('ParticipantType','Participant Type')),Assessment:norm(field('Assessment','Assessment Stage')),Region:norm(field('Region')),LocalBoard:norm(field('LocalBoard','Local Board')),REC:norm(field('REC')),ParticipantCount:Number(field('ParticipantCount','Participant Count','No. of Participants','Number of Participants','Participants Count','No of Students','Student Count'))||0,Phase:norm(field('Phase')),ThemeID:norm(field('ThemeID','Theme ID')),DimensionID:norm(field('DimensionID','Dimension ID')),IndicatorID:norm(field('IndicatorID','Indicator ID')),Score:Number(field('Score'))||0,MaxScore:Number(field('MaxScore','Max Score'))||0} as Rec;
   });
   setRecords(normalized);
-  // Assessment datasets exceed browser localStorage quotas. Keep live records in memory;
-  // remove any legacy oversized cache so it cannot block refreshes or serve stale data.
+  // IndexedDB safely stores the large, access-scoped dashboard dataset for offline viewing.
+  // Never replace a previously good cache with an empty or failed response.
+  if(normalized.length){try{await saveDashboardCache(email,normalized);}catch(e){console.warn('[KGII] Could not save offline dashboard data:',e);}}
   try{localStorage.removeItem('kgii_assessment_cached_records');}catch(e){console.warn('Could not clear legacy assessment cache',e)}
  };
  const loadAdmin=async(email:string)=>{const [u,a]=await Promise.all([apiGet('users',{email}),apiGet('access',{email})]);const uu=arrayFrom(u,'users','records','data').map(mapUser);const ac=arrayFrom(a,'access','rules','data').map(mapAccess);setUsers(uu);setAccess(ac);};

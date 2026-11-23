@@ -1,8 +1,6 @@
-/// <reference types="vite-plugin-pwa/client" />
 import React,{useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
-import 'virtual:pwa-register/auto';
 
 type Rec={RecordID:string;SourceRecordID?:string;SourceSheet?:string;SourceRow?:number|string;ChildName?:string;TeacherName?:string;CycleID:string;Year:number;ParticipantType:string;Assessment:string;Region:string;LocalBoard:string;REC:string;ParticipantCount:number;Phase:string;ThemeID:string;DimensionID:string;IndicatorID:string;Score:number;MaxScore:number};
 type Ref={Region:string;LocalBoard:string;REC:string;StartingYear?:number|string;Status?:string};

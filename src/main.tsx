@@ -153,6 +153,8 @@ function cohortLookup(targetRecs:any[]=[]){
  return index;
 }
 function cohortYearForRecord(r:Rec,targetRecs:any[]=[]){
+ const participant=norm(r.ParticipantType).toLowerCase();
+ if((participant==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))return 2025;
  const index=cohortLookup(targetRecs);
  const key=(v:any)=>norm(v).toLowerCase().replace(/\s*\|\s*/g,'|').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
  const full=[r.Region,r.LocalBoard,r.REC].map(key).join('||');
@@ -181,9 +183,11 @@ function cohortPlanIncludes(r:Rec,targetRecs:any[]=[],selectedCycle?:string){
    return false;
  }
  const year=cohortYearForRecord(r,targetRecs);
+ const cycle2Followup=(participant==='student'&&isPost2)||(participant==='teacher'&&skill);
  const includePost2Followup=selected==='C1'&&year===2025&&participant==='student'&&isPost2;
- if(recordCycle&&selected!==recordCycle&&!includePost2Followup)return false;
- if(includePost2Followup)return true;
+ const includeCycle2Followup=selected==='C2'&&year===2025&&cycle2Followup;
+ if(recordCycle&&selected!==recordCycle&&!includePost2Followup&&!includeCycle2Followup)return false;
+ if(includePost2Followup||includeCycle2Followup)return true;
  if(selected==='C1'){
    if(year===2025)return participant==='student'?(isPre||isPost):participant==='teacher'?!skill&&(isPre||isPost):false;
    if(year===2026)return participant==='student'?isPre:participant==='teacher'?!skill&&(isPre||isPost):false;
@@ -196,7 +200,7 @@ function cohortPlanIncludes(r:Rec,targetRecs:any[]=[],selectedCycle?:string){
  return false;
 }
 function hasActiveFilter(value:any){return value!==undefined&&value!==null&&String(value).trim()!==''&&String(value).trim().toLowerCase()!=='all';}
-function filterRows(rows:Rec[],f:any,targetRecs:any[]=[]){return rows.filter(r=>cohortPlanIncludes(r,targetRecs,hasActiveFilter(f.cycle)?f.cycle:'')&&(!hasActiveFilter(f.cycle)||!cycleToken(r.CycleID)||cycleToken(r.CycleID)===cycleToken(f.cycle)||(cycleToken(f.cycle)==='C1'&&cohortYearForRecord(r,targetRecs)===2025&&norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment)))&&(!hasActiveFilter(f.region)||geoNorm(r.Region)===geoNorm(f.region))&&(!hasActiveFilter(f.board)||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!hasActiveFilter(f.rec)||geoNorm(r.REC)===geoNorm(f.rec))&&(!hasActiveFilter(f.pt)||r.ParticipantType===f.pt)&&(!hasActiveFilter(f.teacher)||norm(r.TeacherName)===f.teacher)&&(!hasActiveFilter(f.assessment)||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!hasActiveFilter(f.focus)||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Teacher Themes')===f.focus)&&(!hasActiveFilter(f.theme)||r.ThemeID===f.theme)&&(!hasActiveFilter(f.dim)||r.DimensionID===f.dim)&&(!hasActiveFilter(f.year)||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&ratingFilterMatch(r,f))}
+function filterRows(rows:Rec[],f:any,targetRecs:any[]=[]){return rows.filter(r=>cohortPlanIncludes(r,targetRecs,hasActiveFilter(f.cycle)?f.cycle:'')&&(!hasActiveFilter(f.cycle)||!cycleToken(r.CycleID)||cycleToken(r.CycleID)===cycleToken(f.cycle)||(cycleToken(f.cycle)==='C1'&&cohortYearForRecord(r,targetRecs)===2025&&norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||(cycleToken(f.cycle)==='C2'&&cohortYearForRecord(r,targetRecs)===2025&&((norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))))&&(!hasActiveFilter(f.region)||geoNorm(r.Region)===geoNorm(f.region))&&(!hasActiveFilter(f.board)||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!hasActiveFilter(f.rec)||geoNorm(r.REC)===geoNorm(f.rec))&&(!hasActiveFilter(f.pt)||r.ParticipantType===f.pt)&&(!hasActiveFilter(f.teacher)||norm(r.TeacherName)===f.teacher)&&(!hasActiveFilter(f.assessment)||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!hasActiveFilter(f.focus)||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Teacher Themes')===f.focus)&&(!hasActiveFilter(f.theme)||r.ThemeID===f.theme)&&(!hasActiveFilter(f.dim)||r.DimensionID===f.dim)&&(!hasActiveFilter(f.year)||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[
@@ -530,7 +534,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const kpiRecCodeYearIndex=new Map<string,number>();
   const kpiRecCode=(v:any)=>{const m=String(v||'').match(/^\s*(\d{3,})\s*\|/);return m?m[1]:'';};
   targetRecs.forEach((t:any)=>{const key=[t.Region,t.LocalBoard,t.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');const y=Number(t.StartingYear)||0;if(key&&y)kpiRecYearIndex.set(key,y);const code=kpiRecCode(t.REC);if(code&&y&&!kpiRecCodeYearIndex.has(code))kpiRecCodeYearIndex.set(code,y);});
-  const recStartingYear=(r:Rec)=>{const key=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');return kpiRecYearIndex.get(key)||kpiRecCodeYearIndex.get(kpiRecCode(r.REC))||Number((r as any).CohortYear)||0;};
+  const recStartingYear=(r:Rec)=>{if((norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))return 2025;const key=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim()).join('||');return kpiRecYearIndex.get(key)||kpiRecCodeYearIndex.get(kpiRecCode(r.REC))||Number((r as any).CohortYear)||0;};
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);
@@ -557,10 +561,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const weightedComponents=[
     {key:'2025-students',year:2025,weight:cycleFilter==='C1'?174:cycleFilter==='C2'?87:261,p:student2025Pct},
     {key:'2025-teacher-content',year:2025,weight:cycleFilter==='C2'?0:32,p:teacherContent2025Pct},
-    {key:'2025-teacher-skills',year:2025,weight:0,p:teacherSkills2025Pct},
+    {key:'2025-teacher-skills',year:2025,weight:cycleFilter==='C1'?0:96,p:teacherSkills2025Pct},
     {key:'2026-students',year:2026,weight:cycleFilter==='C2'?0:87,p:student2026Pct},
     {key:'2026-teacher-content',year:2026,weight:cycleFilter==='C2'?0:32,p:teacherContent2026Pct},
-    {key:'2026-teacher-skills',year:2026,weight:cycleFilter==='C1'?0:96,p:teacherSkills2026Pct}
+    {key:'2026-teacher-skills',year:2026,weight:0,p:teacherSkills2026Pct}
   ].filter(x=>x.weight>0);
   const selectedYear=String(f.year||'');
   const activeComponents=selectedYear==='2025'
@@ -637,12 +641,13 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     if(code&&year&&!recCodeYearIndex.has(code))recCodeYearIndex.set(code,year);
   });
   const recStartingYearForRow=(r:Rec)=>{
+    if((norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))return 2025;
     const key=[r.Region,r.LocalBoard,r.REC].map(recMasterKey).join('||');
     return recYearIndex.get(key)||recCodeYearIndex.get(recCode(r.REC))||Number((r as any).CohortYear)||0;
   };
   // Stage does not affect cohort membership. A REC stays in its original
   // StartingYear cohort for Pre, Post, Post 2 and every later follow-up.
-  const recCohortForStage=(r:Rec,_year:number,_stage:'Pre'|'Post'|'Post 2')=>recStartingYearForRow(r)||Number((r as any).CohortYear)||0;
+  const recCohortForStage=(r:Rec,_year:number,_stage:'Pre'|'Post'|'Post 2')=>((norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))?2025:recStartingYearForRow(r)||Number((r as any).CohortYear)||0;
   const countSourceRows=()=>filteredCountRows;
   const distinctCount=(items:Rec[],identity:(r:Rec)=>string)=>new Set(items.map(identity).map(v=>norm(v).toLocaleLowerCase()).filter(Boolean)).size;
   const isTeacherSkillRow=(r:Rec)=>isTeacherSkillRec(r);

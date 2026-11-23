@@ -9,10 +9,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        importScripts: ['/push-handler.js'],
+        importScripts: ['./push-handler.js'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: true
+        skipWaiting: true,
+        navigateFallback: 'index.html',
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
       },
       manifest: {
         name: 'KG II Assessment App',

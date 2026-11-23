@@ -1569,6 +1569,10 @@ const save = async (finishAssessment: boolean) => {
 
   const themeName = surveyThemeName(v.theme);
 
+  // Show immediate feedback before any network request, including stage verification.
+  setSaving(true);
+  setMsg('Saving…');
+
   try {
     const classification = await apiGet('surveyclassification', {
       participantType: 'Student',
@@ -1584,10 +1588,6 @@ const save = async (finishAssessment: boolean) => {
     }
     // Cycle/Phase are legacy storage fields only; assessment classification
     // is determined by REC StartingYear and prior submissions, never by Cycle.
-  } catch (error: any) {
-    setMsg('Could not verify the REC assessment stage: ' + (error.message || 'Please try again.'));
-    return;
-  }
 
   const duplicate = lookupMatches.some(
     item => {
@@ -1607,10 +1607,6 @@ const save = async (finishAssessment: boolean) => {
     return;
   }
 
-  setSaving(true);
-  setMsg('');
-
-  try {
     const indicatorRatings: Record<string, number> = {};
 
     indicatorKeys.forEach((key, i) => {

@@ -630,29 +630,35 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherSkills2025Pct=stageAverage(teacherSkills2025Rows,['Pre','Post']);
   const teacherSkills2026Pct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
   const teacherSkillsPct=f.cycle==='C1'?0:f.year==='2026'?teacherSkills2026Pct:teacherSkills2025Pct;
-  const cycleFilter=String(f.cycle||'');
+  // Overall framework is explicitly separated by year and cycle:
+  // 2025 C1 = student Pre/Post (174) + teacher themes Pre/Post (32) = 206
+  // 2025 C2 = student Post 2 (87) + teacher skills Pre/Post (96) = 183
+  // 2026 C1 = student Pre (87) + teacher themes Pre/Post (32) = 119
+  // Indicator maxima are derived from the active filtered rows, so Theme,
+  // Dimension, Participant and geography filters narrow the denominator.
+  const student2025C1Rows=student2025Rows.filter(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'));
+  const student2025C2Rows=student2025Rows.filter(r=>assessmentIsPost2(r.Assessment));
+  const teacherContent2025C1Rows=teacherContent2025Rows.filter(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'));
+  const teacherSkills2025C2Rows=teacherSkills2025Rows.filter(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'));
+  const student2026C1Rows=student2026Rows.filter(r=>assessmentIs(r.Assessment,'Pre'));
+  const teacherContent2026C1Rows=teacherContent2026Rows.filter(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'));
   const weightedComponents=[
-    {key:'2025-students',year:2025,weight:distinctIndicatorMax(student2025Rows),p:student2025Pct},
-    {key:'2025-teacher-content',year:2025,weight:distinctIndicatorMax(teacherContent2025Rows),p:teacherContent2025Pct},
-    {key:'2025-teacher-skills',year:2025,weight:distinctIndicatorMax(teacherSkills2025Rows),p:teacherSkills2025Pct},
-    {key:'2026-students',year:2026,weight:distinctIndicatorMax(student2026Rows),p:student2026Pct},
-    {key:'2026-teacher-content',year:2026,weight:distinctIndicatorMax(teacherContent2026Rows),p:teacherContent2026Pct},
-    {key:'2026-teacher-skills',year:2026,weight:distinctIndicatorMax(teacherSkills2026Rows),p:teacherSkills2026Pct}
-  ].filter(x=>x.weight>0);
+    {key:'2025-C1-students',year:2025,cycle:'C1',weight:distinctIndicatorMax(student2025C1Rows),p:stageAverage(student2025C1Rows,['Pre','Post'])},
+    {key:'2025-C1-teacher-themes',year:2025,cycle:'C1',weight:distinctIndicatorMax(teacherContent2025C1Rows),p:stageAverage(teacherContent2025C1Rows,['Pre','Post'])},
+    {key:'2025-C2-students',year:2025,cycle:'C2',weight:distinctIndicatorMax(student2025C2Rows),p:aggregate(student2025C2Rows).p},
+    {key:'2025-C2-teacher-skills',year:2025,cycle:'C2',weight:distinctIndicatorMax(teacherSkills2025C2Rows),p:stageAverage(teacherSkills2025C2Rows,['Pre','Post'])},
+    {key:'2026-C1-students',year:2026,cycle:'C1',weight:distinctIndicatorMax(student2026C1Rows),p:aggregate(student2026C1Rows).p},
+    {key:'2026-C1-teacher-themes',year:2026,cycle:'C1',weight:distinctIndicatorMax(teacherContent2026C1Rows),p:stageAverage(teacherContent2026C1Rows,['Pre','Post'])}
+  ];
   const selectedYear=String(f.year||'');
-  const activeComponents=selectedYear==='2025'
-    ? weightedComponents.filter(x=>x.year===2025)
-    : selectedYear==='2026'
-      ? weightedComponents.filter(x=>x.year===2026)
-      : weightedComponents;
-  // Calculate the overall KPI directly from the already-filtered evidence rows.
-  // normalizedAggregate gives each distinct participant + assessment + theme +
-  // indicator group one averaged contribution, so repeated child/teacher records
-  // do not inflate the overall score and every active filter affects both marks
-  // and percentage consistently.
-  const overall=normalizedAggregate(scoreRows);
-  const overallMax=overall.max;
-  const overallScore=overall.score;
+  const selectedCycle=String(f.cycle||'');
+  const activeComponents=weightedComponents.filter(x=>
+    (!selectedYear||String(x.year)===selectedYear)&&
+    (!selectedCycle||x.cycle===selectedCycle)
+  ).filter(x=>x.weight>0);
+  const overallMax=activeComponents.reduce((sum,x)=>sum+x.weight,0);
+  const overallScore=activeComponents.reduce((sum,x)=>sum+x.weight*x.p/100,0);
+  const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
   const studentRows=scoreRows.filter(r=>r.ParticipantType==='Student');

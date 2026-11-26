@@ -666,6 +666,9 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const overallMax=activeComponents.reduce((sum,x)=>sum+x.weight,0);
   const overallScore=activeComponents.reduce((sum,x)=>sum+x.weight*x.p/100,0);
   const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
+  const studentPct=aggregate(studentRowsAll).p;
+  const teacherContentPct=aggregate(teacherRowsAll.filter(r=>!isTeacherSkillRecord(r))).p;
+  const teacherSkillsPct=aggregate(teacherRowsAll.filter(r=>isTeacherSkillRecord(r))).p;
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
   const studentRows=scoreRows.filter(r=>r.ParticipantType==='Student');

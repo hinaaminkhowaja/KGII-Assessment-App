@@ -645,14 +645,14 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     : selectedYear==='2026'
       ? weightedComponents.filter(x=>x.year===2026)
       : weightedComponents;
-  // Overall marks now use distinct indicator MaxScores from the active filtered
-  // cohort/stage rows. Thus Theme 3, participant, dimension, assessment, year,
-  // cycle and geography selections all recalculate the denominator correctly.
-  // With 2025 + Cycle 1 and no narrower filter, this remains 174 student + 32
-  // teacher-theme marks = 206. Theme 3 alone is 24 student + 8 teacher = 32.
-  const overallMax=activeComponents.reduce((n,x)=>n+x.weight,0);
-  const overallScore=activeComponents.reduce((n,x)=>n+x.weight*x.p/100,0);
-  const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
+  // Calculate the overall KPI directly from the already-filtered evidence rows.
+  // normalizedAggregate gives each distinct participant + assessment + theme +
+  // indicator group one averaged contribution, so repeated child/teacher records
+  // do not inflate the overall score and every active filter affects both marks
+  // and percentage consistently.
+  const overall=normalizedAggregate(scoreRows);
+  const overallMax=overall.max;
+  const overallScore=overall.score;
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
   const studentRows=scoreRows.filter(r=>r.ParticipantType==='Student');

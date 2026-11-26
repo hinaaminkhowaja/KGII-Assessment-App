@@ -30,9 +30,8 @@ function normalizedAggregate(rows:Rec[]){
   const participant=norm(r.ParticipantType).toLowerCase();
   const assessment=assessmentKey(r.Assessment);
   const theme=norm(r.ThemeID);
-  const dimension=norm(r.DimensionID);
-  const indicator=norm(r.IndicatorID)||dimension||theme||norm(r.RecordID);
-  const key=[participant,assessment,theme,dimension,indicator].join('||');
+  const indicator=norm(r.IndicatorID)||norm(r.DimensionID)||theme||norm(r.RecordID);
+  const key=[participant,assessment,theme,indicator].join('||');
   if(!key.replace(/\\|/g,'') )continue;
   const current=groups.get(key)||{score:0,max:0,count:0};
   current.score+=Number(r.Score)||0;
@@ -212,10 +211,9 @@ function cohortPlanIncludes(r:Rec,targetRecs:any[]=[],selectedCycle?:string){
  }
  const year=cohortYearForRecord(r,targetRecs);
  const cycle2Followup=(participant==='student'&&isPost2)||(participant==='teacher'&&skill);
- const includePost2Followup=selected==='C1'&&year===2025&&participant==='student'&&isPost2;
  const includeCycle2Followup=selected==='C2'&&year===2025&&cycle2Followup;
- if(recordCycle&&selected!==recordCycle&&!includePost2Followup&&!includeCycle2Followup)return false;
- if(includePost2Followup||includeCycle2Followup)return true;
+ if(recordCycle&&selected!==recordCycle&&!includeCycle2Followup)return false;
+ if(includeCycle2Followup)return true;
  if(selected==='C1'){
    if(year===2025)return participant==='student'?(isPre||isPost):participant==='teacher'?!skill&&(isPre||isPost):false;
    if(year===2026)return participant==='student'?isPre:participant==='teacher'?!skill&&(isPre||isPost):false;
@@ -228,7 +226,7 @@ function cohortPlanIncludes(r:Rec,targetRecs:any[]=[],selectedCycle?:string){
  return false;
 }
 function hasActiveFilter(value:any){return value!==undefined&&value!==null&&String(value).trim()!==''&&String(value).trim().toLowerCase()!=='all';}
-function filterRows(rows:Rec[],f:any,targetRecs:any[]=[]){return rows.filter(r=>cohortPlanIncludes(r,targetRecs,hasActiveFilter(f.cycle)?f.cycle:'')&&(!hasActiveFilter(f.cycle)||!cycleToken(r.CycleID)||cycleToken(r.CycleID)===cycleToken(f.cycle)||(cycleToken(f.cycle)==='C1'&&cohortYearForRecord(r,targetRecs)===2025&&norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||(cycleToken(f.cycle)==='C2'&&cohortYearForRecord(r,targetRecs)===2025&&((norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))))&&(!hasActiveFilter(f.region)||geoNorm(r.Region)===geoNorm(f.region))&&(!hasActiveFilter(f.board)||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!hasActiveFilter(f.rec)||geoNorm(r.REC)===geoNorm(f.rec))&&(!hasActiveFilter(f.pt)||r.ParticipantType===f.pt)&&(!hasActiveFilter(f.teacher)||norm(r.TeacherName)===f.teacher)&&(!hasActiveFilter(f.assessment)||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!hasActiveFilter(f.focus)||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Teacher Themes')===f.focus)&&(!hasActiveFilter(f.theme)||r.ThemeID===f.theme)&&(!hasActiveFilter(f.dim)||r.DimensionID===f.dim)&&(!hasActiveFilter(f.year)||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&ratingFilterMatch(r,f))}
+function filterRows(rows:Rec[],f:any,targetRecs:any[]=[]){return rows.filter(r=>cohortPlanIncludes(r,targetRecs,hasActiveFilter(f.cycle)?f.cycle:'')&&(!hasActiveFilter(f.cycle)||!cycleToken(r.CycleID)||cycleToken(r.CycleID)===cycleToken(f.cycle)||(cycleToken(f.cycle)==='C2'&&cohortYearForRecord(r,targetRecs)===2025&&((norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))))&&(!hasActiveFilter(f.region)||geoNorm(r.Region)===geoNorm(f.region))&&(!hasActiveFilter(f.board)||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!hasActiveFilter(f.rec)||geoNorm(r.REC)===geoNorm(f.rec))&&(!hasActiveFilter(f.pt)||r.ParticipantType===f.pt)&&(!hasActiveFilter(f.teacher)||norm(r.TeacherName)===f.teacher)&&(!hasActiveFilter(f.assessment)||assessmentKey(r.Assessment)===assessmentKey(f.assessment))&&(!hasActiveFilter(f.focus)||norm(r.ParticipantType).toLowerCase()!=='teacher'||(String(r.ThemeID||'').toUpperCase().startsWith('S')?'Skills':'Teacher Themes')===f.focus)&&(!hasActiveFilter(f.theme)||r.ThemeID===f.theme)&&(!hasActiveFilter(f.dim)||r.DimensionID===f.dim)&&(!hasActiveFilter(f.year)||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&ratingFilterMatch(r,f))}
 
 const studentIndicators={
  T1:[
@@ -909,7 +907,7 @@ function group(rows:Rec[],key:keyof Rec){return unique(rows,key).map(k=>{const a
 
 function ThemeWiseRecCoverage({records,refs,targetRecs,f,level='region'}:{records:Rec[];refs:Ref[];targetRecs:any[];f:any;level?:'region'|'board'|'rec'}) {
   const geoMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec));
-  const scopedRecords=records.filter(r=>geoMatches(r)&&(!hasActiveFilter(f.year)||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&(!hasActiveFilter(f.cycle)||!cycleToken(r.CycleID)||cycleToken(r.CycleID)===cycleToken(f.cycle)||(cycleToken(f.cycle)==='C1'&&cohortYearForRecord(r,targetRecs)===2025&&norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))));
+  const scopedRecords=records.filter(r=>geoMatches(r)&&(!hasActiveFilter(f.year)||String(cohortYearForRecord(r,targetRecs))===String(f.year))&&(!hasActiveFilter(f.cycle)||!cycleToken(r.CycleID)||cycleToken(r.CycleID)===cycleToken(f.cycle)));
   const activeTarget=(r:any)=>['active','yes','true','1'].includes(norm(r.Status??r.status).toLowerCase());
   const targetMatches=(r:any)=>(!f.region||geoNorm(r.Region)===geoNorm(f.region))&&(!f.board||geoNorm(r.LocalBoard)===geoNorm(f.board))&&(!f.rec||geoNorm(r.REC)===geoNorm(f.rec))&&activeTarget(r);
   // The year filter applies to assessment records; REC membership is

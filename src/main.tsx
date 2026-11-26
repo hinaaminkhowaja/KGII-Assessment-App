@@ -630,7 +630,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Overall marks must reflect the exact filtered records, not the fixed
   // national cohort framework. This makes the denominator respond to Theme,
   // Dimension, Participant, Year, Cycle, Assessment and geography filters.
-  const overall=normalizedAggregate(metricRows);
+  // Restore the established cohort-weighted scorecard calculation.
+  // For 2025 Cycle 1 this uses 174 student marks + 32 teacher-theme marks = 206.
+  // The component percentages are still recalculated from the currently filtered records.
+  const overallMax=activeComponents.reduce((n,x)=>n+x.weight,0);
+  const overallScore=activeComponents.reduce((n,x)=>n+x.weight*x.p/100,0);
+  const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
   const studentRows=scoreRows.filter(r=>r.ParticipantType==='Student');

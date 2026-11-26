@@ -601,9 +601,10 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     : selectedYear==='2026'
       ? weightedComponents.filter(x=>x.year===2026)
       : weightedComponents;
-  const overallMax=activeComponents.reduce((n,x)=>n+x.weight,0);
-  const overallScore=activeComponents.reduce((n,x)=>n+x.weight*x.p/100,0);
-  const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};
+  // Overall marks must reflect the exact filtered records, not the fixed
+  // national cohort framework. This makes the denominator respond to Theme,
+  // Dimension, Participant, Year, Cycle, Assessment and geography filters.
+  const overall=aggregate(metricRows);
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
   const studentRows=scoreRows.filter(r=>r.ParticipantType==='Student');

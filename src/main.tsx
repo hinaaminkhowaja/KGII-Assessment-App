@@ -611,12 +611,6 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);
-  // Classify programme year by the REC master StartingYear, not submission date.
-  const kpiRecYearIndex=new Map<string,number>();
-  const kpiRecCodeYearIndex=new Map<string,number>();
-  const kpiRecCode=(v:any)=>{const m=String(v||'').match(/^\\s*(\\d{3,})\\s*\\|/);return m?m[1]:'';};
-  targetRecs.forEach((t:any)=>{const key=[t.Region,t.LocalBoard,t.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim()).join('||');const y=Number(t.StartingYear)||0;if(key&&y)kpiRecYearIndex.set(key,y);const code=kpiRecCode(t.REC);if(code&&y&&!kpiRecCodeYearIndex.has(code))kpiRecCodeYearIndex.set(code,y);});
-  const recStartingYear=(r:Rec)=>{if((norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))return 2025;const key=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim()).join('||');return kpiRecYearIndex.get(key)||kpiRecCodeYearIndex.get(kpiRecCode(r.REC))||Number((r as any).CohortYear)||0;};
   const cohortYear=(r:Rec)=>recStartingYear(r)||Number((r as any).CohortYear)||0;
   const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&['pre','post','post2'].includes(assessmentKey(r.Assessment)));
   const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&assessmentIs(r.Assessment,'Pre'));

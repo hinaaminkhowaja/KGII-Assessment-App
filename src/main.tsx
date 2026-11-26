@@ -582,7 +582,25 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const averagePresent=(values:number[])=>values.length?values.reduce((a,b)=>a+b,0)/values.length:0;
   type ScoreStage='Pre'|'Post'|'Post 2';
   const stageRows=(items:Rec[],stage:ScoreStage)=>items.filter(r=>stage==='Post 2'?assessmentIsPost2(r.Assessment):assessmentIs(r.Assessment,stage)&&(stage!=='Post'||!assessmentIsPost2(r.Assessment)));
-  const stageAverage=(items:Rec[],stages:ScoreStage[])=>stages.length?stages.reduce((total,stage)=>total+aggregate(stageRows(items,stage)).p,0)/stages.length:0;
+  // Average only assessment stages that are actually present after filtering.
+  // This prevents a Pre-only or Post-only selection from being diluted by an empty stage.
+  const stageAverage=(items:Rec[],stages:ScoreStage[])=>{
+    const present=stages.map(stage=>aggregate(stageRows(items,stage))).filter(x=>x.max>0);
+    return present.length?present.reduce((total,x)=>total+x.p,0)/present.length:0;
+  };
+  // The denominator is the sum of each distinct rubric indicator's MaxScore
+  // for the stages/cohorts that survive the active filters. Source rows repeat
+  // indicators across many children/teachers, so count each indicator once.
+  const distinctIndicatorMax=(items:Rec[])=>{
+    const maxima=new Map<string,number>();
+    items.forEach(r=>{
+      const indicator=norm(r.IndicatorID)||norm(r.DimensionID)||norm(r.ThemeID);
+      const key=[assessmentKey(r.Assessment),norm(r.ThemeID),indicator].join('||');
+      const max=Number(r.MaxScore)||0;
+      if(key&&max>0)maxima.set(key,Math.max(maxima.get(key)||0,max));
+    });
+    return [...maxima.values()].reduce((sum,value)=>sum+value,0);
+  };
   // Classify programme year by the REC's master StartingYear, not by the
   // submission timestamp. 2025-26 submissions may legitimately be dated 2026.
   const kpiRecYearIndex=new Map<string,number>();
@@ -614,12 +632,12 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const teacherSkillsPct=f.cycle==='C1'?0:f.year==='2026'?teacherSkills2026Pct:teacherSkills2025Pct;
   const cycleFilter=String(f.cycle||'');
   const weightedComponents=[
-    {key:'2025-students',year:2025,weight:cycleFilter==='C1'?174:cycleFilter==='C2'?87:261,p:student2025Pct},
-    {key:'2025-teacher-content',year:2025,weight:cycleFilter==='C2'?0:32,p:teacherContent2025Pct},
-    {key:'2025-teacher-skills',year:2025,weight:cycleFilter==='C1'?0:96,p:teacherSkills2025Pct},
-    {key:'2026-students',year:2026,weight:cycleFilter==='C2'?0:87,p:student2026Pct},
-    {key:'2026-teacher-content',year:2026,weight:cycleFilter==='C2'?0:32,p:teacherContent2026Pct},
-    {key:'2026-teacher-skills',year:2026,weight:0,p:teacherSkills2026Pct}
+    {key:'2025-students',year:2025,weight:distinctIndicatorMax(student2025Rows),p:student2025Pct},
+    {key:'2025-teacher-content',year:2025,weight:distinctIndicatorMax(teacherContent2025Rows),p:teacherContent2025Pct},
+    {key:'2025-teacher-skills',year:2025,weight:distinctIndicatorMax(teacherSkills2025Rows),p:teacherSkills2025Pct},
+    {key:'2026-students',year:2026,weight:distinctIndicatorMax(student2026Rows),p:student2026Pct},
+    {key:'2026-teacher-content',year:2026,weight:distinctIndicatorMax(teacherContent2026Rows),p:teacherContent2026Pct},
+    {key:'2026-teacher-skills',year:2026,weight:distinctIndicatorMax(teacherSkills2026Rows),p:teacherSkills2026Pct}
   ].filter(x=>x.weight>0);
   const selectedYear=String(f.year||'');
   const activeComponents=selectedYear==='2025'
@@ -627,12 +645,11 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
     : selectedYear==='2026'
       ? weightedComponents.filter(x=>x.year===2026)
       : weightedComponents;
-  // Overall marks must reflect the exact filtered records, not the fixed
-  // national cohort framework. This makes the denominator respond to Theme,
-  // Dimension, Participant, Year, Cycle, Assessment and geography filters.
-  // Restore the established cohort-weighted scorecard calculation.
-  // For 2025 Cycle 1 this uses 174 student marks + 32 teacher-theme marks = 206.
-  // The component percentages are still recalculated from the currently filtered records.
+  // Overall marks now use distinct indicator MaxScores from the active filtered
+  // cohort/stage rows. Thus Theme 3, participant, dimension, assessment, year,
+  // cycle and geography selections all recalculate the denominator correctly.
+  // With 2025 + Cycle 1 and no narrower filter, this remains 174 student + 32
+  // teacher-theme marks = 206. Theme 3 alone is 24 student + 8 teacher = 32.
   const overallMax=activeComponents.reduce((n,x)=>n+x.weight,0);
   const overallScore=activeComponents.reduce((n,x)=>n+x.weight*x.p/100,0);
   const overall={score:overallScore,max:overallMax,p:pct(overallScore,overallMax)};

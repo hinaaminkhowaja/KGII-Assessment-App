@@ -20,6 +20,34 @@ const geoNorm=(v:any)=>norm(v).replace(/[_-]+/g,' ').replace(/\s+\d+$/,'').repla
  }
 function uniqueGeoValues(values:any[]){const map=new Map<string,string>();for(const value of values){const raw=norm(value);const key=geoNorm(raw);if(key&&!map.has(key))map.set(key,raw.replace(/\s+/g,' '));}return [...map.values()].sort((a,b)=>a.localeCompare(b));}
 function aggregate(rows:Rec[]){let s=0,m=0;for(const r of rows){s+=Number(r.Score)||0;m+=Number(r.MaxScore)||0}return {score:s,max:m,p:pct(s,m)};}
+// Scorecard marks are calculated per distinct assessment indicator, then averaged
+// across submissions. This prevents large REC/teacher submission volumes from
+// inflating the national numerator and denominator. Active filters determine
+// which indicator-stage groups contribute to the total.
+function normalizedAggregate(rows:Rec[]){
+ const groups=new Map<string,{score:number;max:number;count:number}>();
+ for(const r of rows){
+  const participant=norm(r.ParticipantType).toLowerCase();
+  const assessment=assessmentKey(r.Assessment);
+  const theme=norm(r.ThemeID);
+  const dimension=norm(r.DimensionID);
+  const indicator=norm(r.IndicatorID)||dimension||theme||norm(r.RecordID);
+  const key=[participant,assessment,theme,dimension,indicator].join('||');
+  if(!key.replace(/\\|/g,'') )continue;
+  const current=groups.get(key)||{score:0,max:0,count:0};
+  current.score+=Number(r.Score)||0;
+  current.max+=Number(r.MaxScore)||0;
+  current.count++;
+  groups.set(key,current);
+ }
+ let score=0,max=0;
+ for(const group of groups.values()){
+  if(!group.count)continue;
+  score+=group.score/group.count;
+  max+=group.max/group.count;
+ }
+ return {score,max,p:pct(score,max)};
+}
 function avgRating(rows:Rec[],participantType:string){const x=rows.filter(r=>r.ParticipantType===participantType);if(!x.length)return 0;return x.reduce((a,r)=>a+(Number(r.Score)||0),0)/x.length;}
 function scoreOutOf(rows:Rec[],participantType:string,unitMax:number){const x=rows.filter(r=>r.ParticipantType===participantType);return x.length?avgRating(rows,participantType)*unitMax:0;}
 function scoreModel(rows:Rec[]){const student=scoreOutOf(rows,'Student',29);const teacher=scoreOutOf(rows,'Teacher',4);return {student,teacher,total:student+teacher,max:103};}
@@ -604,7 +632,7 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   // Overall marks must reflect the exact filtered records, not the fixed
   // national cohort framework. This makes the denominator respond to Theme,
   // Dimension, Participant, Year, Cycle, Assessment and geography filters.
-  const overall=aggregate(metricRows);
+  const overall=normalizedAggregate(metricRows);
   const preTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Pre')));
   const postTotals=aggregate(scoreRows.filter(r=>assessmentIs(r.Assessment,'Post')));
   const studentRows=scoreRows.filter(r=>r.ParticipantType==='Student');

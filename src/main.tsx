@@ -611,31 +611,44 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const studentRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='student');
   const teacherRowsAll=scoreRows.filter(r=>norm(r.ParticipantType).toLowerCase()==='teacher');
   const isTeacherSkillRecord=(r:Rec)=>isTeacherSkillRec(r);
-  // One cohort rule for every student assessment stage: the REC master
-  // StartingYear owns the cohort. Submission Year never changes the cohort.
+  // Classify programme year by the REC master StartingYear, not submission date.
+  const kpiRecYearIndex=new Map<string,number>();
+  const kpiRecCodeYearIndex=new Map<string,number>();
+  const kpiRecCode=(v:any)=>{const m=String(v||'').match(/^\\s*(\\d{3,})\\s*\\|/);return m?m[1]:'';};
+  targetRecs.forEach((t:any)=>{const key=[t.Region,t.LocalBoard,t.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim()).join('||');const y=Number(t.StartingYear)||0;if(key&&y)kpiRecYearIndex.set(key,y);const code=kpiRecCode(t.REC);if(code&&y&&!kpiRecCodeYearIndex.has(code))kpiRecCodeYearIndex.set(code,y);});
+  const recStartingYear=(r:Rec)=>{if((norm(r.ParticipantType).toLowerCase()==='student'&&assessmentIsPost2(r.Assessment))||isTeacherSkillRec(r))return 2025;const key=[r.Region,r.LocalBoard,r.REC].map(v=>norm(v).toLowerCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ').trim()).join('||');return kpiRecYearIndex.get(key)||kpiRecCodeYearIndex.get(kpiRecCode(r.REC))||Number((r as any).CohortYear)||0;};
   const cohortYear=(r:Rec)=>recStartingYear(r)||Number((r as any).CohortYear)||0;
   const student2025Rows=studentRowsAll.filter(r=>cohortYear(r)===2025&&['pre','post','post2'].includes(assessmentKey(r.Assessment)));
   const student2026Rows=studentRowsAll.filter(r=>cohortYear(r)===2026&&assessmentIs(r.Assessment,'Pre'));
   const teacherContent2025Rows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const teacherContent2026Rows=teacherRowsAll.filter(r=>!isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
   const teacherSkills2025Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2025&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const teacherSkills2026Rows=teacherRowsAll.filter(r=>isTeacherSkillRecord(r)&&cohortYear(r)===2026&&(assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post')));
-  const student2025Pct=f.cycle==='C1'?stageAverage(student2025Rows,['Pre','Post']):f.cycle==='C2'?aggregate(student2025Rows.filter(r=>assessmentIsPost2(r.Assessment))).p:stageAverage(student2025Rows,['Pre','Post','Post 2']);
-  const student2026Pct=aggregate(student2026Rows).p;
-  const weightedPercent=(parts:{weight:number;p:number}[])=>{const active=parts.filter(x=>x.weight>0);const denominator=active.reduce((n,x)=>n+x.weight,0);return denominator?active.reduce((n,x)=>n+x.weight*x.p,0)/denominator:0;};
-  const studentPct=f.year==='2025'?student2025Pct:f.year==='2026'?student2026Pct:f.cycle==='C1'?weightedPercent([{weight:174,p:student2025Pct},{weight:87,p:student2026Pct}]):f.cycle==='C2'?student2025Pct:weightedPercent([{weight:261,p:student2025Pct},{weight:87,p:student2026Pct}]);
-  const teacherContent2025Pct=stageAverage(teacherContent2025Rows,['Pre','Post']);
-  const teacherContent2026Pct=stageAverage(teacherContent2026Rows,['Pre','Post']);
-  const teacherContentPct=f.cycle==='C2'?0:f.year==='2025'?teacherContent2025Pct:f.year==='2026'?teacherContent2026Pct:weightedPercent([{weight:32,p:teacherContent2025Pct},{weight:32,p:teacherContent2026Pct}]);
-  const teacherSkills2025Pct=stageAverage(teacherSkills2025Rows,['Pre','Post']);
-  const teacherSkills2026Pct=stageAverage(teacherSkills2026Rows,['Pre','Post']);
-  const teacherSkillsPct=f.cycle==='C1'?0:f.year==='2026'?teacherSkills2026Pct:teacherSkills2025Pct;
-  // Overall framework is explicitly separated by year and cycle:
-  // 2025 C1 = student Pre/Post (174) + teacher themes Pre/Post (32) = 206
-  // 2025 C2 = student Post 2 (87) + teacher skills Pre/Post (96) = 183
-  // 2026 C1 = student Pre (87) + teacher themes Pre/Post (32) = 119
-  // Indicator maxima are derived from the active filtered rows, so Theme,
-  // Dimension, Participant and geography filters narrow the denominator.
+  // Denominators come from the approved assessment framework, never from the
+  // number of indicators that happen to have submissions in the live data.
+  // Student indicators: 29 × 3 points per stage; Teacher Themes: 4 × 4;
+  // Teacher Skills: 12 × 4 per stage.
+  const selectedThemes=f.theme?[norm(f.theme)]:['T1','T2','T3','T4'];
+  const studentIndicatorCount=selectedThemes.reduce((total,theme)=>{
+    const keys=studentIndicatorKeys[theme]||[];
+    return total+keys.filter(key=>!f.dim||key.split(':')[1].startsWith(norm(f.dim))).length;
+  },0);
+  const teacherThemeCount=selectedThemes.filter(theme=>['T1','T2','T3','T4'].includes(theme)).length;
+  const selectedSkillThemes=f.theme?(['S1','S2','S3'].includes(norm(f.theme))?[norm(f.theme)]:[]):['S1','S2','S3'];
+  const teacherSkillCount=selectedSkillThemes.length*4;
+  const allowsStudent=!hideTeacherBreakdown&&norm(f.pt).toLowerCase()!=='teacher';
+  const allowsTeacher=norm(f.pt).toLowerCase()!=='student';
+  const allowsStage=(stage:'Pre'|'Post'|'Post 2')=>!hasActiveFilter(f.assessment)||assessmentKey(f.assessment)===assessmentKey(stage);
+  const studentStageWeight=studentIndicatorCount*3;
+  const teacherThemeStageWeight=teacherThemeCount*4;
+  const teacherSkillStageWeight=teacherSkillCount*4;
+  const student2025C1Weight=allowsStudent?(allowsStage('Pre')?studentStageWeight:0)+(allowsStage('Post')?studentStageWeight:0):0;
+  const student2025C2Weight=allowsStudent&&allowsStage('Post 2')?studentStageWeight:0;
+  const student2026C1Weight=allowsStudent&&allowsStage('Pre')?studentStageWeight:0;
+  const teacherThemeStageWeightActive=allowsTeacher&&!hasActiveFilter(f.dim)?teacherThemeStageWeight:0;
+  const teacherSkillsStageWeightActive=allowsTeacher&&!hasActiveFilter(f.dim)?teacherSkillStageWeight:0;
+  const teacher2025C1Weight=(allowsStage('Pre')?teacherThemeStageWeightActive:0)+(allowsStage('Post')?teacherThemeStageWeightActive:0);
+  const teacher2025C2Weight=teacherSkillsStageWeightActive*((allowsStage('Pre')?1:0)+(allowsStage('Post')?1:0));
+  const teacher2026C1Weight=teacher2025C1Weight;
   const student2025C1Rows=student2025Rows.filter(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'));
   const student2025C2Rows=student2025Rows.filter(r=>assessmentIsPost2(r.Assessment));
   const teacherContent2025C1Rows=teacherContent2025Rows.filter(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'));
@@ -643,15 +656,15 @@ function Kpis({rows,metricRows=rows,phase3Rows=metricRows,allCycleRows=metricRow
   const student2026C1Rows=student2026Rows.filter(r=>assessmentIs(r.Assessment,'Pre'));
   const teacherContent2026C1Rows=teacherContent2026Rows.filter(r=>assessmentIs(r.Assessment,'Pre')||assessmentIs(r.Assessment,'Post'));
   const weightedComponents=[
-    {key:'2025-C1-students',year:2025,cycle:'C1',weight:distinctIndicatorMax(student2025C1Rows),p:stageAverage(student2025C1Rows,['Pre','Post'])},
-    {key:'2025-C1-teacher-themes',year:2025,cycle:'C1',weight:distinctIndicatorMax(teacherContent2025C1Rows),p:stageAverage(teacherContent2025C1Rows,['Pre','Post'])},
-    {key:'2025-C2-students',year:2025,cycle:'C2',weight:distinctIndicatorMax(student2025C2Rows),p:aggregate(student2025C2Rows).p},
-    {key:'2025-C2-teacher-skills',year:2025,cycle:'C2',weight:distinctIndicatorMax(teacherSkills2025C2Rows),p:stageAverage(teacherSkills2025C2Rows,['Pre','Post'])},
-    {key:'2026-C1-students',year:2026,cycle:'C1',weight:distinctIndicatorMax(student2026C1Rows),p:aggregate(student2026C1Rows).p},
-    {key:'2026-C1-teacher-themes',year:2026,cycle:'C1',weight:distinctIndicatorMax(teacherContent2026C1Rows),p:stageAverage(teacherContent2026C1Rows,['Pre','Post'])}
+    {key:'2025-C1-students',year:2025,cycle:'C1',weight:student2025C1Weight,p:stageAverage(student2025C1Rows,['Pre','Post'])},
+    {key:'2025-C1-teacher-themes',year:2025,cycle:'C1',weight:teacher2025C1Weight,p:stageAverage(teacherContent2025C1Rows,['Pre','Post'])},
+    {key:'2025-C2-students',year:2025,cycle:'C2',weight:student2025C2Weight,p:aggregate(student2025C2Rows).p},
+    {key:'2025-C2-teacher-skills',year:2025,cycle:'C2',weight:teacher2025C2Weight,p:stageAverage(teacherSkills2025C2Rows,['Pre','Post'])},
+    {key:'2026-C1-students',year:2026,cycle:'C1',weight:student2026C1Weight,p:aggregate(student2026C1Rows).p},
+    {key:'2026-C1-teacher-themes',year:2026,cycle:'C1',weight:teacher2026C1Weight,p:stageAverage(teacherContent2026C1Rows,['Pre','Post'])}
   ];
   const selectedYear=String(f.year||'');
-  const selectedCycle=String(f.cycle||'');
+  const selectedCycle=cycleToken(f.cycle);
   const activeComponents=weightedComponents.filter(x=>
     (!selectedYear||String(x.year)===selectedYear)&&
     (!selectedCycle||x.cycle===selectedCycle)

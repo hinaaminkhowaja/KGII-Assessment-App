@@ -2182,14 +2182,15 @@ const save = async (finishAssessment: boolean) => {
       v.training &&
       (v.training !== 'other' || v.otherTraining?.trim()) &&
       v.theme &&
-      v.ratings.pre &&
-      v.ratings.post &&
+      ['Pre', 'Post', 'Both'].includes(v.assessmentStage) &&
+      (v.assessmentStage === 'Post' || !!v.ratings.pre) &&
+      (v.assessmentStage === 'Pre' || !!v.ratings.post) &&
       v.filler?.trim() &&
       v.fillerDesignation &&
       (v.fillerDesignation !== 'Other' || v.otherFillerDesignation?.trim())
     )
   ) {
-    setMsg('Please complete all required fields and both Pre and Post ratings.');
+    setMsg('Please complete the required details and the rating(s) for the selected assessment stage.');
     return;
   }
 
@@ -2213,11 +2214,16 @@ const save = async (finishAssessment: boolean) => {
 
       const latestMatches = Array.isArray(lookup.matches) ? lookup.matches : [];
       setLookupMatches(latestMatches);
-      const duplicate = latestMatches.some((item: any) =>
-        String(item.themeName || '').trim().toLowerCase() === themeName.trim().toLowerCase()
-      );
+      const wantsPre = v.assessmentStage === 'Pre' || v.assessmentStage === 'Both';
+      const wantsPost = v.assessmentStage === 'Post' || v.assessmentStage === 'Both';
+      const duplicate = latestMatches.some((item: any) => {
+        const sameTheme = String(item.themeName || '').trim().toLowerCase() === themeName.trim().toLowerCase();
+        const hasPre = item.preRating !== '' && item.preRating !== null && item.preRating !== undefined;
+        const hasPost = item.postRating !== '' && item.postRating !== null && item.postRating !== undefined;
+        return sameTheme && ((wantsPre && hasPre) || (wantsPost && hasPost));
+      });
       if (duplicate) {
-        setMsg(`A submission already exists for ${themeName} for this teacher in this REC. Please select another theme.`);
+        setMsg(`A ${v.assessmentStage} submission already exists for ${themeName} for this teacher in this REC. Please choose another theme or an assessment stage that has not yet been submitted.`);
         setLookupMsg('Previous submissions have been refreshed.');
         return;
       }
@@ -2237,8 +2243,9 @@ const save = async (finishAssessment: boolean) => {
       otherTraining: v.otherTraining || '',
       themeID: v.theme,
       themeName,
-      preRating: teacherScore(v.ratings.pre),
-      postRating: teacherScore(v.ratings.post),
+      assessment: v.assessmentStage,
+      preRating: v.assessmentStage === 'Pre' || v.assessmentStage === 'Both' ? teacherScore(v.ratings.pre) : '',
+      postRating: v.assessmentStage === 'Post' || v.assessmentStage === 'Both' ? teacherScore(v.ratings.post) : '',
       fillerName: v.filler.trim(),
       fillerDesignation: v.fillerDesignation === 'Other' ? v.otherFillerDesignation.trim() : v.fillerDesignation
     });
@@ -2249,8 +2256,8 @@ const save = async (finishAssessment: boolean) => {
       submissionId: result.submissionId || '',
       name: v.teacherName.trim(),
       themeName,
-      preRating: teacherScore(v.ratings.pre),
-      postRating: teacherScore(v.ratings.post),
+      preRating: v.assessmentStage === 'Pre' || v.assessmentStage === 'Both' ? teacherScore(v.ratings.pre) : '',
+      postRating: v.assessmentStage === 'Post' || v.assessmentStage === 'Both' ? teacherScore(v.ratings.post) : '',
       submittedAt: new Date().toISOString()
     };
 
@@ -2346,7 +2353,7 @@ const save = async (finishAssessment: boolean) => {
           <Field label="Training attended by ITREB" required><select value={v.training} onChange={e => setV({ ...v, training: e.target.value })}><option value="">Select</option>{["Teacher's training", 'refresher', 'No', 'other'].map(x => <option key={x}>{x}</option>)}</select></Field>
           {v.training === 'other' && <Field label="If other, please mention about training" required><input value={v.otherTraining} onChange={e => setV({ ...v, otherTraining: e.target.value })} /></Field>}
           <Field label="Cycle" required><select value={v.cycle || 'Cycle 1'} onChange={e => setV({ ...v, cycle: e.target.value, assessmentStage: '' })}><option value="Cycle 1">Cycle 1</option><option value="Cycle 2">Cycle 2</option></select></Field>
-          <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option></select></Field>
+          <Field label="Assessment stage" required><select value={v.assessmentStage || ''} onChange={e => setV({ ...v, assessmentStage: e.target.value, ratings: { pre: '', post: '' } })}><option value="">Select</option><option value="Pre">Pre</option><option value="Post">Post</option>{(v.cycle || 'Cycle 1') === 'Cycle 1' && <option value="Both">Both</option>}</select></Field>
         </div>}
         {(v.cycle || 'Cycle 1') === 'Cycle 1' && <>{lookupMsg && <p className="form-message">{lookupMsg}</p>}{lookupMatches.length > 0 && <section className="card"><h3>Previous Teacher Submissions</h3>{lookupMatches.map((item, index) => <div key={`${item.submissionId || 'record'}-${index}`} style={{borderBottom:'1px solid #ddd',padding:'12px 0'}}><strong>{item.name || v.teacherName}</strong><p>Theme: {item.themeName || 'Not recorded'}</p><p>Pre rating: {item.preRating ?? 'Not recorded'} · Post rating: {item.postRating ?? 'Not recorded'}</p><p>Submitted: {item.submittedAt || 'Date unavailable'}</p><p>Submission ID: {item.submissionId || 'Not recorded'}</p></div>)}</section>}
         {(v.cycle || 'Cycle 1') === 'Cycle 1' && <div className="survey-grid">
@@ -2375,6 +2382,7 @@ const save = async (finishAssessment: boolean) => {
         <TeacherRubric
           theme={v.theme}
           value={v.ratings}
+          stage={v.assessmentStage}
           onChange={(ratings: any) => setV({ ...v, ratings })}
         />
       )}
@@ -2412,6 +2420,6 @@ const save = async (finishAssessment: boolean) => {
   );
 }
 
-function TeacherRubric({theme,value,onChange}:{theme:string;value:any;onChange:(x:any)=>void}){const rubric=teacherRubrics[theme];return <section className="card survey-theme"><h2>{labelTheme(theme)} — Pre / Post Rubrics</h2><div className="rubric-grid">{(['pre','post'] as const).map(which=><div className="rubric-box" key={which}><h3>{which==='pre'?'Pre-Assessment Rubric':'Post-Assessment Rubric'}</h3><div className="rubric-options">{rubric[which].map((r:any)=><label className="rubric-option" key={r[0]}><input type="radio" name={`${theme}-${which}`} checked={value[which]===r[0]} onChange={()=>onChange({...value,[which]:r[0]})}/><span><b>{r[0]}</b><small>{r[1]}</small></span></label>)}</div></div>)}</div></section>}
+function TeacherRubric({theme,value,stage,onChange}:{theme:string;value:any;stage:string;onChange:(x:any)=>void}){const rubric=teacherRubrics[theme];const stages=stage==='Pre'?['pre']:stage==='Post'?['post']:['pre','post'];return <section className="card survey-theme"><h2>{labelTheme(theme)} — {stage==='Both'?'Pre and Post':stage} Rubric</h2><div className="rubric-grid">{stages.map(which=><div className="rubric-box" key={which}><h3>{which==='pre'?'Pre-Assessment Rubric':'Post-Assessment Rubric'}</h3><div className="rubric-options">{rubric[which].map((r:any)=><label className="rubric-option" key={r[0]}><input type="radio" name={`${theme}-${which}`} checked={value[which]===r[0]} onChange={()=>onChange({...value,[which]:r[0]})}/><span><b>{r[0]}</b><small>{r[1]}</small></span></label>)}</div></div>)}</div></section>}
 
 createRoot(document.getElementById('root')!).render(<App/>);

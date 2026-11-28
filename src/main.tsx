@@ -1960,7 +1960,7 @@ const save = async (finishAssessment: boolean) => {
     onClick={() => save(false)}
     disabled={saving}
   >
-    {saving ? 'Saving…' : 'Save & Add Another Theme'}
+    {saving ? 'Saving…' : 'Save & Add Another Theme/Stage'}
   </button>
 
   <button
